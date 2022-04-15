@@ -1,0 +1,15 @@
+# MacOS-specific files
+.DS_Store*
+# Vim swap files
+*.swp
+*.swo
+
+# Python byte code
+*.pyc
+
+## vscode
+*.vscode*
+
+## Folders
+data/
+__pycache__/
