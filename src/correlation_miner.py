@@ -37,7 +37,6 @@ class CausalDiscovery():
                 conf_matrix = results['conf_matrix'],
                 alpha_level = 0.1
             )
-            print(all_parents)
         # NOTE: Followings are testing codes
         return all_parents, results
 

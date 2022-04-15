@@ -401,7 +401,7 @@ class Hprocessor(Processor):
 				cur_timestamp = '{} {}'.format(transition_event[0], transition_event[1])
 				last_timestamp = cur_timestamp if last_timestamp == '' else last_timestamp
 				past_days = ((datetime.fromisoformat(cur_timestamp) - datetime.fromisoformat(last_timestamp)).total_seconds()) / 86400
-				if past_days >= 2:
+				if past_days >= 10:
 					seg_points.append(count)
 					last_timestamp = cur_timestamp
 				count += 1

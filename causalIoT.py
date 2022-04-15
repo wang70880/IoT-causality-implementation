@@ -30,29 +30,37 @@ process_index_dict = {}
 CROSS_VALIDATION_PIECE = 8
 
 if __name__ == '__main__':
-
+	sys.stdout = open("results/result.txt", "w+")
 	dataset= 'hh101' # NOTE: For testing purposes only
 	partion_config = (1, {})
 	print("* Initiate data preprocessing.")
 	start = time.time()
 	event_preprocessor = evt_proc.Hprocessor(dataset)
 	attr_names, dataframes = event_preprocessor.initiate_data_preprocessing(partion_config)
+
 	end = time.time()
 	print("* Data preprocessing finished. Elapsed time: {} mins".format((end - start) * 1.0 / 60))
 
-	correlation_miner = CorrelationMiner(dataframe=dataframes[0])
-	print("* Initiate causal discovery.")
-	start = time.time()
-	correlation_miner.initiate_causal_discovery(tau_max=1, pc_alpha=0.05)
-	end = time.time()
-	print("* Causal discovery finished. Elapsed time: {} mins".format((end - start) * 1.0 / 60))
-	print(correlation_miner.all_parents)
+	current_task = 1; total_task = len(dataframes)
+	for dataframe in dataframes:
+		print("************** Current task, total task = {}, {} **************".format(current_task, total_task))
+		correlation_miner = CorrelationMiner(dataframe=dataframe)
+		print("* Initiate causal discovery.")
+		start = time.time()
+		correlation_miner.initiate_causal_discovery(tau_max=1, pc_alpha=0.05)
+		end = time.time()
+		print("* Causal discovery finished. Elapsed time: {} mins".format((end - start) * 1.0 / 60))
+		print(correlation_miner.all_parents)
 
-	#print("* Initiate causal inference.")
-	#start = time.time()
-	#effects_dict = correlation_miner.initiate_causal_inference(tau_max=1)
-	#end = time.time()
-	#print("* Causal effect estimation finished. Elapsed time: {} mins".format((end - start) * 1.0 / 60))
+		print("* Initiate causal inference.")
+		start = time.time()
+		effects_dict = correlation_miner.initiate_causal_inference(tau_max=1)
+		end = time.time()
+		print("* Causal effect estimation finished. Elapsed time: {} mins".format((end - start) * 1.0 / 60))
+		print(effects_dict)
+		current_task += 1
+		if current_task > 10:
+			break
 
 	# NOTE: Test codes for causal effect estimation module
 	# dataframe = dataframes[0]
