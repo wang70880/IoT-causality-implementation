@@ -30,7 +30,7 @@ process_index_dict = {}
 CROSS_VALIDATION_PIECE = 8
 
 if __name__ == '__main__':
-	sys.stdout = open("results/result.txt", "w+")
+	# sys.stdout = open("results/result.txt", "w+")
 	dataset= 'hh101' # NOTE: For testing purposes only
 	partion_config = (1, {})
 	print("* Initiate data preprocessing.")
@@ -59,7 +59,7 @@ if __name__ == '__main__':
 		print("* Causal effect estimation finished. Elapsed time: {} mins".format((end - start) * 1.0 / 60))
 		print(effects_dict)
 		current_task += 1
-		if current_task > 10:
+		if current_task >= 1:
 			break
 
 	# NOTE: Test codes for causal effect estimation module
