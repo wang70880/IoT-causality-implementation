@@ -3,25 +3,17 @@ from code import interact
 from collections import defaultdict
 from pathlib import Path
 from os import name, supports_bytes_environ, system
-import os
-import sys
 import statistics
-import datetime
 from typing_extensions import runtime
-import jenkspy
 import random
 import numpy as np
 import pandas as pd
-import aiohttp
-import asyncio
 import time
 from pymining import itemmining, assocrules, perftesting
 from matplotlib import pyplot as plt
 
 import src.event_processing as evt_proc
-from src.correlation_miner import CausalDiscovery, CausalInference, CorrelationMiner
-from src.tigramite.causal_effects import CausalEffects
-from src.tigramite.independence_tests.cmisymb import CMIsymb
+from src.policy_miner import PolicyMiner
 from src.tigramite import plotting as tp
 
 process_devices_dict = {}
@@ -49,19 +41,19 @@ if __name__ == '__main__':
 	for dataframe in dataframes:
 		print("************** Current task, total task = {}, {} **************".format(current_task, total_task))
 		print("Number of records: {}".format(dataframe.T))
-		#correlation_miner = CorrelationMiner(dataframe=dataframe, discovery_method=discovery_method)
-		#print("* Initiate causal discovery.")
-		#start = time.time()
-		#correlation_miner.initiate_causal_discovery(tau_max=tau_max, pc_alpha=pc_alpha, alpha_level=alpha_level)
-		#end = time.time()
-		#print("* Causal discovery finished. Elapsed time: {} mins".format((end - start) * 1.0 / 60))
+		policy_miner = PolicyMiner(dataframe=dataframe, discovery_method=discovery_method)
+		print("* Initiate causal discovery.")
+		start = time.time()
+		policy_miner.initiate_causal_discovery(tau_max=tau_max, pc_alpha=pc_alpha, alpha_level=alpha_level)
+		end = time.time()
+		print("* Causal discovery finished. Elapsed time: {} mins".format((end - start) * 1.0 / 60))
 
-		#print("* Initiate causal inference.")
-		#start = time.time()
-		#effects_dict = correlation_miner.initiate_causal_inference(tau_max=tau_max)
-		#end = time.time()
-		#print("* Causal effect estimation finished. Elapsed time: {} mins".format((end - start) * 1.0 / 60))
-		#print(effects_dict)
+		print("* Initiate causal inference.")
+		start = time.time()
+		effects_dict = policy_miner.initiate_causal_inference(tau_max=tau_max)
+		end = time.time()
+		print("* Causal effect estimation finished. Elapsed time: {} mins".format((end - start) * 1.0 / 60))
+		print(effects_dict)
 		current_task += 1
 		if current_task >= 1:
 			break
