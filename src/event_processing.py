@@ -393,6 +393,7 @@ class Hprocessor(Processor):
 			dataframe = pp.DataFrame(data=states_array, var_names=attr_names)
 			dataframes.append(dataframe)
 		elif partition_config[0] == 1: #NOTE: Ad-hoc partitioning scheme here. Partitioning with data_interval = 2 days
+			day_criteria = partition_config[1]
 			last_timestamp = ''
 			seg_points = []
 			count = 0
@@ -401,7 +402,7 @@ class Hprocessor(Processor):
 				cur_timestamp = '{} {}'.format(transition_event[0], transition_event[1])
 				last_timestamp = cur_timestamp if last_timestamp == '' else last_timestamp
 				past_days = ((datetime.fromisoformat(cur_timestamp) - datetime.fromisoformat(last_timestamp)).total_seconds()) / 86400
-				if past_days >= 10:
+				if past_days >= day_criteria:
 					seg_points.append(count)
 					last_timestamp = cur_timestamp
 				count += 1

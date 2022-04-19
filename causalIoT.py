@@ -32,7 +32,7 @@ CROSS_VALIDATION_PIECE = 8
 if __name__ == '__main__':
 	# sys.stdout = open("results/result.txt", "w+")
 	dataset= 'hh101' # NOTE: For testing purposes only
-	partion_config = (1, {})
+	partion_config = (1, 2) # Day criteria = 2
 	print("* Initiate data preprocessing.")
 	start = time.time()
 	event_preprocessor = evt_proc.Hprocessor(dataset)
