@@ -11,11 +11,13 @@ class CausalDiscovery():
                  tau_max,
                  cond_ind_test,
                  pc_alpha = 0,
+                 alpha_level = 0,
                  verbosity=0):
         self.dataframe = dataframe
         self.tau_max = tau_max
         self.cond_ind_test = cond_ind_test
         self.pc_alpha = pc_alpha
+        self.alpha_level = alpha_level
         self.cond_ind_test.set_dataframe(self.dataframe)
         self.verbosity = verbosity
         self.var_names = self.dataframe.var_names
@@ -45,7 +47,7 @@ class CausalDiscovery():
             dataframe=self.dataframe,
             cond_ind_test=self.cond_ind_test
         )
-        results = pcmci.run_pcmci(tau_min=1, tau_max=1, pc_alpha=0.1, alpha_level=0.05)
+        results = pcmci.run_pcmci(tau_min=1, tau_max=self.tau_max, pc_alpha=self.pc_alpha, alpha_level=self.alpha_level)
         if self.verbosity > 0:
             print("# of records: {}".format(pcmci.T))
             pcmci.print_significant_links(
@@ -139,16 +141,19 @@ class CorrelationMiner():
         self.all_parents = None
         self.discovery_results = None
 
-    def initiate_causal_discovery(self, tau_max, pc_alpha):
+    def initiate_causal_discovery(self, tau_max=1, pc_alpha=0, alpha_level=0):
         all_parents = None; results = None
         causal_miner = CausalDiscovery(dataframe=self.dataframe, tau_max=tau_max, cond_ind_test=CMIsymb(
             significance='shuffle_test', n_symbs= None
-            ), pc_alpha=pc_alpha, verbosity=1
+            ), pc_alpha=pc_alpha, alpha_level=alpha_level,
+             verbosity=1
             )
         if self.discovery_method == 'stable-pc':
             all_parents, results = causal_miner.initiate_stablePC()
             self.all_parents = all_parents
             self.discovery_results = results
+        elif self.discovery_method == 'pcmci':
+            self.results = causal_miner.initiate_PCMCI()
 
     def initiate_causal_inference(self, tau_max):
         time_series_graph = None # First derive the DAG time_series graph
