@@ -11,11 +11,13 @@ class CausalDiscovery():
                  tau_max,
                  cond_ind_test,
                  pc_alpha = 0,
+                 alpha_level = 0,
                  verbosity=0):
         self.dataframe = dataframe
         self.tau_max = tau_max
         self.cond_ind_test = cond_ind_test
         self.pc_alpha = pc_alpha
+        self.alpha_level = alpha_level
         self.cond_ind_test.set_dataframe(self.dataframe)
         self.verbosity = verbosity
         self.var_names = self.dataframe.var_names
@@ -35,7 +37,7 @@ class CausalDiscovery():
                 p_matrix = results['p_matrix'], 
                 val_matrix = results['val_matrix'],
                 conf_matrix = results['conf_matrix'],
-                alpha_level = 0.1
+                alpha_level = self.pc_alpha
             )
         # NOTE: Followings are testing codes
         return all_parents, results
@@ -45,7 +47,7 @@ class CausalDiscovery():
             dataframe=self.dataframe,
             cond_ind_test=self.cond_ind_test
         )
-        results = pcmci.run_pcmci(tau_min=1, tau_max=1, pc_alpha=0.1, alpha_level=0.05)
+        results = pcmci.run_pcmci(tau_min=1, tau_max=self.tau_max, pc_alpha=self.pc_alpha, alpha_level=self.alpha_level)
         if self.verbosity > 0:
             print("# of records: {}".format(pcmci.T))
             pcmci.print_significant_links(
@@ -53,7 +55,7 @@ class CausalDiscovery():
                 p_matrix = results['p_matrix'], 
                 val_matrix = results['val_matrix'],
                 conf_matrix = results['conf_matrix'],
-                alpha_level = 0.05
+                alpha_level = self.alpha_level
             )
         # NOTE: Followings are testing codes
         return results
@@ -139,25 +141,27 @@ class CorrelationMiner():
         self.all_parents = None
         self.discovery_results = None
 
-    def initiate_causal_discovery(self, tau_max, pc_alpha):
+    def initiate_causal_discovery(self, tau_max=1, pc_alpha=0, alpha_level=0):
         all_parents = None; results = None
         causal_miner = CausalDiscovery(dataframe=self.dataframe, tau_max=tau_max, cond_ind_test=CMIsymb(
             significance='shuffle_test', n_symbs= None
-            ), pc_alpha=pc_alpha, verbosity=1
+            ), pc_alpha=pc_alpha, alpha_level=alpha_level,
+             verbosity=1
             )
         if self.discovery_method == 'stable-pc':
             all_parents, results = causal_miner.initiate_stablePC()
             self.all_parents = all_parents
             self.discovery_results = results
+        elif self.discovery_method == 'pcmci':
+            self.discovery_results = causal_miner.initiate_PCMCI()
 
     def initiate_causal_inference(self, tau_max):
-        time_series_graph = None # First derive the DAG time_series graph
+        assert(self.discovery_results is not None)
+        time_series_graph = self.discovery_results['graph'] # First derive the DAG time_series graph
         # if self.discovery_method == 'stable-pc':
         #     assert((self.all_parents is not None) and (self.discovery_results is not None))
         #     time_series_graph = CausalEffects.get_graph_from_dict(self.all_parents, tau_max = tau_max)
         # assert(time_series_graph is not None)
-        self.all_parents = {0: [(0, -1), (1, -1), (15, -1), (16, -1)], 1: [(1, -1), (31, -1), (13, -1), (4, -1), (18, -1)], 2: [(2, -1), (1, -1), (18, -1), (14, -1), (32, -1)], 3: [(3, -1), (17, -1), (4, -1)], 4: [(4, -1), (3, -1), (17, -1), (6, -1)], 5: [(5, -1), (17, -1), (6, -1), (31, -1)], 6: [(6, -1), (9, -1), (14, -1), (10, -1)], 7: [(7, -1), (23, -1), (16, -1)], 8: [(8, -1), (24, -1)], 9: [(9, -1)], 10: [(10, -1), (9, -1), (15, -1), (13, -1), (1, -1)], 11: [(11, -1), (2, -1), (27, -1), (14, -1), (16, -1)], 12: [(12, -1), (15, -1), (13, -1), (1, -1)], 13: [(13, -1), (10, -1), (14, -1)], 14: [(14, -1), (1, -1), (9, -1), (11, -1), (31, -1)], 15: [(15, -1), (10, -1), (1, -1), (16, -1)], 16: [(16, -1), (33, -1), (28, -1)], 17: [(17, -1), (4, -1)], 18: [(18, -1), (1, -1), (27, -1), (30, -1), (2, -1), (16, -1)], 19: [(19, -1), (21, -1), (25, -1), (32, -1), (27, -1), (13, -1)], 20: [(20, -1), (7, -1), (25, -1), (17, -1), (23, -1), (19, -1), (1, -1), (32, -1)], 21: [(21, -1), (19, -1), (25, -1), (32, -1), (27, -1)], 22: [(1, -1), (9, -1), (22, -1), (25, -1), (18, -1), (16, -1), (12, -1), (21, -1), (28, -1)], 23: [(23, -1), (7, -1), (20, -1)], 24: [(24, -1), (8, -1)], 25: [(25, -1), (1, -1), (20, -1), (29, -1), (27, -1), (19, -1), (18, -1), (21, -1), (26, -1), (28, -1), (32, -1), (22, -1), (7, -1), (23, -1)], 26: [(26, -1), (25, -1), (20, -1), (27, -1), (18, -1)], 27: [(27, -1), (1, -1), (18, -1), (25, -1), (0, -1), (11, -1)], 28: [(28, -1), (1, -1), (25, -1), (4, -1), (27, -1)], 29: [(25, -1), (17, -1), (1, -1), (15, -1), (27, -1), (28, -1), (26, -1), (34, -1), (29, -1)], 30: [(30, -1), (25, -1), (1, -1), (15, -1)], 31: [(31, -1)], 32: [(32, -1), (31, -1)], 33: [(33, -1), (34, -1)], 34: [(34, -1), (33, -1)]} # NOTE: This is the testing code. 
-        time_series_graph = CausalEffects.get_graph_from_dict(self.all_parents, tau_max = tau_max)
         effects_dict = {} # effects_dict[cause_attr][outcome_attr][intervention] stores the corresponding effect.
         for key in self.all_parents.keys(): # Traverse each causal-outcome pair in the graph and estimate the causal effects.
             outcome_attr = (key, 0)

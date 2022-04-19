@@ -30,31 +30,34 @@ process_index_dict = {}
 CROSS_VALIDATION_PIECE = 8
 
 if __name__ == '__main__':
-	# sys.stdout = open("results/result.txt", "w+")
-	dataset= 'hh101' # NOTE: For testing purposes only
-	partion_config = (1, 2) # Day criteria = 2
+	# Parameter settings
+	dataset = 'hh101'
+	partion_config = (1, 1)
+	discovery_method = 'pcmci'
+	tau_max = 1
+	pc_alpha = 0.1
+	alpha_level = 0.05
+
 	print("* Initiate data preprocessing.")
 	start = time.time()
 	event_preprocessor = evt_proc.Hprocessor(dataset)
 	attr_names, dataframes = event_preprocessor.initiate_data_preprocessing(partion_config)
-
 	end = time.time()
 	print("* Data preprocessing finished. Elapsed time: {} mins".format((end - start) * 1.0 / 60))
 
 	current_task = 1; total_task = len(dataframes)
 	for dataframe in dataframes:
 		print("************** Current task, total task = {}, {} **************".format(current_task, total_task))
-		correlation_miner = CorrelationMiner(dataframe=dataframe)
+		correlation_miner = CorrelationMiner(dataframe=dataframe, discovery_method=discovery_method)
 		print("* Initiate causal discovery.")
 		start = time.time()
-		correlation_miner.initiate_causal_discovery(tau_max=1, pc_alpha=0.05)
+		correlation_miner.initiate_causal_discovery(tau_max=tau_max, pc_alpha=pc_alpha, alpha_level=alpha_level)
 		end = time.time()
 		print("* Causal discovery finished. Elapsed time: {} mins".format((end - start) * 1.0 / 60))
-		print(correlation_miner.all_parents)
 
 		print("* Initiate causal inference.")
 		start = time.time()
-		effects_dict = correlation_miner.initiate_causal_inference(tau_max=1)
+		effects_dict = correlation_miner.initiate_causal_inference(tau_max=tau_max)
 		end = time.time()
 		print("* Causal effect estimation finished. Elapsed time: {} mins".format((end - start) * 1.0 / 60))
 		print(effects_dict)

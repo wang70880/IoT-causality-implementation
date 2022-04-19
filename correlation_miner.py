@@ -149,13 +149,12 @@ class CorrelationMiner():
             all_parents, results = causal_miner.initiate_stablePC()
             self.all_parents = all_parents
             self.discovery_results = results
+        elif self.discovery_method == 'pcmci':
+            self.discovery_results = causal_miner.initiate_PCMCI()
 
     def initiate_causal_inference(self, tau_max):
-        time_series_graph = None # First derive the DAG time_series graph
-        if self.discovery_method == 'stable-pc':
-            assert((self.all_parents is not None) and (self.discovery_results is not None))
-            time_series_graph = CausalEffects.get_graph_from_dict(self.all_parents, tau_max = tau_max)
-        assert(time_series_graph is not None)
+        assert(self.discovery_results is not None)
+        time_series_graph = self.discovery_results['graph']
         effects_dict = {} # effects_dict[cause_attr][outcome_attr][intervention] stores the corresponding effect.
         for key in self.all_parents.keys(): # Traverse each causal-outcome pair in the graph and estimate the causal effects.
             outcome_attr = (key, 0)
