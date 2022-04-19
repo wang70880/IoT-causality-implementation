@@ -176,6 +176,7 @@ for dataframe in dataframes:
     results = MPI.COMM_WORLD.gather(results, root=0)
     end = time.time()
     print("* Stable pc finished. Elapsed time: {} mins".format((end - start) * 1.0 / 60))
+    print(results)
     break
 
 #if COMM.rank == 0:
