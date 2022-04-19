@@ -37,7 +37,7 @@ def split(container, count):
     return [container[_i::count] for _i in range(count)]
 
 
-def run_pc_stable_parallel(j):
+def run_pc_stable_parallel(j, dataframe, cond_ind_test, selected_links, tau_min=1, tau_max=1, pc_alpha = 0.1, verbosity=0):
     """Wrapper around PCMCI.run_pc_stable estimating the parents for a single 
     variable j.
 
@@ -55,6 +55,14 @@ def run_pc_stable_parallel(j):
     # CondIndTest is initialized globally below
     # Further parameters of PCMCI as described in the documentation can be
     # supplied here:
+    # print("Parameter review")
+    # print("j = {}".format(j))
+    # print("dataframe in format {}, {}".format(dataframe.T, dataframe.N))
+    # print("cond_ind_test: {}".format(cond_ind_test))
+    # print("selected_links: {}".format(selected_links))
+    # print("tau_min, tau_max = {}, {}".format(tau_min, tau_max))
+    # print("pc_alpha = {}".format(pc_alpha))
+
     pcmci_of_j = PCMCI(
         dataframe=dataframe,
         cond_ind_test=cond_ind_test,
@@ -67,7 +75,7 @@ def run_pc_stable_parallel(j):
         tau_min=tau_min,
         tau_max=tau_max,
         pc_alpha=pc_alpha,
-        max_combinations = 5
+        max_combinations=5
     )
 
     # We return also the PCMCI object because it may contain pre-computed 
@@ -125,15 +133,16 @@ for dataframe in dataframes:
     start = time.time()
     print("* Initiate stable PC.")
     T = dataframe.T; N = dataframe.N
+    print("Number of records: {}".format(T))
     pc_alpha = 0.1; alpha_level = 0.05
     selected_variables = list(range(N))
-    tau_max = 1; tau_min = 1
+    tau_max = 2; tau_min = 1
     max_conds_dim = None; max_conds_px = None
     selected_links = {n: {m: [(i, -t) for i in range(N) for \
                           t in range(tau_min, tau_max)] if m == n else [] for m in range(N)} for n in range(N)}
     print("selected_links: {}".format(selected_links))
     verbosity = 0
-    cond_ind_test =CMIsymb(significance='shuffle_test', n_symbs= None)
+    cond_ind_test =CMIsymb()
 
     # Start the script
     if COMM.rank == 0:
@@ -159,15 +168,14 @@ for dataframe in dataframes:
     results = []
     for j in scattered_jobs:
         # Estimate conditions
-        (j, pcmci_of_j, parents_of_j) = run_pc_stable_parallel(j)
-
+        (j, pcmci_of_j, parents_of_j) = run_pc_stable_parallel(j=j, dataframe=dataframe, cond_ind_test=cond_ind_test, selected_links=selected_links, tau_min=tau_min, tau_max=tau_max, pc_alpha=pc_alpha)
+        print(parents_of_j)
         results.append((j, pcmci_of_j, parents_of_j))
 
     # Gather results on rank 0.
     results = MPI.COMM_WORLD.gather(results, root=0)
     end = time.time()
     print("* Stable pc finished. Elapsed time: {} mins".format((end - start) * 1.0 / 60))
-    print(results)
     break
 
 #if COMM.rank == 0:
