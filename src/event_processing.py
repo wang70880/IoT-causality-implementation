@@ -4,8 +4,7 @@ import jenkspy
 import numpy as np
 from functools import reduce
 from datetime import datetime
-from src.tigramite import data_processing as pp
-from src.tigramite.toymodels import structural_causal_processes as toys
+from src.tigramite.tigramite import data_processing as pp
 
 class Processor:
 

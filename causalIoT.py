@@ -14,7 +14,7 @@ from matplotlib import pyplot as plt
 
 import src.event_processing as evt_proc
 from src.policy_miner import PolicyMiner
-from src.tigramite import plotting as tp
+from src.tigramite.tigramite import plotting as tp
 
 process_devices_dict = {}
 process_index_dict = {}
