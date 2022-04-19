@@ -392,7 +392,7 @@ class Hprocessor(Processor):
 		if partition_config[0] == 0: # No partitioning, use the whole states_array
 			dataframe = pp.DataFrame(data=states_array, var_names=attr_names)
 			dataframes.append(dataframe)
-		elif partition_config[0] == 1: #NOTE: Ad-hoc partitioning scheme here. Partitioning with data_interval = 2 days
+		elif partition_config[0] == 1: #NOTE: Ad-hoc partitioning scheme here. Partitioning with data_interval = day_criteria
 			day_criteria = partition_config[1]
 			last_timestamp = ''
 			seg_points = []
@@ -401,13 +401,15 @@ class Hprocessor(Processor):
 				transition_event = tup[0]
 				cur_timestamp = '{} {}'.format(transition_event[0], transition_event[1])
 				last_timestamp = cur_timestamp if last_timestamp == '' else last_timestamp
-				past_days = ((datetime.fromisoformat(cur_timestamp) - datetime.fromisoformat(last_timestamp)).total_seconds()) / 86400
+				past_days = ((datetime.fromisoformat(cur_timestamp) - datetime.fromisoformat(last_timestamp)).total_seconds()) * 1.0 / 86400
 				if past_days >= day_criteria:
 					seg_points.append(count)
 					last_timestamp = cur_timestamp
 				count += 1
 			last_point = 0
 			for seg_point in seg_points: # Get the data frame with range [last_point, seg_point]
+				if seg_point - last_point < 100: # If current day contains too few records, append the current day's record to the next day.
+					continue
 				dataframe = pp.DataFrame(data=states_array[last_point:seg_point, ], var_names=attr_names)
 				dataframes.append(dataframe)
 				last_point = seg_point

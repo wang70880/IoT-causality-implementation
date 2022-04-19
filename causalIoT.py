@@ -48,19 +48,20 @@ if __name__ == '__main__':
 	current_task = 1; total_task = len(dataframes)
 	for dataframe in dataframes:
 		print("************** Current task, total task = {}, {} **************".format(current_task, total_task))
-		correlation_miner = CorrelationMiner(dataframe=dataframe, discovery_method=discovery_method)
-		print("* Initiate causal discovery.")
-		start = time.time()
-		correlation_miner.initiate_causal_discovery(tau_max=tau_max, pc_alpha=pc_alpha, alpha_level=alpha_level)
-		end = time.time()
-		print("* Causal discovery finished. Elapsed time: {} mins".format((end - start) * 1.0 / 60))
+		print("Number of records: {}".format(dataframe.T))
+		#correlation_miner = CorrelationMiner(dataframe=dataframe, discovery_method=discovery_method)
+		#print("* Initiate causal discovery.")
+		#start = time.time()
+		#correlation_miner.initiate_causal_discovery(tau_max=tau_max, pc_alpha=pc_alpha, alpha_level=alpha_level)
+		#end = time.time()
+		#print("* Causal discovery finished. Elapsed time: {} mins".format((end - start) * 1.0 / 60))
 
-		print("* Initiate causal inference.")
-		start = time.time()
-		effects_dict = correlation_miner.initiate_causal_inference(tau_max=tau_max)
-		end = time.time()
-		print("* Causal effect estimation finished. Elapsed time: {} mins".format((end - start) * 1.0 / 60))
-		print(effects_dict)
+		#print("* Initiate causal inference.")
+		#start = time.time()
+		#effects_dict = correlation_miner.initiate_causal_inference(tau_max=tau_max)
+		#end = time.time()
+		#print("* Causal effect estimation finished. Elapsed time: {} mins".format((end - start) * 1.0 / 60))
+		#print(effects_dict)
 		current_task += 1
 		if current_task >= 1:
 			break
