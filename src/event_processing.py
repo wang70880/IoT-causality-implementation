@@ -238,6 +238,11 @@ class Hprocessor(Processor):
 
 	def __init__(self, dataset):
 		super().__init__(dataset)
+		self.attr_names = None
+		self.transition_events_states = None
+		self.seg_points = None
+		self.dataframes = None
+		self.frame_dict = None # A dict with keys ('number', 'start-date', 'end-date', 'attr-sequence', 'attr-type-sequence', 'state-sequence')
 
 	def _parse_raw_events(self, raw_event: "str"):
 		"""Transform raw events into well-formed tuples
@@ -397,55 +402,47 @@ class Hprocessor(Processor):
 		"""
 		assert (len(partition_config) == 2)
 		dataframes = []
+		frame_dict = {}
 		states_array = np.stack([tup[1] for tup in transition_events_states], axis=0)
-		if partition_config[0] == 0: # No partitioning, use the whole states_array
-			dataframe = pp.DataFrame(data=states_array, var_names=attr_names)
-			dataframes.append(dataframe)
-		elif partition_config[0] == 1: #NOTE: Ad-hoc partitioning scheme here. Partitioning with data_interval = day_criteria
-			day_criteria = partition_config[1]
-			last_timestamp = ''
-			seg_points = []
-			count = 0
-			for tup in transition_events_states: # First get the semengation points
-				transition_event = tup[0]
-				cur_timestamp = '{} {}'.format(transition_event[0], transition_event[1])
-				last_timestamp = cur_timestamp if last_timestamp == '' else last_timestamp
-				past_days = ((datetime.fromisoformat(cur_timestamp) - datetime.fromisoformat(last_timestamp)).total_seconds()) * 1.0 / 86400
-				if past_days >= day_criteria:
-					seg_points.append(count)
-					last_timestamp = cur_timestamp
-				count += 1
-			last_point = 0
-			for seg_point in seg_points: # Get the data frame with range [last_point, seg_point]
-				if seg_point - last_point < 100: # If current day contains too few records, append the current day's record to the next day.
-					continue
-				dataframe = pp.DataFrame(data=states_array[last_point:seg_point, ], var_names=attr_names)
-				dataframes.append(dataframe)
-				last_point = seg_point
-		elif partition_config[0] == 2: # TODO: Partitioning according to eta (maximal inter-event intervals) and tau (maximum # of attribute sequences)
-			eta = partition_config[1]['eta']; tau = partition_config[1]['tau']
-			last_timestamp = '1990-01-01 00:00:00.200'
-			transaction = []; transaction_attrs = set()
-			transactions_dict = {}
-			for tup in transition_events_states:
-				transition_event = tup[0]
-				cur_timestamp = '{} {}'.format(transition_event[0], transition_event[1])
-				time_flag = (datetime.fromisoformat(cur_timestamp) - datetime.fromisoformat(last_timestamp)).total_seconds() < eta
-				size_flag = len(transaction_attrs) < tau
-				attr_flag = transition_event[2] in transaction_attrs
-				if (time_flag) and (size_flag or attr_flag): # If the current event can be added to the current transaction
-					transaction.append(tup)
-					transaction_attrs.add(transition_event[2])
-				else: # Record the previous transaction, initialize a new transaction
-					transaction_signature = frozenset(transaction_attrs)
-					if len(transaction_signature) > 1:
-						transactions_dict[transaction_signature] = [] if transaction_signature not in transactions_dict.keys() else transactions_dict[transaction_signature]
-						transactions_dict[transaction_signature].append(transaction)
-					transaction = []; transaction_attrs = set()
-					transaction.append(tup)
-					transaction_attrs.add(transition_event[2])
+		events_list = [tup[0] for tup in transition_events_states]
+
+		day_criteria = partition_config[1]
+		last_timestamp = ''
+		seg_points = []
+		count = 0
+		for tup in transition_events_states: # First get the semengation points
+			transition_event = tup[0]
+			cur_timestamp = '{} {}'.format(transition_event[0], transition_event[1])
+			last_timestamp = cur_timestamp if last_timestamp == '' else last_timestamp
+			past_days = ((datetime.fromisoformat(cur_timestamp) - datetime.fromisoformat(last_timestamp)).total_seconds()) * 1.0 / 86400
+			if past_days >= day_criteria:
+				seg_points.append(count)
 				last_timestamp = cur_timestamp
-			signatures = list(transactions_dict.keys())
+			count += 1
+
+		last_point = 0
+		frame_count = 0
+		for seg_point in seg_points: # Get the data frame with range [last_point, seg_point]
+			if seg_point - last_point < 100: # If current day contains too few records, append the current day's record to the next day.
+				continue
+			dataframe = pp.DataFrame(data=states_array[last_point:seg_point, ], var_names=attr_names)
+			dataframes.append(dataframe)
+			frame_dict[frame_count] = {}
+			frame_dict[frame_count]['number'] = seg_point - last_point
+			frame_dict[frame_count]['start-date'] = "{} {}".format(events_list[last_point][0], events_list[last_point][1])
+			frame_dict[frame_count]['end-date'] = "{} {}".format(events_list[seg_point][0], events_list[seg_point][1])
+			frame_dict[frame_count]['attr-sequence'] = [tup[0][2] for tup in transition_events_states[last_point:seg_point]]
+			frame_dict[frame_count]['attr-type-sequence'] = [tup[0][3] for tup in transition_events_states[last_point:seg_point]]
+			frame_dict[frame_count]['state-sequence'] = [1 if tup[0][4] == 'A' else 0 for tup in transition_events_states[last_point:seg_point]]
+			frame_count += 1
+			last_point = seg_point
+
+		self.attr_names = attr_names	
+		self.transition_events_states = transition_events_states
+		self.seg_points = seg_points
+		self.dataframes = dataframes
+		self.frame_dict = frame_dict
+
 		return dataframes
 	
 	def initiate_data_preprocessing(self, partition_config=()):
