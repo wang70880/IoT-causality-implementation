@@ -121,7 +121,7 @@ def run_mci_parallel(j, pcmci_of_j, all_parents):
 # Parameter setting
 dataset = 'hh101'
 partion_config = (1, 30)
-verbosity = 1
+verbosity = 0
 pc_alpha = 0.1; alpha_level = 0.05
 tau_max = 2; tau_min = 1
 max_conds_dim = None; max_conds_px = None
@@ -129,19 +129,15 @@ maximum_comb = 1
 cond_ind_test =CMIsymb()
 
 # Data frame construction
-print("* Initiate data preprocessing.")
-start = time.time()
+#print("* Initiate data preprocessing.")
 event_preprocessor = evt_proc.Hprocessor(dataset)
 attr_names, dataframes = event_preprocessor.initiate_data_preprocessing(partion_config)
-end = time.time()
-print("* Data preprocessing finished. Elapsed time: {} mins".format((end - start) * 1.0 / 60))
+#print("* Data preprocessing finished. Elapsed time: {} mins".format((end - start) * 1.0 / 60))
 
 # Prepare to initiate the task
 for dataframe in dataframes:
     int_start = time.time()
-    print("* Initiate stable PC.")
     T = dataframe.T; N = dataframe.N
-    print("Number of records: {}".format(T))
     selected_variables = list(range(N))
     selected_links = {n: {m: [(i, -t) for i in range(N) for \
                           t in range(tau_min, tau_max)] if m == n else [] for m in range(N)} for n in range(N)}
@@ -158,6 +154,7 @@ for dataframe in dataframes:
                   + "\npc_alpha = %s" % pc_alpha
                   + "\nmax_conds_dim = %s" % max_conds_dim)
             print("\n")
+            print("Number of records: {}".format(T))
 
         # Split selected_variables into however many cores are available.
         splitted_jobs = split(selected_variables, COMM.size)
