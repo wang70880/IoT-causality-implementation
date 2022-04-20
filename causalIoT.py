@@ -24,7 +24,7 @@ CROSS_VALIDATION_PIECE = 8
 if __name__ == '__main__':
 	# Parameter settings
 	dataset = 'hh101'
-	partion_config = (1, 1)
+	partion_config = (1, 30)
 	discovery_method = 'stable-pc'
 	tau_max = 1
 	pc_alpha = 0.1
