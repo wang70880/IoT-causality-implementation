@@ -29,7 +29,7 @@ if __name__ == '__main__':
 	tau_max = 1
 	pc_alpha = 0.1
 	alpha_level = 0.05
-	verbosity = 2
+	verbosity = 1
 
 	print("* Initiate data preprocessing.")
 	start = time.time()
