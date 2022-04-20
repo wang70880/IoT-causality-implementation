@@ -120,8 +120,8 @@ def run_mci_parallel(j, pcmci_of_j, all_parents):
 
 # Parameter setting
 dataset = 'hh101'
-partion_config = (1, 1)
-verbosity = 2
+partion_config = (1, 30)
+verbosity = 1
 pc_alpha = 0.1; alpha_level = 0.05
 tau_max = 2; tau_min = 1
 max_conds_dim = None; max_conds_px = None
@@ -161,6 +161,7 @@ for dataframe in dataframes:
 
         # Split selected_variables into however many cores are available.
         splitted_jobs = split(selected_variables, COMM.size)
+        print("splitted_jobs: {}".format(splitted_jobs))
         if verbosity > -1:
             print("Splitted selected_variables = ", splitted_jobs)
     else:
@@ -179,8 +180,47 @@ for dataframe in dataframes:
 
     # Gather results on rank 0.
     results = MPI.COMM_WORLD.gather(results, root=0)
-    end = time.time()
-    print("* Stable pc finished. Elapsed time: {} mins".format((end - int_start) * 1.0 / 60))
+
+    if COMM.rank == 0:
+        # Collect all results in dictionaries and send results to workers
+        all_parents = {}
+        pcmci_objects = {}
+        for res in results:
+            for (j, pcmci_of_j, parents_of_j) in res:
+                all_parents[j] = parents_of_j[j]
+                pcmci_objects[j] = pcmci_of_j
+
+        if verbosity > -1:
+            print("\n\n## Resulting condition sets:")
+            for j in [var for var in all_parents.keys()]:
+                pcmci_objects[j]._print_parents_single(j, all_parents[j],
+                                                       pcmci_objects[j].val_min[j],
+                                                       None)
+
+        if verbosity > -1:
+            print("\n##\n## Running Parallelized Tigramite MCI algorithm\n##"
+                  "\n\nParameters:")
+
+            print("\nindependence test = %s" % cond_ind_test.measure
+                  + "\ntau_min = %d" % tau_min
+                  + "\ntau_max = %d" % tau_max
+                  + "\nmax_conds_px = %s" % max_conds_px)
+
+            print("Master node: Sending all_parents and pcmci_objects to workers.")
+
+        for i in range(1, COMM.size):
+            COMM.send((all_parents, pcmci_objects), dest=i)
+        
+        end = time.time()
+        print("* Stable pc finished. Elapsed time: {} mins".format((end - int_start) * 1.0 / 60))
+        print("all_parents: {}".format(all_parents))
+
+    else:
+        if verbosity > -1:
+            print("Slave node %d: Receiving all_parents and pcmci_objects..."
+                  "" % COMM.rank)
+        (all_parents, pcmci_objects) = COMM.recv(source=0)
+
     break
 
 #if COMM.rank == 0:
