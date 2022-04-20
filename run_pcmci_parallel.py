@@ -37,7 +37,7 @@ def split(container, count):
     return [container[_i::count] for _i in range(count)]
 
 
-def run_pc_stable_parallel(j, dataframe, cond_ind_test, selected_links, tau_min=1, tau_max=1, pc_alpha = 0.1, verbosity=0):
+def run_pc_stable_parallel(j, dataframe, cond_ind_test, selected_links, tau_min=1, tau_max=1, pc_alpha = 0.1, verbosity=0, maximum_comb = 1):
     """Wrapper around PCMCI.run_pc_stable estimating the parents for a single 
     variable j.
 
@@ -75,7 +75,7 @@ def run_pc_stable_parallel(j, dataframe, cond_ind_test, selected_links, tau_min=
         tau_min=tau_min,
         tau_max=tau_max,
         pc_alpha=pc_alpha,
-        max_combinations=5
+        max_combinations=maximum_comb
     )
 
     # We return also the PCMCI object because it may contain pre-computed 
@@ -118,32 +118,33 @@ def run_mci_parallel(j, pcmci_of_j, all_parents):
 
     return j, results_in_j
 
+# Parameter setting
+dataset = 'hh101'
+partion_config = (1, 1)
+verbosity = 2
+pc_alpha = 0.1; alpha_level = 0.05
+tau_max = 2; tau_min = 1
+max_conds_dim = None; max_conds_px = None
+maximum_comb = 1
+cond_ind_test =CMIsymb()
+
 # Data frame construction
 print("* Initiate data preprocessing.")
 start = time.time()
-dataset = 'hh101'
-partion_config = (1, 1)
 event_preprocessor = evt_proc.Hprocessor(dataset)
 attr_names, dataframes = event_preprocessor.initiate_data_preprocessing(partion_config)
-verbosity = 2
 end = time.time()
 print("* Data preprocessing finished. Elapsed time: {} mins".format((end - start) * 1.0 / 60))
 
 # Prepare to initiate the task
 for dataframe in dataframes:
-    start = time.time()
+    int_start = time.time()
     print("* Initiate stable PC.")
     T = dataframe.T; N = dataframe.N
     print("Number of records: {}".format(T))
-    pc_alpha = 0.1; alpha_level = 0.05
     selected_variables = list(range(N))
-    tau_max = 2; tau_min = 1
-    max_conds_dim = None; max_conds_px = None
     selected_links = {n: {m: [(i, -t) for i in range(N) for \
                           t in range(tau_min, tau_max)] if m == n else [] for m in range(N)} for n in range(N)}
-    print("selected_links: {}".format(selected_links))
-    verbosity = 0
-    cond_ind_test =CMIsymb()
 
     # Start the script
     if COMM.rank == 0:
@@ -169,15 +170,17 @@ for dataframe in dataframes:
     results = []
     for j in scattered_jobs:
         # Estimate conditions
-        (j, pcmci_of_j, parents_of_j) = run_pc_stable_parallel(j=j, dataframe=dataframe, cond_ind_test=cond_ind_test, selected_links=selected_links, tau_min=tau_min, tau_max=tau_max, pc_alpha=pc_alpha, verbosity=verbosity)
-        print(parents_of_j)
+        start = time.time()
+        (j, pcmci_of_j, parents_of_j) = run_pc_stable_parallel(j=j, dataframe=dataframe, cond_ind_test=cond_ind_test, selected_links=selected_links, tau_min=tau_min, tau_max=tau_max, pc_alpha=pc_alpha, verbosity=verbosity, maximum_comb=maximum_comb)
         results.append((j, pcmci_of_j, parents_of_j))
+        end = time.time()
+        print("Finish processing variable {}, consumed time: {} mins".format(j, (end - int_start) * 1.0 / 60))
+        print("Parents of variable {}: {}".format(j, parents_of_j))
 
     # Gather results on rank 0.
     results = MPI.COMM_WORLD.gather(results, root=0)
     end = time.time()
-    print("* Stable pc finished. Elapsed time: {} mins".format((end - start) * 1.0 / 60))
-    print(results)
+    print("* Stable pc finished. Elapsed time: {} mins".format((end - int_start) * 1.0 / 60))
     break
 
 #if COMM.rank == 0:
