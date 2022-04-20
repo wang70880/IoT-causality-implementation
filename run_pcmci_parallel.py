@@ -158,7 +158,6 @@ for dataframe in dataframes:
 
         # Split selected_variables into however many cores are available.
         splitted_jobs = split(selected_variables, COMM.size)
-        print("splitted_jobs: {}".format(splitted_jobs))
         if verbosity > -1:
             print("Splitted selected_variables = ", splitted_jobs)
     else:
