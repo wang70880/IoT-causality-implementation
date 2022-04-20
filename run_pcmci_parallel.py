@@ -21,7 +21,7 @@ import time
 from src.tigramite.tigramite import data_processing as pp
 from src.tigramite.tigramite.toymodels import structural_causal_processes as toys
 from src.tigramite.tigramite.pcmci import PCMCI
-from src.tigramite.tigramite.independence_tests import ParCorr, GPDC, CMIknn, CMIsymb
+from src.tigramite.tigramite.independence_tests import CMIsymb
 
 import src.event_processing as evt_proc
 
