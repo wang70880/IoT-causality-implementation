@@ -26,11 +26,12 @@ class CausalDiscovery():
         self.N = self.dataframe.N
     
     def initiate_stablePC(self):
-        print("# of records: {}".format(pcmci.T))
         pcmci = PCMCI(
             dataframe=self.dataframe,
-            cond_ind_test=self.cond_ind_test
+            cond_ind_test=self.cond_ind_test,
+            verbosity=self.verbosity,
         )
+        print("# of records: {}".format(pcmci.T))
         pcmci.run_pc_stable(pc_alpha=self.pc_alpha, tau_max=self.tau_max, max_combinations=5)
         if self.verbosity > 0:
             pcmci.print_significant_links(
@@ -43,11 +44,11 @@ class CausalDiscovery():
         return pcmci.all_parents, pcmci.results
 
     def initiate_PCMCI(self):
-        print("# of records: {}".format(pcmci.T))
         pcmci = PCMCI(
             dataframe=self.dataframe,
             cond_ind_test=self.cond_ind_test
         )
+        print("# of records: {}".format(pcmci.T))
         pcmci.run_pcmci(tau_min=1, tau_max=self.tau_max, pc_alpha=self.pc_alpha, alpha_level=self.alpha_level)
         if self.verbosity > 0:
             pcmci.print_significant_links(
@@ -140,11 +141,11 @@ class PolicyMiner():
         self.all_parents = None
         self.discovery_results = None
 
-    def initiate_causal_discovery(self, tau_max=1, pc_alpha=0, alpha_level=0):
+    def initiate_causal_discovery(self, tau_max=1, pc_alpha=0, alpha_level=0, verbosity=1):
         causal_miner = CausalDiscovery(dataframe=self.dataframe, tau_max=tau_max, cond_ind_test=CMIsymb(
             significance='shuffle_test', n_symbs= None
             ), pc_alpha=pc_alpha, alpha_level=alpha_level,
-             verbosity=1
+             verbosity=verbosity
             )
         if self.discovery_method == 'stable-pc':
             self.all_parents, self.discovery_results = causal_miner.initiate_stablePC()

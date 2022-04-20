@@ -125,6 +125,7 @@ dataset = 'hh101'
 partion_config = (1, 1)
 event_preprocessor = evt_proc.Hprocessor(dataset)
 attr_names, dataframes = event_preprocessor.initiate_data_preprocessing(partion_config)
+verbosity = 2
 end = time.time()
 print("* Data preprocessing finished. Elapsed time: {} mins".format((end - start) * 1.0 / 60))
 
@@ -168,7 +169,7 @@ for dataframe in dataframes:
     results = []
     for j in scattered_jobs:
         # Estimate conditions
-        (j, pcmci_of_j, parents_of_j) = run_pc_stable_parallel(j=j, dataframe=dataframe, cond_ind_test=cond_ind_test, selected_links=selected_links, tau_min=tau_min, tau_max=tau_max, pc_alpha=pc_alpha)
+        (j, pcmci_of_j, parents_of_j) = run_pc_stable_parallel(j=j, dataframe=dataframe, cond_ind_test=cond_ind_test, selected_links=selected_links, tau_min=tau_min, tau_max=tau_max, pc_alpha=pc_alpha, verbosity=verbosity)
         print(parents_of_j)
         results.append((j, pcmci_of_j, parents_of_j))
 

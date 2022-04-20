@@ -1,8 +1,7 @@
-from os import stat
+from os import stat, path
 from tkinter import W
 import jenkspy
 import numpy as np
-from functools import reduce
 from datetime import datetime
 from src.tigramite.tigramite import data_processing as pp
 
@@ -277,35 +276,42 @@ class Hprocessor(Processor):
 		Returns:
 			qualified_events: list[list[str]]: The list of qualified parsed events
 		"""
-		fin = open(self.origin_data, 'r')
-		last_parsed_event: list[str] = []
 		qualified_events: list[list[str]] = []
-		for line in fin.readlines():
-			parsed_event: list[str] = self._parse_raw_events(line) # (date, time, dev_name, dev_attr, value)
-			'''
-			0. Filter noisy events.
-				Some datasets contain noisy events including typos and setup events.
-				As a result, the preprocessor should remove them.
-			'''
-			if self.dataset == 'hh101' and datetime.strptime(parsed_event[0], '%Y-%m-%d') <= datetime.strptime('2012-07-18', '%Y-%m-%d'): # The events before the date 07-18 are all setup events.
-				continue
-			'''
-			1. Filter periodic attribute events.
-				In our work, we only consider response attribute events.
-				Specifically, we identify a list of attributes from SmartThings website.
-				The information about the attributes can be also obtained from the dataset readme file.
-			'''
-			# 1. Filter periodic attribute events.
-			if parsed_event[3] not in ['Control4-Motion', 'Control4-Door', 'Control4-Temperature', 'Control4-LightSensor', 'Control4-Light', 'Control4-Button']:
-				continue
-			# 2. Remove duplicated device events
-			if len(last_parsed_event) != 0 and \
-			(last_parsed_event[0], last_parsed_event[2], last_parsed_event[3], last_parsed_event[4]) == (last_parsed_event[0], parsed_event[2], parsed_event[3], parsed_event[4]) :
-				continue
-			qualified_events.append(parsed_event)
-			last_parsed_event = parsed_event.copy()
+		fin = None
+		if path.isfile(self.transition_data): # If we have parsed the file: No need to reparse it.
+			fin = open(self.transition_data, 'r')
+			for line in fin.readlines():
+				parsed_event: list[str] = line.strip().split(' ')
+				qualified_events.append(parsed_event)
+		else:
+			last_parsed_event: list[str] = []
+			fin = open(self.origin_data, 'r')
+			for line in fin.readlines():
+				parsed_event: list[str] = self._parse_raw_events(line) # (date, time, dev_name, dev_attr, value)
+				'''
+				0. Filter noisy events.
+					Some datasets contain noisy events including typos and setup events.
+					As a result, the preprocessor should remove them.
+				'''
+				if self.dataset == 'hh101' and datetime.strptime(parsed_event[0], '%Y-%m-%d') <= datetime.strptime('2012-07-18', '%Y-%m-%d'): # The events before the date 07-18 are all setup events.
+					continue
+				'''
+				1. Filter periodic attribute events.
+					In our work, we only consider response attribute events.
+					Specifically, we identify a list of attributes from SmartThings website.
+					The information about the attributes can be also obtained from the dataset readme file.
+				'''
+				# 1. Filter periodic attribute events.
+				if parsed_event[3] not in ['Control4-Motion', 'Control4-Door', 'Control4-Temperature', 'Control4-LightSensor', 'Control4-Light', 'Control4-Button']:
+					continue
+				# 2. Remove duplicated device events
+				if len(last_parsed_event) != 0 and \
+				(last_parsed_event[0], last_parsed_event[2], last_parsed_event[3], last_parsed_event[4]) == (last_parsed_event[0], parsed_event[2], parsed_event[3], parsed_event[4]) :
+					continue
+				qualified_events.append(parsed_event)
+				last_parsed_event = parsed_event.copy()
 		return qualified_events
-	
+
 	def unify_value_type(self, parsed_events: "list[list[str]]") -> "list[list[str]]":
 		"""This function unifies the attribute values by the following two steps.
 		1. Initiate the numeric-enum conversion.
@@ -321,27 +327,30 @@ class Hprocessor(Processor):
 		# 1. Numeric-to-enum conversion
 		numeric_attr_dict = {}
 		unified_parsed_events: "list[list[str]]" = []
-		for parsed_event in parsed_events: # First collect all float values for each numeric attribute
-			attr_name = parsed_event[2] # In this dataset, the device name is actually the attribute name.
-			try:
-				val = float(parsed_event[4])
-				numeric_attr_dict[attr_name] = numeric_attr_dict[attr_name] if attr_name in numeric_attr_dict.keys() else []
-				numeric_attr_dict[attr_name].append(val)
-			except:
-				continue
-		for k, v in numeric_attr_dict.items(): # Then call natural breaks algorithms to get the break for each attribute
-			numeric_attr_dict[k] = jenkspy.jenks_breaks(v, nb_class=2)[1]
-		for parsed_event in parsed_events: # Finally, transform the numeric attribute to low-high enum attribute 
-			attr_name = parsed_event[2]
-			if attr_name in numeric_attr_dict.keys():
-				val = float(parsed_event[4])
-				parsed_event[4] = "HIGH" if val > numeric_attr_dict[attr_name] else "LOW"
-		# 2. Enum unification
-		for parsed_event in parsed_events: # Unify the range of all enum variables
-			unified_val = self._enum_unification(parsed_event[4])
-			if unified_val != '':
-				parsed_event[4] = unified_val
-				unified_parsed_events.append(parsed_event)
+		if path.isfile(self.transition_data):
+			unified_parsed_events = parsed_events
+		else:
+			for parsed_event in parsed_events: # First collect all float values for each numeric attribute
+				attr_name = parsed_event[2] # In this dataset, the device name is actually the attribute name.
+				try:
+					val = float(parsed_event[4])
+					numeric_attr_dict[attr_name] = numeric_attr_dict[attr_name] if attr_name in numeric_attr_dict.keys() else []
+					numeric_attr_dict[attr_name].append(val)
+				except:
+					continue
+			for k, v in numeric_attr_dict.items(): # Then call natural breaks algorithms to get the break for each attribute
+				numeric_attr_dict[k] = jenkspy.jenks_breaks(v, nb_class=2)[1]
+			for parsed_event in parsed_events: # Finally, transform the numeric attribute to low-high enum attribute 
+				attr_name = parsed_event[2]
+				if attr_name in numeric_attr_dict.keys():
+					val = float(parsed_event[4])
+					parsed_event[4] = "HIGH" if val > numeric_attr_dict[attr_name] else "LOW"
+			# 2. Enum unification
+			for parsed_event in parsed_events: # Unify the range of all enum variables
+				unified_val = self._enum_unification(parsed_event[4])
+				if unified_val != '':
+					parsed_event[4] = unified_val
+					unified_parsed_events.append(parsed_event)
 		return unified_parsed_events
 	
 	def create_data_frame(self, unified_parsed_events: "list[list[str]]"):
@@ -369,10 +378,11 @@ class Hprocessor(Processor):
 			if cur_states != last_states: # A state transition happens: Record the event and the current state
 				transition_events_states.append((unified_event, np.array(cur_states)))
 			last_states = cur_states
-		fout = open(self.transition_data, 'w+') # Finally, write these transition events into the data file
-		for tup in transition_events_states: 
-			fout.write(' '.join(tup[0]) + '\n')
-		fout.close()
+		if not path.isfile(self.transition_data):
+			fout = open(self.transition_data, 'w+') # Finally, write these transition events into the data file
+			for tup in transition_events_states: 
+				fout.write(' '.join(tup[0]) + '\n')
+			fout.close()
 		return attr_names, transition_events_states
 	
 	def partition_data_frame(self, attr_names=[], transition_events_states=[], partition_config = ()):

@@ -25,10 +25,11 @@ if __name__ == '__main__':
 	# Parameter settings
 	dataset = 'hh101'
 	partion_config = (1, 1)
-	discovery_method = 'pcmci'
+	discovery_method = 'stable-pc'
 	tau_max = 1
 	pc_alpha = 0.1
 	alpha_level = 0.05
+	verbosity = 2
 
 	print("* Initiate data preprocessing.")
 	start = time.time()
@@ -44,7 +45,7 @@ if __name__ == '__main__':
 		policy_miner = PolicyMiner(dataframe=dataframe, discovery_method=discovery_method)
 		print("* Initiate causal discovery.")
 		start = time.time()
-		policy_miner.initiate_causal_discovery(tau_max=tau_max, pc_alpha=pc_alpha, alpha_level=alpha_level)
+		policy_miner.initiate_causal_discovery(tau_max=tau_max, pc_alpha=pc_alpha, alpha_level=alpha_level,verbosity=verbosity)
 		end = time.time()
 		print("* Causal discovery finished. Elapsed time: {} mins".format((end - start) * 1.0 / 60))
 
