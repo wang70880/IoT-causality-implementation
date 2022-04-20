@@ -30,6 +30,7 @@ if __name__ == '__main__':
 	pc_alpha = 0.1
 	alpha_level = 0.05
 	verbosity = 1
+	maximum_comb = 1
 
 	print("* Initiate data preprocessing.")
 	start = time.time()
@@ -45,7 +46,7 @@ if __name__ == '__main__':
 		policy_miner = PolicyMiner(dataframe=dataframe, discovery_method=discovery_method)
 		print("* Initiate causal discovery.")
 		start = time.time()
-		policy_miner.initiate_causal_discovery(tau_max=tau_max, pc_alpha=pc_alpha, alpha_level=alpha_level,verbosity=verbosity)
+		policy_miner.initiate_causal_discovery(tau_max=tau_max, pc_alpha=pc_alpha, alpha_level=alpha_level, max_comb=1, verbosity=verbosity)
 		end = time.time()
 		print("* Causal discovery finished. Elapsed time: {} mins".format((end - start) * 1.0 / 60))
 
