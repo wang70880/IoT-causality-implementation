@@ -1,0 +1,22 @@
+[Baseline]
+variable = 17, partition = 1, tau_max=2, pc_alpha = 0.01, max_cond_dim = 5, max_comb = 1 -> 0.19 mins with 3 parents
+
+[10 * pc_alpha]
+variable = 17, partition = 1, tau_max=2, PC_ALPHA = 0.1, max_cond_dim = 5, max_comb = 1 -> 0.22 mins with 4 parents
+
+[max_comb=5]
+variable = 17, partition = 1, tau_max=2, pc_alpha = 0.01, max_cond_dim = 5, MAX_COMB = 5 -> 0.25 mins with 1 parents
+
+[10 * partition, max_comb=5]
+variable = 17, partition = 10, tau_max=2, pc_alpha = 0.01, max_cond_dim = 5, MAX_COMB = 5 -> 1.67 mins with 4 parents
+
+[10 * pc_alpha, max_comb=5]
+variable = 17, partition = 1, tau_max=2, PC_ALPHA = 0.1, max_cond_dim = 5, MAX_COMB = 5 -> 0.33 mins with 3 parents
+all_parents: {17: [(17, -1), (3, -1), (7, -1)]}
+
+[5 * partition, 10 * pc_alpha, max_comb=5]
+variable = 17, PARTITION = 5, tau_max=2, PC_ALPHA = 0.1, max_cond_dim = 5, MAX_COMB = 5 -> 2.25 mins with 6 parents
+
+[10 * partition, 10 * pc_alpha, max_comb=5]
+variable = 17, partition = 10, tau_max=2, PC_ALPHA = 0.1, max_cond_dim = 5, MAX_COMB = 5 -> 2.25 mins with 6 parents
+{17: [(17, -1), (25, -1), (3, -1), (6, -1), (5, -1), (4, -1)]}
