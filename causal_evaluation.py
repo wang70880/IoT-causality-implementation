@@ -20,6 +20,7 @@ class Evaluator():
         """
         temporal_pair_dict = {}
         self.event_processor.initiate_data_preprocessing(partition_config=partition_config)
+        print(self.event_processor.frame_dict[0])
         return temporal_pair_dict
 
 if __name__ == '__main__':
