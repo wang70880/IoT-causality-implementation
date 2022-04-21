@@ -242,7 +242,7 @@ class Hprocessor(Processor):
 		self.transition_events_states = None
 		self.seg_points = None
 		self.dataframes = None
-		self.frame_dict = None # A dict with keys ('number', 'start-date', 'end-date', 'attr-sequence', 'attr-type-sequence', 'state-sequence')
+		self.frame_dict = None # A dict with key, value = (frame_id, dict['number', 'day-interval', 'start-date', 'end-date', 'attr-sequence', 'attr-type-sequence', 'state-sequence'])
 
 	def _parse_raw_events(self, raw_event: "str"):
 		"""Transform raw events into well-formed tuples
@@ -429,6 +429,7 @@ class Hprocessor(Processor):
 			dataframes.append(dataframe)
 			frame_dict[frame_count] = {}
 			frame_dict[frame_count]['number'] = seg_point - last_point
+			frame_dict[frame_count]['day-interval'] = day_criteria
 			frame_dict[frame_count]['start-date'] = "{} {}".format(events_list[last_point][0], events_list[last_point][1])
 			frame_dict[frame_count]['end-date'] = "{} {}".format(events_list[seg_point][0], events_list[seg_point][1])
 			frame_dict[frame_count]['attr-sequence'] = [tup[0][2] for tup in transition_events_states[last_point:seg_point]]
