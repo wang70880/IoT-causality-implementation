@@ -156,7 +156,6 @@ for dataframe in dataframes:
                   + "\ntau_max = %d" % tau_max
                   + "\npc_alpha = %s" % pc_alpha
                   + "\nmax_conds_dim = %s" % max_conds_dim)
-            print("\n")
 
         # Split selected_variables into however many cores are available.
         splitted_jobs = split(selected_variables, COMM.size)
