@@ -37,7 +37,7 @@ def split(container, count):
     return [container[_i::count] for _i in range(count)]
 
 
-def run_pc_stable_parallel(j, dataframe, cond_ind_test, selected_links, tau_min=1, tau_max=1, pc_alpha = 0.1, verbosity=0, maximum_comb = 1):
+def run_pc_stable_parallel(j, dataframe, cond_ind_test, selected_links, tau_min=1, tau_max=1, pc_alpha = 0.1, verbosity=0, maximum_comb = 1, max_conds_dim=None):
     """Wrapper around PCMCI.run_pc_stable estimating the parents for a single 
     variable j.
 
@@ -75,7 +75,8 @@ def run_pc_stable_parallel(j, dataframe, cond_ind_test, selected_links, tau_min=
         tau_min=tau_min,
         tau_max=tau_max,
         pc_alpha=pc_alpha,
-        max_combinations=maximum_comb
+        max_combinations=maximum_comb,
+        max_conds_dim=max_conds_dim
     )
 
     # We return also the PCMCI object because it may contain pre-computed 
@@ -120,9 +121,9 @@ def run_mci_parallel(j, pcmci_of_j, all_parents):
 
 # Parameter setting
 dataset = 'hh101'
-partion_config = (1, 30)
+partion_config = (1, 1)
 verbosity = 0
-pc_alpha = 0.1; alpha_level = 0.05
+pc_alpha = 0.01; alpha_level = 0.05
 tau_max = 2; tau_min = 1
 max_conds_dim = None; max_conds_px = None
 maximum_comb = 1
@@ -169,7 +170,7 @@ for dataframe in dataframes:
         # Estimate conditions
         print("Rank {} is going to initiate the pc-stable!".format(COMM.rank))
         start = time.time()
-        (j, pcmci_of_j, parents_of_j) = run_pc_stable_parallel(j=j, dataframe=dataframe, cond_ind_test=cond_ind_test, selected_links=selected_links, tau_min=tau_min, tau_max=tau_max, pc_alpha=pc_alpha, verbosity=verbosity, maximum_comb=maximum_comb)
+        (j, pcmci_of_j, parents_of_j) = run_pc_stable_parallel(j=j, dataframe=dataframe, cond_ind_test=cond_ind_test, selected_links=selected_links, tau_min=tau_min, tau_max=tau_max, pc_alpha=pc_alpha, max_conds_dim=max_conds_dim, verbosity=verbosity, maximum_comb=maximum_comb)
         results.append((j, pcmci_of_j, parents_of_j))
         end = time.time()
         print("Finish processing variable {}, consumed time: {} mins".format(j, (end - int_start) * 1.0 / 60))
