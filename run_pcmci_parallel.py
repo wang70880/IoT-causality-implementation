@@ -167,6 +167,7 @@ for dataframe in dataframes:
     results = []
     for j in scattered_jobs:
         # Estimate conditions
+        print("Rank {} is going to initiate the pc-stable!".format(COMM.rank))
         start = time.time()
         (j, pcmci_of_j, parents_of_j) = run_pc_stable_parallel(j=j, dataframe=dataframe, cond_ind_test=cond_ind_test, selected_links=selected_links, tau_min=tau_min, tau_max=tau_max, pc_alpha=pc_alpha, verbosity=verbosity, maximum_comb=maximum_comb)
         results.append((j, pcmci_of_j, parents_of_j))
