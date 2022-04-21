@@ -136,6 +136,7 @@ attr_names, dataframes = event_preprocessor.initiate_data_preprocessing(partion_
 #print("* Data preprocessing finished. Elapsed time: {} mins".format((end - start) * 1.0 / 60))
 
 # Prepare to initiate the task
+frame_id = 0
 for dataframe in dataframes:
     int_start = time.time()
     T = dataframe.T; N = dataframe.N
@@ -149,7 +150,8 @@ for dataframe in dataframes:
         if verbosity > -1:
             print("\n##\n## Running Parallelized Tigramite PC algorithm\n##"
                   "\n\nParameters:")
-            print("\nindependence test = %s" % cond_ind_test.measure
+            print(  "\nframe_id = %d" % frame_id
+                  + "\nindependence test = %s" % cond_ind_test.measure
                   + "\nn_records = %d" % T 
                   + "\npartition_days = %d" % partion_config[1]
                   + "\ntau_min = %d" % tau_min
@@ -216,8 +218,11 @@ for dataframe in dataframes:
             print("Slave node %d: Receiving all_parents and pcmci_objects..."
                   "" % COMM.rank)
         (all_parents, pcmci_objects) = COMM.recv(source=0)
+    
+    frame_id += 1
 
-    break
+    if frame_id > 5:
+        break
 
 #if COMM.rank == 0:
 #    # Collect all results in dictionaries and send results to workers
