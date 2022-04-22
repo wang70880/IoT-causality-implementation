@@ -37,7 +37,7 @@ def split(container, count):
     return [container[_i::count] for _i in range(count)]
 
 
-def run_pc_stable_parallel(j, dataframe, cond_ind_test, selected_links, tau_min=1, tau_max=1, pc_alpha = 0.1, verbosity=0, maximum_comb = 1, max_conds_dim=None):
+def run_pc_stable_parallel(j, dataframe, cond_ind_test, selected_links, tau_min=1, tau_max=1, pc_alpha = 0.1, verbosity=0, maximum_comb = None, max_conds_dim=None):
     """Wrapper around PCMCI.run_pc_stable estimating the parents for a single 
     variable j.
 
@@ -171,7 +171,9 @@ for dataframe in dataframes:
     for j in scattered_jobs:
         # Estimate conditions
         start = time.time()
-        (j, pcmci_of_j, parents_of_j) = run_pc_stable_parallel(j=j, dataframe=dataframe, cond_ind_test=cond_ind_test, selected_links=selected_links, tau_min=tau_min, tau_max=tau_max, pc_alpha=pc_alpha, max_conds_dim=max_conds_dim, verbosity=verbosity, maximum_comb=maximum_comb)
+        (j, pcmci_of_j, parents_of_j) = run_pc_stable_parallel(j=j, dataframe=dataframe, cond_ind_test=cond_ind_test, selected_links=selected_links,\
+                                                            tau_min=tau_min, tau_max=tau_max, pc_alpha=pc_alpha,\
+                                                            max_conds_dim=max_conds_dim, verbosity=verbosity, maximum_comb=maximum_comb)
         results.append((j, pcmci_of_j, parents_of_j))
         end = time.time()
         if verbosity > 0:
@@ -191,13 +193,13 @@ for dataframe in dataframes:
                 pcmci_objects[j] = pcmci_of_j
 
         if verbosity > -1:
-            print("\n\n## All parents: {}".format(all_parents))
+            print("\n\n## pc_results = {}".format(all_parents))
             #for j in [var for var in all_parents.keys()]:
             #    pcmci_objects[j]._print_parents_single(j, all_parents[j],
             #                                           pcmci_objects[j].val_min[j],
             #                                           None)
             end = time.time()
-            print("* Stable pc finished. Elapsed time: {} mins".format((end - int_start) * 1.0 / 60))
+            print("Elapsed time: {} mins".format((end - int_start) * 1.0 / 60))
 
         #if verbosity > -1:
         #    print("\n##\n## Running Parallelized Tigramite MCI algorithm\n##"
@@ -218,123 +220,71 @@ for dataframe in dataframes:
             print("Slave node %d: Receiving all_parents and pcmci_objects..."
                   "" % COMM.rank)
         (all_parents, pcmci_objects) = COMM.recv(source=0)
-    
-    frame_id += 1
 
+    ###
+    ###   MCI step
+    ###
+    ## Scatter jobs again across cores.
+    #scattered_jobs = COMM.scatter(splitted_jobs, root=0)
+    #results = []
+    #for j in scattered_jobs:
+    #    (j, results_in_j) = run_mci_parallel(j, pcmci_objects[j], all_parents)
+    #    results.append((j, results_in_j))
+    #results = MPI.COMM_WORLD.gather(results, root=0)
+    #if COMM.rank == 0:
+    #    # Collect all results in dictionaries
+    #    # 
+    #    if verbosity > -1:
+    #        pass
+    #        # print("\nCollecting results...")
+    #    all_results = {}
+    #    for res in results:
+    #        for (j, results_in_j) in res:
+    #            for key in results_in_j.keys():
+    #                if results_in_j[key] is None:  
+    #                    all_results[key] = None
+    #                else:
+    #                    if key not in all_results.keys():
+    #                        if key == 'p_matrix':
+    #                            all_results[key] = numpy.ones(results_in_j[key].shape)
+    #                        else:
+    #                            all_results[key] = numpy.zeros(results_in_j[key].shape, dtype=results_in_j[key].dtype)
+    #                    all_results[key][:, j, :] = results_in_j[key][:, j, :]
+    
+    #    p_matrix = all_results['p_matrix']
+    #    val_matrix = all_results['val_matrix']
+    #    conf_matrix = all_results['conf_matrix']
+    
+    #    sig_links = (p_matrix <= alpha_level)
+    
+    #    if verbosity > -1:
+    #        print("\n## Significant links at alpha = %s:" % alpha_level)
+    #        for j in selected_variables:
+    
+    #            links = dict([((p[0], -p[1]), numpy.abs(val_matrix[p[0],
+    #                                                               j, abs(p[1])]))
+    #                          for p in zip(*numpy.where(sig_links[:, j, :]))])
+    
+    #            # Sort by value
+    #            sorted_links = sorted(links, key=links.get, reverse=True)
+    
+    #            n_links = len(links)
+    
+    #            string = ""
+    #            string = ("\n    Variable %s has %d "
+    #                      "link(s):" % (attr_names[j], n_links))
+    #            for p in sorted_links:
+    #                string += ("\n        (%s %d): pval = %.5f" %
+    #                           (attr_names[p[0]], p[1],
+    #                            p_matrix[p[0], j, abs(p[1])]))
+    
+    #                string += " | val = %.3f" % (
+    #                    val_matrix[p[0], j, abs(p[1])])
+    
+    #                if conf_matrix is not None:
+    #                    string += " | conf = (%.3f, %.3f)" % (
+    #                        conf_matrix[p[0], j, abs(p[1])][0],
+    #                        conf_matrix[p[0], j, abs(p[1])][1])
+    frame_id += 1
     if frame_id >= 1:
         break
-
-#if COMM.rank == 0:
-#    # Collect all results in dictionaries and send results to workers
-#    all_parents = {}
-#    pcmci_objects = {}
-#    for res in results:
-#        for (j, pcmci_of_j, parents_of_j) in res:
-#            all_parents[j] = parents_of_j[j]
-#            pcmci_objects[j] = pcmci_of_j
-#
-#    if verbosity > -1:
-#        print("\n\n## Resulting condition sets:")
-#        for j in [var for var in all_parents.keys()]:
-#            pcmci_objects[j]._print_parents_single(j, all_parents[j],
-#                                                   pcmci_objects[j].val_min[j],
-#                                                   None)
-#
-#    if verbosity > -1:
-#        print("\n##\n## Running Parallelized Tigramite MCI algorithm\n##"
-#              "\n\nParameters:")
-#
-#        print("\nindependence test = %s" % cond_ind_test.measure
-#              + "\ntau_min = %d" % tau_min
-#              + "\ntau_max = %d" % tau_max
-#              + "\nmax_conds_px = %s" % max_conds_px)
-#        
-#        print("Master node: Sending all_parents and pcmci_objects to workers.")
-#    
-#    for i in range(1, COMM.size):
-#        COMM.send((all_parents, pcmci_objects), dest=i)
-#
-#else:
-#    if verbosity > -1:
-#        print("Slave node %d: Receiving all_parents and pcmci_objects..."
-#              "" % COMM.rank)
-#    (all_parents, pcmci_objects) = COMM.recv(source=0)
-#
-#print(all_parents)
-#
-#
-###
-###   MCI step
-###
-## Scatter jobs again across cores.
-#scattered_jobs = COMM.scatter(splitted_jobs, root=0)
-#
-## Now each rank just does its jobs and collects everything in a results list.
-#results = []
-#for j in scattered_jobs:
-#    (j, results_in_j) = run_mci_parallel(j, pcmci_objects[j], all_parents)
-#    results.append((j, results_in_j))
-#
-## Gather results on rank 0.
-#results = MPI.COMM_WORLD.gather(results, root=0)
-#
-#
-#if COMM.rank == 0:
-#    # Collect all results in dictionaries
-#    # 
-#    if verbosity > -1:
-#        print("\nCollecting results...")
-#    all_results = {}
-#    for res in results:
-#        for (j, results_in_j) in res:
-#            for key in results_in_j.keys():
-#                if results_in_j[key] is None:  
-#                    all_results[key] = None
-#                else:
-#                    if key not in all_results.keys():
-#                        if key == 'p_matrix':
-#                            all_results[key] = numpy.ones(results_in_j[key].shape)
-#                        else:
-#                            all_results[key] = numpy.zeros(results_in_j[key].shape, dtype=results_in_j[key].dtype)
-#                    all_results[key][:, j, :] = results_in_j[key][:, j, :]
-#
-#    p_matrix = all_results['p_matrix']
-#    val_matrix = all_results['val_matrix']
-#    conf_matrix = all_results['conf_matrix']
-#    # if 'graph' in all_results.keys():
-#    #     graph = all_results['graph']
-#    #     if verbosity > -1:
-#    #         print(all_results['graph'])
-#
-#    sig_links = (p_matrix <= alpha_level)
-#
-#    if verbosity > -1:
-#        print("\n## Significant links at alpha = %s:" % alpha_level)
-#        for j in selected_variables:
-#
-#            links = dict([((p[0], -p[1]), numpy.abs(val_matrix[p[0],
-#                                                               j, abs(p[1])]))
-#                          for p in zip(*numpy.where(sig_links[:, j, :]))])
-#
-#            # Sort by value
-#            sorted_links = sorted(links, key=links.get, reverse=True)
-#
-#            n_links = len(links)
-#
-#            string = ""
-#            string = ("\n    Variable %s has %d "
-#                      "link(s):" % (var_names[j], n_links))
-#            for p in sorted_links:
-#                string += ("\n        (%s %d): pval = %.5f" %
-#                           (var_names[p[0]], p[1],
-#                            p_matrix[p[0], j, abs(p[1])]))
-#
-#                string += " | val = %.3f" % (
-#                    val_matrix[p[0], j, abs(p[1])])
-#
-#                if conf_matrix is not None:
-#                    string += " | conf = (%.3f, %.3f)" % (
-#                        conf_matrix[p[0], j, abs(p[1])][0],
-#                        conf_matrix[p[0], j, abs(p[1])][1])
-#
-#            print(string)
