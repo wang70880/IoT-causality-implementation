@@ -243,6 +243,7 @@ class Hprocessor(Processor):
 		self.seg_points = None
 		self.dataframes = None
 		self.frame_dict = None # A dict with key, value = (frame_id, dict['number', 'day-interval', 'start-date', 'end-date', 'attr-sequence', 'attr-type-sequence', 'state-sequence'])
+		self.frame_count = None
 
 	def _parse_raw_events(self, raw_event: "str"):
 		"""Transform raw events into well-formed tuples
@@ -443,6 +444,7 @@ class Hprocessor(Processor):
 		self.seg_points = seg_points
 		self.dataframes = dataframes
 		self.frame_dict = frame_dict
+		self.frame_count = frame_count
 
 		return dataframes
 	

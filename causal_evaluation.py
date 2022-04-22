@@ -4,13 +4,19 @@ import itertools
 import numpy as np
 class Evaluator():
 
-    def __init__(self, dataset) -> None:
+    def __init__(self, dataset, partition_config, tau_max) -> None:
         self.dataset = dataset
+        self.partition_config = partition_config
+        self.tau_max = tau_max
         self.event_processor = Hprocessor(dataset)
         self.temporal_pair_dict = None
         self.spatial_array = None
+
+        self.user_correlation_dict = None
+        self.physical_correlation_dict = None
+        self.automation_correlation_dict = None
     
-    def _temporal_pair_identification(self, partition_config, tau_max=1):
+    def _temporal_pair_identification(self):
         """Identification of the temporal correlation pair in the following format.
 
             (attr_c, attr_o, E[attr_o|attr_c=0], E[attr_o|attr_c=1])
@@ -24,7 +30,6 @@ class Evaluator():
 
         """
         temporal_pair_dict = {} # First index: frame_id. Second index: lag. Value: an integer array of shape num_attrs X num_attrs
-        self.event_processor.initiate_data_preprocessing(partition_config=partition_config)
         for frame_id in range( len(self.event_processor.frame_dict.keys())): # Collect all lagged pairs in all frames
             temporal_pair_dict[frame_id] = {}
             attr_names = self.event_processor.attr_names; num_attrs = len(attr_names)
@@ -33,7 +38,7 @@ class Evaluator():
             assert(len(attr_sequence) == len(state_sequence))
             num_event = len(attr_sequence)
             for event_id in range(num_event): # Count the occurrence of each attr pair and update the corresponding array
-                for lag in range (1, tau_max + 1):
+                for lag in range (1, self.tau_max + 1):
                     if event_id + lag >= num_event:
                         continue
                     temporal_pair_dict[frame_id][lag] = np.zeros(shape=(num_attrs, num_attrs), dtype=np.int64) if lag not in temporal_pair_dict[frame_id].keys() else temporal_pair_dict[frame_id][lag]
@@ -41,13 +46,12 @@ class Evaluator():
                     temporal_pair_dict[frame_id][lag][attr_names.index(prior_attr), attr_names.index(con_attr)] += 1
 
         for frame_id in range( len(self.event_processor.frame_dict.keys())):
-            for lag in range (1, tau_max + 1):
+            for lag in range (1, self.tau_max + 1):
                 attr_array = temporal_pair_dict[frame_id][lag]
                 pair_sum = np.sum(attr_array)
                 for idx, x in np.ndenumerate(attr_array):
                     attr_array[idx] = 0 if x < pair_sum * 0.001 else 1 # NOTE: Filter out pairs with low frequencies (threshold: %1 of the total frequency)
 
-        # print("[frame_id=0, lag=1] Number of temporal pairs is{}".format(np.sum(temporal_pair_dict[0][1])))
         self.temporal_pair_dict = temporal_pair_dict
 
     def _spatial_correlation_identification(self):
@@ -74,17 +78,53 @@ class Evaluator():
                     spatial_array[attr_names.index(attr_pair[0]), attr_names.index(attr_pair[1])] = 1
         
         self.spatial_array = spatial_array
-                
 
-    def physical_correlation_identification():
+    def _physical_correlation_identification(self):
         pass
 
-    def automation_correlation_identification():
+    def _automation_correlation_identification(self):
         pass
 
+    def construct_golden_standard(self):
+        self.event_processor.initiate_data_preprocessing(partition_config=self.partition_config)
+        self._temporal_pair_identification()
+        self._spatial_correlation_identification()
+        self.user_correlation_dict = {}
+        for frame_id in range(self.event_processor.frame_count):
+            self.user_correlation_dict[frame_id] = {}
+            for tau in range(1, self.tau_max + 1):
+                temporal_array = self.temporal_pair_dict[frame_id][tau]
+                user_correlation_array = temporal_array * self.spatial_array # The user correlation should be satisfy the temporal and spatial coherence.
+                self.user_correlation_dict[frame_id][tau] = user_correlation_array
+        # test_user_correlation_array = self.user_correlation_dict[0][1]
+        # for idx, x in np.ndenumerate(test_user_correlation_array):
+        #     if x == 1 and self.event_processor.attr_names[idx[0]] != self.event_processor.attr_names[idx[1]]:
+        #         print("{} -> {}".format(self.event_processor.attr_names[idx[0]], self.event_processor.attr_names[idx[1]]))
+
+    def _estimate_single_discovery_accuracy(self, frame_id, tau, pc_results):
+        n_discovery = len( [x for x in sum(list(pc_results.values()), []) if x[1] == -1 * tau ] ) # The number of discovered causal links
+        truth_array = self.user_correlation_dict[frame_id][tau]; truth_count = np.sum(truth_array) # The number of true causal links
+        tp = 0; fn = 0; fp = 0
+        for idx, x in np.ndenumerate(truth_array):
+            if x == 1: # We only check those causal links
+                if (idx[0] in pc_results.keys()) and ( (idx[1], -1 * tau) in pc_results[idx[0]]):
+                    tp += 1
+                else:
+                    fn += 1
+                    print("Missing {} -> {}".format( self.event_processor.attr_names[idx[0]], self.event_processor.attr_names[idx[1]] ))
+
+        fp = n_discovery - tp
+        print("\n##\n## [frame_id={}, tau={}] Evaluating stable-pc algorithm\n##".format(frame_id, tau)
+                  + "\n\nParameters:")
+        print(  "\nn_discovery = %d" % n_discovery
+                  + "\ntruth_count = %s" % truth_count 
+                  + "\ntp = %d" % tp
+                  + "\nfn = %d" % fn 
+                  + "\nfp = %d" % fp)
 if __name__ == '__main__':
-    evaluator = Evaluator('hh101')
     partition_config = (1, 10)
     tau_max = 1
-    evaluator._temporal_pair_identification(partition_config=partition_config, tau_max=tau_max)
-    evaluator._spatial_correlation_identification()
+    evaluator = Evaluator(dataset='hh101', partition_config=partition_config, tau_max=tau_max)
+    evaluator.construct_golden_standard()
+    pc_results ={0: [(0, -1), (1, -1), (15, -1)], 1: [(1, -1), (18, -1), (16, -1), (31, -1), (25, -1), (3, -1)], 2: [(2, -1), (1, -1), (11, -1), (17, -1), (9, -1)], 3: [(3, -1), (17, -1), (19, -1), (4, -1)], 4: [(4, -1), (17, -1), (3, -1)], 5: [(5, -1), (17, -1), (6, -1)], 6: [(6, -1), (9, -1), (14, -1), (17, -1), (25, -1)], 7: [(7, -1), (23, -1), (20, -1), (17, -1)], 8: [(8, -1), (24, -1), (1, -1)], 9: [(9, -1), (14, -1), (4, -1), (17, -1)], 10: [(10, -1), (13, -1), (9, -1), (15, -1), (2, -1)], 11: [(11, -1), (2, -1), (14, -1), (17, -1), (1, -1)], 12: [(12, -1), (9, -1), (13, -1), (25, -1)], 13: [(13, -1), (10, -1), (6, -1), (25, -1)], 14: [(14, -1), (9, -1), (11, -1), (10, -1), (1, -1)], 15: [(15, -1), (10, -1), (9, -1), (2, -1)], 16: [(16, -1), (29, -1), (28, -1), (25, -1)], 17: [(17, -1), (25, -1), (3, -1), (5, -1)], 18: [(1, -1), (18, -1), (27, -1), (25, -1), (16, -1), (26, -1), (20, -1), (29, -1), (9, -1), (15, -1), (22, -1), (12, -1), (30, -1)], 19: [(19, -1), (25, -1), (21, -1), (17, -1), (29, -1), (26, -1), (18, -1), (27, -1), (16, -1), (32, -1), (22, -1), (4, -1), (7, -1), (3, -1), (11, -1)], 20: [(17, -1), (25, -1), (7, -1), (23, -1), (20, -1), (29, -1), (27, -1), (26, -1), (18, -1), (1, -1), (19, -1), (22, -1), (28, -1), (16, -1), (30, -1), (21, -1), (24, -1), (12, -1), (15, -1), (5, -1), (0, -1), (10, -1), (11, -1)], 21: [(21, -1), (19, -1), (25, -1), (29, -1), (26, -1), (20, -1), (18, -1), (27, -1), (1, -1)], 22: [(22, -1), (1, -1), (9, -1), (20, -1), (29, -1), (26, -1), (25, -1), (18, -1), (3, -1), (19, -1), (21, -1), (17, -1), (30, -1), (28, -1), (16, -1), (12, -1)], 23: [(7, -1), (23, -1), (20, -1), (17, -1), (15, -1)], 24: [(24, -1), (8, -1), (20, -1)], 25: [(25, -1), (29, -1), (20, -1), (26, -1), (1, -1), (19, -1), (27, -1), (18, -1), (21, -1), (28, -1), (23, -1), (7, -1), (22, -1), (6, -1), (14, -1), (10, -1), (9, -1), (5, -1), (13, -1), (33, -1), (2, -1), (11, -1), (24, -1), (34, -1), (12, -1), (17, -1)], 26: [(26, -1), (25, -1), (33, -1), (17, -1), (29, -1), (34, -1), (18, -1), (27, -1), (20, -1), (16, -1), (1, -1), (30, -1), (19, -1), (2, -1), (22, -1), (32, -1), (3, -1), (21, -1), (9, -1), (14, -1), (28, -1)], 27: [(27, -1), (18, -1), (25, -1), (1, -1), (22, -1), (29, -1), (20, -1), (26, -1), (0, -1), (19, -1), (4, -1), (32, -1), (3, -1), (12, -1), (15, -1)], 28: [(28, -1), (25, -1), (29, -1), (1, -1), (20, -1), (16, -1), (19, -1), (22, -1), (4, -1), (21, -1), (26, -1)], 29: [(25, -1), (17, -1), (26, -1), (20, -1), (9, -1), (27, -1), (18, -1), (1, -1), (19, -1), (33, -1), (28, -1), (22, -1), (14, -1), (16, -1), (21, -1), (3, -1), (13, -1), (29, -1), (30, -1), (12, -1), (4, -1), (34, -1), (10, -1), (7, -1), (23, -1), (15, -1), (6, -1), (11, -1), (2, -1)], 30: [(30, -1), (29, -1), (15, -1), (17, -1), (16, -1)], 31: [(31, -1), (17, -1)], 32: [(32, -1), (16, -1), (31, -1)], 33: [(33, -1), (34, -1), (30, -1), (25, -1), (26, -1)], 34: [(34, -1), (33, -1), (30, -1), (25, -1)]} 
+    evaluator._estimate_single_discovery_accuracy(frame_id=0, tau=1, pc_results=pc_results)

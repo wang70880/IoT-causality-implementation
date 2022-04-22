@@ -121,7 +121,7 @@ def run_mci_parallel(j, pcmci_of_j, all_parents):
 
 # Parameter setting
 dataset = 'hh101'
-partion_config = (1, 5)
+partion_config = (1, 10)
 verbosity = 0
 pc_alpha = 0.1; alpha_level = 0.05
 tau_max = 2; tau_min = 1
@@ -148,8 +148,8 @@ for dataframe in dataframes:
     if COMM.rank == 0:
         # Only the master node (rank=0) runs this
         if verbosity > -1:
-            print("\n##\n## Running Parallelized Tigramite PC algorithm\n##"
-                  "\n\nParameters:")
+            #print("\n##\n## Running Parallelized Tigramite PC algorithm\n##"
+            #      "\n\nParameters:")
             print(  "\nframe_id = %d" % frame_id
                   + "\nindependence test = %s" % cond_ind_test.measure
                   + "\nn_records = %d" % T 
@@ -162,7 +162,7 @@ for dataframe in dataframes:
         # Split selected_variables into however many cores are available.
         splitted_jobs = split(selected_variables, COMM.size)
         if verbosity > -1:
-            print("Splitted selected_variables = ", splitted_jobs)
+            print("splitted selected_variables = ", splitted_jobs)
     else:
         splitted_jobs = None
 
@@ -192,10 +192,10 @@ for dataframe in dataframes:
 
         if verbosity > -1:
             print("\n\n## All parents: {}".format(all_parents))
-            for j in [var for var in all_parents.keys()]:
-                pcmci_objects[j]._print_parents_single(j, all_parents[j],
-                                                       pcmci_objects[j].val_min[j],
-                                                       None)
+            #for j in [var for var in all_parents.keys()]:
+            #    pcmci_objects[j]._print_parents_single(j, all_parents[j],
+            #                                           pcmci_objects[j].val_min[j],
+            #                                           None)
             end = time.time()
             print("* Stable pc finished. Elapsed time: {} mins".format((end - int_start) * 1.0 / 60))
 
@@ -221,7 +221,7 @@ for dataframe in dataframes:
     
     frame_id += 1
 
-    if frame_id > 5:
+    if frame_id >= 1:
         break
 
 #if COMM.rank == 0:
