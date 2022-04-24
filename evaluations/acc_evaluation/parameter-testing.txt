@@ -1,5 +1,5 @@
 [Baseline]
-Method = stable-pc, frame_id = 0, partition = 10, truth_ratio_threshold=0.001, max_conds_dim = 5, max_comb = 5, pc_alpha = 0.1 ->
+Method = stable-pc, tau=1, frame_id = 0, partition = 10, truth_ratio_threshold=0.001, max_conds_dim = 5, max_comb = 5, pc_alpha = 0.1 ->
 
 n_discovery = 1067
 truth_count = 44
@@ -8,7 +8,7 @@ fn = 0
 fp = 1023
 
 [pc_alpha * 0.1]
-Method = stable-pc, frame_id = 0, partition = 10, truth_ratio_threshold=0.001, max_conds_dim = 5, max_comb = 5, pc_alpha = 0.01 ->
+Method = stable-pc, tau=1, frame_id = 0, partition = 10, truth_ratio_threshold=0.001, max_conds_dim = 5, max_comb = 5, pc_alpha = 0.01 ->
 
 n_discovery = 999
 truth_count = 44
@@ -17,7 +17,7 @@ fn = 1
 fp = 956
 
 [pc_alpha * 0.01]
-Method = stable-pc, frame_id = 0, partition = 10, truth_ratio_threshold=0.001, max_conds_dim = 5, max_comb = 5, pc_alpha = 0.001 ->
+Method = stable-pc, tau=1, frame_id = 0, partition = 10, truth_ratio_threshold=0.001, max_conds_dim = 5, max_comb = 5, pc_alpha = 0.001 ->
 
 n_discovery = 977
 truth_count = 44
@@ -27,7 +27,7 @@ fp = 934
 Elapsed time: 0.3739744822184245 mins
 
 [pc_alpha * 0.01, max_comb * 2]
-Method = stable-pc, frame_id = 0, partition = 10, truth_ratio_threshold=0.001, max_conds_dim = 5, max_comb = 10, pc_alpha = 0.001 ->
+Method = stable-pc, tau=1, frame_id = 0, partition = 10, truth_ratio_threshold=0.001, max_conds_dim = 5, max_comb = 10, pc_alpha = 0.001 ->
 
 n_discovery = 977
 truth_count = 44
@@ -37,7 +37,7 @@ fp = 934
 Elapsed time: 0.35970988670984905 mins
 
 [pc_alpha * 0.01, max_comb * 2, max_conds_dim * 2]
-Method = stable-pc, frame_id = 0, partition = 10, truth_ratio_threshold=0.001, max_conds_dim = 10, max_comb = 10, pc_alpha = 0.001 ->
+Method = stable-pc, tau=1, frame_id = 0, partition = 10, truth_ratio_threshold=0.001, max_conds_dim = 10, max_comb = 10, pc_alpha = 0.001 ->
 
 n_discovery = 977
 truth_count = 44
@@ -48,5 +48,9 @@ fp = 934
 Elapsed time: 0.3736293991406759 mins
 
 [pc_alpha * 0.001, max_comb * 2, max_conds_dim * 2]
-Method = stable-pc, frame_id = 0, partition = 10, truth_ratio_threshold=0.001, max_conds_dim = 10, max_comb = 10, pc_alpha = 0.0001 ->
+Method = stable-pc, tau=1, frame_id = 0, partition = 10, truth_ratio_threshold=0.001, max_conds_dim = 10, max_comb = 10, pc_alpha = 0.0001 ->
+
+
+[Baseline]
+Method = stable-pc, tau=2, frame_id = 0, partition = 10, truth_ratio_threshold=0.001, max_conds_dim = 10, max_comb = 5, pc_alpha = 0.001 ->
 

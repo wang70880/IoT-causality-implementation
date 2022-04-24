@@ -123,10 +123,10 @@ def run_mci_parallel(j, pcmci_of_j, all_parents):
 dataset = 'hh101'
 partion_config = (1, 10)
 verbosity = 0
-pc_alpha = 0.1; alpha_level = 0.05
-tau_max = 2; tau_min = 1
-max_conds_dim = 5; max_conds_px = None
-maximum_comb = 5
+pc_alpha = 0.001; alpha_level = 0.05
+tau_max = 1; tau_min = 1
+max_conds_dim = 10; max_conds_px = None
+maximum_comb = 10
 cond_ind_test = CMIsymb()
 
 # Data frame construction
@@ -141,8 +141,9 @@ for dataframe in dataframes:
     int_start = time.time()
     T = dataframe.T; N = dataframe.N
     selected_variables = list(range(N))
+    selected_variables = [attr_names.index('D002')] #TODO: Remove ad-hoc codes here
     selected_links = {n: {m: [(i, -t) for i in range(N) for \
-                          t in range(tau_min, tau_max)] if m == n else [] for m in range(N)} for n in range(N)}
+                          t in range(tau_min, tau_max + 1)] if m == n else [] for m in range(N)} for n in range(N)}
 
     # Start the script
     if COMM.rank == 0:
@@ -191,9 +192,15 @@ for dataframe in dataframes:
             for (j, pcmci_of_j, parents_of_j) in res:
                 all_parents[j] = parents_of_j[j]
                 pcmci_objects[j] = pcmci_of_j
+        
+        all_parents_with_name = {}
+        for outcome_id, cause_list in all_parents.items():
+            all_parents_with_name[attr_names[outcome_id]] = [(attr_names[cause_id],lag) for (cause_id, lag) in cause_list]
 
         if verbosity > -1:
             print("\n\n## pc_results = {}".format(all_parents))
+
+            print("\n## pc_results_with_name = {}".format(all_parents_with_name))
             #for j in [var for var in all_parents.keys()]:
             #    pcmci_objects[j]._print_parents_single(j, all_parents[j],
             #                                           pcmci_objects[j].val_min[j],

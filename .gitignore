@@ -13,3 +13,6 @@
 ## Folders
 data/
 __pycache__/
+
+## temporary log files
+output.txt
