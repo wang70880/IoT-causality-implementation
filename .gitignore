@@ -12,6 +12,7 @@
 
 ## Folders
 data/
+temp/
 __pycache__/
 
 ## temporary log files

@@ -113,7 +113,7 @@ def run_mci_parallel(j, pcmci_of_j, all_parents):
 dataset = 'hh101'
 partion_config = (1, 10)
 verbosity = 2
-pc_alpha = 0.001; alpha_level = 0.05
+pc_alpha = 0.2; alpha_level = 0.05
 tau_max = 1; tau_min = 1
 max_conds_dim = 5; max_conds_px = None
 maximum_comb = 10
