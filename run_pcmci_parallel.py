@@ -55,17 +55,6 @@ def _run_pc_stable_parallel(j, dataframe, cond_ind_test, selected_links,\
         Variable index, PCMCI object, and parents of j
     """
 
-    # CondIndTest is initialized globally below
-    # Further parameters of PCMCI as described in the documentation can be
-    # supplied here:
-    # print("Parameter review")
-    # print("j = {}".format(j))
-    # print("dataframe in format {}, {}".format(dataframe.T, dataframe.N))
-    # print("cond_ind_test: {}".format(cond_ind_test))
-    # print("selected_links: {}".format(selected_links))
-    # print("tau_min, tau_max = {}, {}".format(tau_min, tau_max))
-    # print("pc_alpha = {}".format(pc_alpha))
-
     pcmci_of_j = PCMCI(
         dataframe=dataframe,
         cond_ind_test=cond_ind_test,
@@ -129,14 +118,14 @@ stable_only = 0
 partition_config = (1, 10)
 cond_ind_test = CMIsymb()
 tau_max = 1; tau_min = 1
-verbosity = 0  # -1: No debugging information; 0: Debugging information in this module; 1: Debugging info in PCMCI class; 2: Debugging info in CIT implementations
+verbosity = 2  # -1: No debugging information; 0: Debugging information in this module; 2: Debugging info in PCMCI class; 3: Debugging info in CIT implementations
 ## For stable-pc
-pc_alpha = 0.2
-max_conds_dim = 10
+pc_alpha = 0.1
+max_conds_dim = 5
 maximum_comb = 1
 ## For MCI
 alpha_level = 0.001
-max_conds_px = 10; max_conds_py= 10
+max_conds_px = 5; max_conds_py= 5
 
 pcmci_links_dict = {}; stable_links_dict = {}
 
@@ -250,7 +239,7 @@ for dataframe in dataframes:
                 sorted_links = sorted(links, key=links.get, reverse=True)
                 sorted_links_with_name[attr_names[j]] = []
                 for p in sorted_links:
-                    sorted_links_with_name[attr_names[j]].append((attr_names[p[0]], p[1], p_matrix[p[0], j, abs(p[1])]))
+                    sorted_links_with_name[attr_names[j]].append((attr_names[p[0]], p[1]))
                 #if verbosity > -1:
                 #    print("Variable {} has {} links.".format(attr_names[j], len(links)))
                 #    for p in sorted_links:
@@ -261,7 +250,9 @@ for dataframe in dataframes:
     if frame_id >= 1:
         break
 
+# Initiate the evasluation
 if COMM.rank == 0:
     evaluator = Evaluator(dataset=dataset, partition_config=partition_config, tau_max=tau_max)
     results_to_be_evaluted = stable_links_dict if stable_only == 1 else pcmci_links_dict
-    evaluator._estimate_single_discovery_accuracy(frame_id=0, tau=1, discovered_links_dict=results_to_be_evaluted)
+    print("Results for frame {}, tau {}: {}".format(0, tau_max, results_to_be_evaluted[0]))
+    evaluator._adhoc_estimate_single_discovery_accuracy(0, tau_max, results_to_be_evaluted[0])
