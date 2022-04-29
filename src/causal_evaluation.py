@@ -1,8 +1,7 @@
-from src.event_processing import Hprocessor
+from event_processing import Hprocessor
 import collections
 import itertools
 import numpy as np
-from src.tigramite.tigramite.independence_tests import CMIsymb
 
 class Evaluator():
 
@@ -181,8 +180,6 @@ if __name__ == '__main__':
     # Parameter setting
     dataset = 'hh101'
     partition_config = (1, 10)
-    cond_ind_test = CMIsymb()
-    stable_only = 1
     tau_max = 1; tau_min = 1
     verbosity = 0  # -1: No debugging information; 0: Debugging information in parallel module; 1: Debugging info in PCMCI class; 2: Debugging info in CIT implementations
     ## For stable-pc
@@ -191,6 +188,5 @@ if __name__ == '__main__':
     maximum_comb = 1
     ## For MCI
     alpha_level = 0.005
-    
 
     evaluator = Evaluator(dataset=dataset, partition_config=partition_config, tau_max=tau_max)

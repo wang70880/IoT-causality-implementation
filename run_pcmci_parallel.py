@@ -23,7 +23,7 @@ from src.tigramite.tigramite import data_processing as pp
 from src.tigramite.tigramite.toymodels import structural_causal_processes as toys
 from src.tigramite.tigramite.pcmci import PCMCI
 from src.tigramite.tigramite.independence_tests import CMIsymb
-from causal_evaluation import Evaluator
+from src.causal_evaluation import Evaluator
 
 import src.event_processing as evt_proc
 
@@ -91,8 +91,6 @@ def _run_mci_parallel(j, pcmci_of_j, all_parents, selected_links,\
     tau_min=1, tau_max=1, alpha_level = 0.01,\
     max_conds_px = None, max_conds_py=None):
     """Wrapper around PCMCI.run_mci step.
-
-
     Parameters
     ----------
     j : int
@@ -137,8 +135,8 @@ pc_alpha = 0.2
 max_conds_dim = 10
 maximum_comb = 1
 ## For MCI
-alpha_level = 0.005
-max_conds_px = None; max_conds_py=None
+alpha_level = 0.001
+max_conds_px = 10; max_conds_py= 10
 
 pcmci_links_dict = {}; stable_links_dict = {}
 
@@ -148,7 +146,7 @@ frame_id = 0
 for dataframe in dataframes:
     T = dataframe.T; N = dataframe.N
     selected_variables = list(range(N))
-    # selected_variables = [attr_names.index('D002')] # JC: Remove ad-hoc codes here
+    # selected_variables = [attr_names.index('M012')] # JC TODO: Remove ad-hoc codes here
     selected_links = {n: {m: [(i, -t) for i in range(N) for \
                 t in range(tau_min, tau_max + 1)] if m == n else [] for m in range(N)} for n in range(N)}
     # Scatter jobs given the avaliable processes
@@ -253,11 +251,10 @@ for dataframe in dataframes:
                 sorted_links_with_name[attr_names[j]] = []
                 for p in sorted_links:
                     sorted_links_with_name[attr_names[j]].append((attr_names[p[0]], p[1], p_matrix[p[0], j, abs(p[1])]))
-                if verbosity > -1:
-                    print("Variable {} has {} links.".format(attr_names[j], len(links)))
-                    for p in sorted_links:
-                        print(" ({}, {}): pval = {}, val = {}.".format(attr_names[p[0]], p[1], p_matrix[p[0], j, abs(p[1])], val_matrix[p[0], j, abs(p[1])]))
-                    print("MCI elapsed time = {} minutes".format((mci_end - mci_start) * 1.0 / 60))
+                #if verbosity > -1:
+                #    print("Variable {} has {} links.".format(attr_names[j], len(links)))
+                #    for p in sorted_links:
+                #        print(" ({}, {}): pval = {}, val = {}.".format(attr_names[p[0]], p[1], p_matrix[p[0], j, abs(p[1])], val_matrix[p[0], j, abs(p[1])]))
             pcmci_links_dict[frame_id] = sorted_links_with_name
  
     frame_id += 1
