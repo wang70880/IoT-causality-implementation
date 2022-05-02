@@ -30,7 +30,6 @@ import src.event_processing as evt_proc
 # Default communicator
 COMM = MPI.COMM_WORLD
 
-
 def _split(container, count):
     """
     Simple function splitting a range of selected variables (or range(N)) 
@@ -132,6 +131,7 @@ pcmci_links_dict = {}; stable_links_dict = {}
 event_preprocessor = evt_proc.Hprocessor(dataset)
 attr_names, dataframes = event_preprocessor.initiate_data_preprocessing(partition_config=partition_config)
 frame_id = 0
+
 for dataframe in dataframes:
     T = dataframe.T; N = dataframe.N
     selected_variables = list(range(N))
