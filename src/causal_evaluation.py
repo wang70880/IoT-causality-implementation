@@ -69,7 +69,7 @@ class Evaluator():
                 attr_array = temporal_pair_dict[frame_id][lag]
                 for idx, x in np.ndenumerate(attr_array):
                     # attr_array[idx] = 0 if x == 0 else 1
-                    attr_array[idx] = 0 if x < 2 * self.partition_config[1] else 1 # JC NOTE: Filter out pairs with low frequencies (threshold: the number of days for current frame)
+                    attr_array[idx] = 0 if x < self.partition_config[1] else 1 # JC NOTE: Filter out pairs with low frequencies (threshold: the number of days for current frame)
 
         self.temporal_pair_dict = temporal_pair_dict
     
@@ -198,7 +198,7 @@ class Evaluator():
             for (cause_attr, lag) in pcmci_results[outcome_attr]:
                 pcmci_array[attr_names.index(cause_attr), attr_names.index(outcome_attr)] = 1 if lag == -1 * tau else 0
 
-        print("\n##\n## [frame_id={}, tau={}] Evaluating accuracy for user-activity correlations##".format(frame_id, tau))
+        print("[frame_id={}, tau={}] Evaluating accuracy for user-activity correlations".format(frame_id, tau))
         discovery_array = pcmci_array * self.functionality_pair_dict['activity']; truth_array = self.user_correlation_dict[frame_id][tau]
         n_discovery = np.sum(discovery_array); truth_count = np.sum(truth_array)
         tp = 0; fn = 0; fp = 0
@@ -215,7 +215,7 @@ class Evaluator():
                 fp += 1
         print("* FNs: {}".format(fn_list))
         print("* FPs: {}".format(fp_list))
-        print(  "\nn_discovery = %d" % n_discovery
+        print(  "n_discovery = %d" % n_discovery
                   + "\ntruth_count = %s" % truth_count 
                   + "\ntp = %d" % tp
                   + "\nfn = %d" % fn 
