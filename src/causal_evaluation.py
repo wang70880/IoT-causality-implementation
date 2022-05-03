@@ -85,8 +85,8 @@ class Evaluator():
                   + "\ntp = %d" % tp
                   + "\nfn = %d" % fn 
                   + "\nfp = %d" % fp
-                  + "\nprecision = {}" % (tp * 1.0) / (tp + fp)
-                  + "\nrecall = {}" % (tp * 1.0) / (tp + fn))
+                  + "\nprecision = {}".format((tp * 1.0) / (tp + fp))
+                  + "\nrecall = {}".format((tp * 1.0) / (tp + fn)))
 
 if __name__ == '__main__':
     # Parameter setting

@@ -14,9 +14,10 @@ step and the MCI step.
 
 
 from mimetypes import init
+from turtle import back
 from background_generator import BackgroundGenerator
 from mpi4py import MPI
-import numpy
+import numpy as np
 import os, sys, pickle
 import time
 
@@ -113,6 +114,23 @@ def _run_mci_parallel(j, pcmci_of_j, all_parents, selected_links,\
 
     return j, results_in_j
 
+def apply_background_knowledge(background_generator=None, knowledge_type='', frame_id=0, tau_max=1, attr_names=[]):
+    selected_links = {n: {m: [(i, -t) for i in range(N) for \
+                t in range(tau_min, tau_max + 1)] if m == n else [] for m in range(N)} for n in range(N)}
+    for tau in range(1, tau_max + 1):
+        background_array =  background_generator.correlation_dict[knowledge_type][frame_id][tau] \
+                            if knowledge_type != 'functionality' else np.add(background_generator.correlation_dict[knowledge_type]['activity'], background_generator.correlation_dict[knowledge_type]['physics'])
+        for worker_index, link_dict in selected_links.items():
+            #print("Job id: {}".format(worker_index))
+            for outcome, cause_list in link_dict.items():
+                new_cause_list = []
+                for (cause, lag) in cause_list:
+                    if abs(lag) == tau and background_array[cause, outcome] == 1:
+                        new_cause_list.append((cause, lag))
+                        # print(" Identified edge: ({},{}) -> {} ".format(attr_names[cause], lag, attr_names[outcome]))
+                selected_links[worker_index][outcome] = new_cause_list
+    return selected_links
+
 # Parameter Settings
 dataset = 'hh101'
 stable_only = 0
@@ -127,9 +145,9 @@ maximum_comb = 5
 ## For MCI
 alpha_level = 0.001
 max_conds_px = 5; max_conds_py= 5
-
+## Resulting dict
 pcmci_links_dict = {}; stable_links_dict = {}
-
+"""Preprocess the data. Construct background knowledge and golden standard"""
 event_preprocessor = evt_proc.Hprocessor(dataset)
 attr_names, dataframes = event_preprocessor.initiate_data_preprocessing(partition_config=partition_config)
 background_generator = bk_generator.BackgroundGenerator(dataset, event_preprocessor, partition_config, tau_max)
@@ -140,8 +158,9 @@ for dataframe in dataframes:
     T = dataframe.T; N = dataframe.N
     selected_variables = list(range(N))
     # selected_variables = [attr_names.index('M012')] # JC TODO: Remove ad-hoc codes here
-    selected_links = {n: {m: [(i, -t) for i in range(N) for \
-                t in range(tau_min, tau_max + 1)] if m == n else [] for m in range(N)} for n in range(N)}
+    """Apply background knowledge to prune some edges in advance."""
+    selected_links = apply_background_knowledge(background_generator=background_generator, knowledge_type='spatial', frame_id=frame_id, tau_max=tau_max, attr_names=attr_names)
+    exit()
     # Scatter jobs given the avaliable processes
     splitted_jobs = None
     if COMM.rank == 0:
@@ -227,9 +246,9 @@ for dataframe in dataframes:
                         else:
                             if key not in all_results.keys():
                                 if key == 'p_matrix':
-                                    all_results[key] = numpy.ones(results_in_j[key].shape)
+                                    all_results[key] = np.ones(results_in_j[key].shape)
                                 else:
-                                    all_results[key] = numpy.zeros(results_in_j[key].shape, dtype=results_in_j[key].dtype)
+                                    all_results[key] = np.zeros(results_in_j[key].shape, dtype=results_in_j[key].dtype)
                             all_results[key][:, j, :] = results_in_j[key][:, j, :]
             p_matrix = all_results['p_matrix']
             val_matrix = all_results['val_matrix']
@@ -238,8 +257,8 @@ for dataframe in dataframes:
             sig_links = (p_matrix <= alpha_level)
             sorted_links_with_name = {}
             for j in selected_variables:
-                links = dict([((p[0], -p[1]), numpy.abs(val_matrix[p[0], j, abs(p[1])]))
-                            for p in zip(*numpy.where(sig_links[:, j, :]))])
+                links = dict([((p[0], -p[1]), np.abs(val_matrix[p[0], j, abs(p[1])]))
+                            for p in zip(*np.where(sig_links[:, j, :]))])
                 sorted_links = sorted(links, key=links.get, reverse=True)
                 sorted_links_with_name[attr_names[j]] = []
                 for p in sorted_links:
@@ -252,11 +271,3 @@ for dataframe in dataframes:
     frame_id += 1
     if frame_id == 1: # JC TODO: Remove ad-hoc testing code here
         break
-
-# Initiate the evasluation
-#if COMM.rank == 0:
-#    evaluator = Evaluator(dataset=dataset, partition_config=partition_config, tau_max=tau_max)
-#    results_to_be_evaluted = stable_links_dict if stable_only == 1 else pcmci_links_dict
-#    for i in range(frame_id):
-#        print("Results for frame {}, tau {}: {}".format(i, tau_max, results_to_be_evaluted[i]))
-#        evaluator._adhoc_estimate_single_discovery_accuracy(i, tau_max, results_to_be_evaluted[i])

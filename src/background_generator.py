@@ -94,7 +94,7 @@ class BackgroundGenerator():
                         spatial_array_for_cur_lag[attr_names.index(element[0]), attr_names.index(element[1])] = 1
             spatial_array_list.append(spatial_array_for_cur_lag)
 
-        for frame_id in range( len(self.event_processor.frame_dict.keys())):
+        for frame_id in range(len(self.event_processor.frame_dict.keys())):
             spatial_pair_dict[frame_id] = {}
             for lag in range (1, self.tau_max + 1): 
                 spatial_pair_dict[frame_id][lag] = spatial_array_list[lag-1]
