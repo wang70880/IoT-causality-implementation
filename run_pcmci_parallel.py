@@ -120,23 +120,20 @@ tau_max = 1; tau_min = 1
 verbosity = 0  # -1: No debugging information; 0: Debugging information in this module; 2: Debugging info in PCMCI class; 3: Debugging info in CIT implementations
 ## For stable-pc
 pc_alpha = 0.1
-max_conds_dim = 5
-maximum_comb = 1
+max_conds_dim = 10
+maximum_comb = 5
 ## For MCI
 alpha_level = 0.001
 max_conds_px = 5; max_conds_py= 5
 
 pcmci_links_dict = {}; stable_links_dict = {}
 
+evaluator = Evaluator(dataset=dataset, partition_config=partition_config, tau_max=tau_max)
 event_preprocessor = evt_proc.Hprocessor(dataset)
 attr_names, dataframes = event_preprocessor.initiate_data_preprocessing(partition_config=partition_config)
 frame_id = 0
 
 for dataframe in dataframes:
-    if frame_id == 0: #JC TODO: Remove Ad-hoc codes for finding bugs
-        frame_id += 1
-        continue
-    evaluator = Evaluator(dataset=dataset, partition_config=partition_config, tau_max=tau_max)
     T = dataframe.T; N = dataframe.N
     selected_variables = list(range(N))
     # selected_variables = [attr_names.index('M012')] # JC TODO: Remove ad-hoc codes here
@@ -250,7 +247,6 @@ for dataframe in dataframes:
                 print("MCI for frame {} finished. Evaluating MCI's accuracy:".format(frame_id))
                 evaluator._adhoc_estimate_single_discovery_accuracy(i, tau_max, sorted_links_with_name)
             pcmci_links_dict[frame_id] = sorted_links_with_name
- 
     frame_id += 1
 
 # Initiate the evasluation
