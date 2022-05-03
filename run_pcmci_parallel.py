@@ -14,6 +14,7 @@ step and the MCI step.
 
 
 from mimetypes import init
+from background_generator import BackgroundGenerator
 from mpi4py import MPI
 import numpy
 import os, sys, pickle
@@ -23,9 +24,10 @@ from src.tigramite.tigramite import data_processing as pp
 from src.tigramite.tigramite.toymodels import structural_causal_processes as toys
 from src.tigramite.tigramite.pcmci import PCMCI
 from src.tigramite.tigramite.independence_tests import CMIsymb
-from src.causal_evaluation import Evaluator
 
 import src.event_processing as evt_proc
+import src.background_generator as bk_generator
+import src.causal_evaluation as causal_eval
 
 # Default communicator
 COMM = MPI.COMM_WORLD
@@ -128,11 +130,12 @@ max_conds_px = 5; max_conds_py= 5
 
 pcmci_links_dict = {}; stable_links_dict = {}
 
-evaluator = Evaluator(dataset=dataset, partition_config=partition_config, tau_max=tau_max)
 event_preprocessor = evt_proc.Hprocessor(dataset)
 attr_names, dataframes = event_preprocessor.initiate_data_preprocessing(partition_config=partition_config)
-frame_id = 0
+background_generator = bk_generator.BackgroundGenerator(dataset, event_preprocessor, partition_config, tau_max)
+evaluator = causal_eval.Evaluator(dataset=dataset, event_processor=event_preprocessor, background_generator=background_generator, tau_max=tau_max)
 
+frame_id = 0
 for dataframe in dataframes:
     T = dataframe.T; N = dataframe.N
     selected_variables = list(range(N))
@@ -212,7 +215,6 @@ for dataframe in dataframes:
                                             max_conds_px = max_conds_px, max_conds_py=max_conds_py)
             results.append((j, results_in_j))
             # print("[Rank {}] Finish MCI algorithm for variable {}, consumed time: {} mins".format(COMM.rank, attr_names[j], (mci_end - mci_start) * 1.0 / 60))
- 
         # The root node merge the result and generate final results
         results = MPI.COMM_WORLD.gather(results, root=0)
         if COMM.rank == 0:
@@ -248,7 +250,7 @@ for dataframe in dataframes:
                 evaluator._adhoc_estimate_single_discovery_accuracy(frame_id, tau_max, sorted_links_with_name)
             pcmci_links_dict[frame_id] = sorted_links_with_name
     frame_id += 1
-    if frame_id == 1: # JC TODO: Remove ad-hoc testing codes here
+    if frame_id == 1: # JC TODO: Remove ad-hoc testing code here
         break
 
 # Initiate the evasluation
