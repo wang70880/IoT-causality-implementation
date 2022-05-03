@@ -405,6 +405,8 @@ class Hprocessor(Processor):
 		dataframes = []
 		frame_dict = {}
 		states_array = np.stack([tup[1] for tup in transition_events_states], axis=0)
+		for index, x in np.ndenumerate(states_array):
+			assert(x in [0, 1])
 		events_list = [tup[0] for tup in transition_events_states]
 
 		day_criteria = partition_config[1]

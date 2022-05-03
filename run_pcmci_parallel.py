@@ -254,5 +254,6 @@ for dataframe in dataframes:
 if COMM.rank == 0:
     evaluator = Evaluator(dataset=dataset, partition_config=partition_config, tau_max=tau_max)
     results_to_be_evaluted = stable_links_dict if stable_only == 1 else pcmci_links_dict
-    print("Results for frame {}, tau {}: {}".format(0, tau_max, results_to_be_evaluted[0]))
-    evaluator._adhoc_estimate_single_discovery_accuracy(0, tau_max, results_to_be_evaluted[0])
+    for i in range(frame_id):
+        print("Results for frame {}, tau {}: {}".format(i, tau_max, results_to_be_evaluted[i]))
+        evaluator._adhoc_estimate_single_discovery_accuracy(i, tau_max, results_to_be_evaluted[i])
