@@ -1,0 +1,13 @@
+## [method=pcmci, background=None, partition=10, frame_id=0, tau=1, pc_alpha=0.1,
+## max_conds_dim=5, max_comb=1, alpha_level=0.001, max_conds_px=max_conds_py=5] 
+* FNs: ['D002 -> M010', 'M005 -> M004', 'M005 -> M008', 'M008 -> M007', 'M010 -> D002', 'M011 -> M001']
+* FPs: ['D001 -> D001', 'M001 -> M003', 'M001 -> M012', 'M002 -> M011', 'M003 -> M008', 'M003 -> M009', 'M003 -> M010', 'M003 -> M011', 'M003 -> M012', 'M004 -> M011', 'M005 -> M003', 'M005 -> M009', 'M005 -> M011', 'M005 -> M012', 'M006 -> M008', 'M008 -> D002', 'M008 -> M001', 'M008 -> M002', 'M008 -> M003', 'M008 -> M009', 'M008 -> M010', 'M008 -> M011', 'M008 -> M012', 'M009 -> M002', 'M009 -> M003', 'M009 -> M004', 'M009 -> M008', 'M009 -> M010', 'M010 -> M003', 'M010 -> M008', 'M010 -> M009', 'M010 -> M012', 'M011 -> M002', 'M011 -> M004', 'M011 -> M008', 'M011 -> M012', 'M012 -> M001', 'M012 -> M002', 'M012 -> M004', 'M012 -> M005', 'M012 -> M008', 'M012 -> M010', 'M012 -> M011']
+
+n_discovery = 87
+truth_count = 50
+tp = 44
+fn = 6
+fp = 43
+
+## [method=pcmci, background=None, partition=10, frame_id=0, tau=1, pc_alpha=0.1,
+## max_conds_dim=10, max_comb=5, alpha_level=0.001, max_conds_px=max_conds_py=5]

@@ -117,7 +117,7 @@ stable_only = 0
 partition_config = (1, 10)
 cond_ind_test = CMIsymb()
 tau_max = 1; tau_min = 1
-verbosity = 2  # -1: No debugging information; 0: Debugging information in this module; 2: Debugging info in PCMCI class; 3: Debugging info in CIT implementations
+verbosity = 0  # -1: No debugging information; 0: Debugging information in this module; 2: Debugging info in PCMCI class; 3: Debugging info in CIT implementations
 ## For stable-pc
 pc_alpha = 0.1
 max_conds_dim = 5
@@ -133,6 +133,10 @@ attr_names, dataframes = event_preprocessor.initiate_data_preprocessing(partitio
 frame_id = 0
 
 for dataframe in dataframes:
+    if frame_id == 0: #JC TODO: Remove Ad-hoc codes for finding bugs
+        frame_id += 1
+        continue
+    evaluator = Evaluator(dataset=dataset, partition_config=partition_config, tau_max=tau_max)
     T = dataframe.T; N = dataframe.N
     selected_variables = list(range(N))
     # selected_variables = [attr_names.index('M012')] # JC TODO: Remove ad-hoc codes here
@@ -157,7 +161,7 @@ for dataframe in dataframes:
             print("splitted selected_variables = ", splitted_jobs)
     scattered_jobs = COMM.scatter(splitted_jobs, root=0)
 
-    # Each process calls stable-pc
+    """Each process calls stable-pc"""
     results = []
     for j in scattered_jobs:
         pc_start = time.time()
@@ -165,11 +169,10 @@ for dataframe in dataframes:
                                                             tau_min=tau_min, tau_max=tau_max, pc_alpha=pc_alpha,\
                                                             max_conds_dim=max_conds_dim, verbosity=verbosity, maximum_comb=maximum_comb)
         results.append((j, pcmci_of_j, parents_of_j))
+        # print("[Rank {}] Finish pc-discovery for variable {}, consumed time: {} mins".format(COMM.rank, attr_names[j], (pc_end - pc_start) * 1.0 / 60))
         pc_end = time.time()
-        if verbosity > -1:
-            print("[Rank {}] Finish pc-discovery for variable {}, consumed time: {} mins".format(COMM.rank, attr_names[j], (pc_end - pc_start) * 1.0 / 60))
 
-    # Gather stable-pc results on rank 0, and distribute the gathered result to each slave node.
+    """Gather stable-pc results on rank 0, and distribute the gathered result to each slave node."""
     results = MPI.COMM_WORLD.gather(results, root=0)
     if COMM.rank == 0: 
         all_parents = {}
@@ -182,12 +185,15 @@ for dataframe in dataframes:
         for outcome_id, cause_list in all_parents.items():
             all_parents_with_name[attr_names[outcome_id]] = [(attr_names[cause_id],lag) for (cause_id, lag) in cause_list]
         stable_links_dict[frame_id] = all_parents_with_name
+        if verbosity > -1:
+            print("PC-stable discovery for frame {} finished. Evaluating PC-stable's accuracy:".format(frame_id))
+            evaluator._adhoc_estimate_single_discovery_accuracy(i, tau_max, all_parents_with_name)
         for i in range(1, COMM.size):
             COMM.send((all_parents, pcmci_objects), dest=i)
     else:
         (all_parents, pcmci_objects) = COMM.recv(source=0)
 
-    # If the function requires to run PCMCI instead of single stablePC
+    """If the function requires to run PCMCI instead of single stablePC"""
     if stable_only == 0:
         if COMM.rank == 0 and verbosity > -1:
             print("\n\n## Running Parallelized MCI algorithm\n##"
@@ -209,7 +215,7 @@ for dataframe in dataframes:
                                             max_conds_px = max_conds_px, max_conds_py=max_conds_py)
             results.append((j, results_in_j))
             mci_end = time.time()
-            print("[Rank {}] Finish MCI algorithm for variable {}, consumed time: {} mins".format(COMM.rank, attr_names[j], (mci_end - mci_start) * 1.0 / 60))
+            # print("[Rank {}] Finish MCI algorithm for variable {}, consumed time: {} mins".format(COMM.rank, attr_names[j], (mci_end - mci_start) * 1.0 / 60))
  
         # The root node merge the result and generate final results
         results = MPI.COMM_WORLD.gather(results, root=0)
@@ -240,20 +246,17 @@ for dataframe in dataframes:
                 sorted_links_with_name[attr_names[j]] = []
                 for p in sorted_links:
                     sorted_links_with_name[attr_names[j]].append((attr_names[p[0]], p[1]))
-                #if verbosity > -1:
-                #    print("Variable {} has {} links.".format(attr_names[j], len(links)))
-                #    for p in sorted_links:
-                #        print(" ({}, {}): pval = {}, val = {}.".format(attr_names[p[0]], p[1], p_matrix[p[0], j, abs(p[1])], val_matrix[p[0], j, abs(p[1])]))
+            if verbosity > -1:
+                print("MCI for frame {} finished. Evaluating MCI's accuracy:".format(frame_id))
+                evaluator._adhoc_estimate_single_discovery_accuracy(i, tau_max, sorted_links_with_name)
             pcmci_links_dict[frame_id] = sorted_links_with_name
  
     frame_id += 1
-    if frame_id >= 1:
-        break
 
 # Initiate the evasluation
-if COMM.rank == 0:
-    evaluator = Evaluator(dataset=dataset, partition_config=partition_config, tau_max=tau_max)
-    results_to_be_evaluted = stable_links_dict if stable_only == 1 else pcmci_links_dict
-    for i in range(frame_id):
-        print("Results for frame {}, tau {}: {}".format(i, tau_max, results_to_be_evaluted[i]))
-        evaluator._adhoc_estimate_single_discovery_accuracy(i, tau_max, results_to_be_evaluted[i])
+#if COMM.rank == 0:
+#    evaluator = Evaluator(dataset=dataset, partition_config=partition_config, tau_max=tau_max)
+#    results_to_be_evaluted = stable_links_dict if stable_only == 1 else pcmci_links_dict
+#    for i in range(frame_id):
+#        print("Results for frame {}, tau {}: {}".format(i, tau_max, results_to_be_evaluted[i]))
+#        evaluator._adhoc_estimate_single_discovery_accuracy(i, tau_max, results_to_be_evaluted[i])
