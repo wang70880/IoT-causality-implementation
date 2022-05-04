@@ -122,13 +122,13 @@ stable_only = 0
 partition_config = (1, 10)
 cond_ind_test = CMIsymb()
 tau_max = 1; tau_min = 1
-verbosity = 0  # -1: No debugging information; 0: Debugging information in this module; 2: Debugging info in PCMCI class; 3: Debugging info in CIT implementations
+verbosity = 2  # -1: No debugging information; 0: Debugging information in this module; 2: Debugging info in PCMCI class; 3: Debugging info in CIT implementations
 ## For stable-pc
-pc_alpha = 0.1
+pc_alpha = 0.5
 max_conds_dim = 5
 maximum_comb = 1
 ## For MCI
-alpha_level = 0.01
+alpha_level = 0.1
 max_conds_px = 5; max_conds_py= 5
 ## Resulting dict
 pcmci_links_dict = {}; stable_links_dict = {}
@@ -162,10 +162,9 @@ for dataframe in dataframes:
                   + "\n * independence test = %s" % cond_ind_test.measure
                   + "\n * n_records = %d" % T 
                   + "\n * partition_days = %d" % partition_config[1]
-                  + "\n * tau_min = %d" % tau_min
-                  + "\n * tau_max = %d" % tau_max
-                  + "\n * pc_alpha = %s" % pc_alpha
-                  + "\n * max_conds_dim = %s" % max_conds_dim)
+                  + "\n * tau_min = {}, tau_max = {}".format(tau_min, tau_max)
+                  + "\n * pc_alpha = {}, max_conds_dim = {}, max_comb = {}".format(pc_alpha, max_conds_dim, maximum_comb)
+                  + "\n * alpha_level = {}, max_conds_px = {}, max_conds_py = {}".format(alpha_level, max_conds_px, max_conds_py))
         splitted_jobs = _split(selected_variables, COMM.size) # Split selected_variables into however many cores are available.
         if verbosity > -1:
             print("splitted selected_variables = ", splitted_jobs)
@@ -206,15 +205,7 @@ for dataframe in dataframes:
     """If the function requires to run PCMCI instead of single stablePC"""
     if stable_only == 0:
         if COMM.rank == 0 and verbosity > -1:
-            print("\n\n## Running Parallelized MCI algorithm\n##"
-                  "\nParameters:")
-            print(  "\nframe_id = %d" % frame_id
-                  + "\nindependence test = %s" % cond_ind_test.measure
-                  + "\nn_records = %d" % T 
-                  + "\npartition_days = %d" % partition_config[1]
-                  + "\ntau_min = %d" % tau_min
-                  + "\ntau_max = %d" % tau_max
-                  + "\nalpha_level = %s" % alpha_level)
+            print("\n## Running Parallelized MCI algorithm\n##")
         scattered_jobs = COMM.scatter(splitted_jobs, root=0)
         results = []
         # Each process calls MCI algorithm
