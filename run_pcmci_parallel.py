@@ -139,6 +139,8 @@ background_generator = bk_generator.BackgroundGenerator(dataset, event_preproces
 evaluator = causal_eval.Evaluator(dataset=dataset, event_processor=event_preprocessor, background_generator=background_generator, tau_max=tau_max)
 
 frame_id = 0
+precision_list = []
+recall_list = []
 for dataframe in dataframes:
     T = dataframe.T; N = dataframe.N
     selected_variables = list(range(N))
@@ -196,7 +198,9 @@ for dataframe in dataframes:
         if verbosity > -1:
             print("##\n## PC-stable discovery for frame {} finished. Consumed time: {} mins\n##".format(frame_id, (pc_end - pc_start) * 1.0 / 60))
             print("Evaluating PC-stable's accuracy:".format(frame_id))
-            evaluator._adhoc_estimate_single_discovery_accuracy(frame_id, tau_max, all_parents_with_name)
+            precision, recall = evaluator._adhoc_estimate_single_discovery_accuracy(frame_id, tau_max, all_parents_with_name)
+            precision_list.append(precision)
+            recall_list.append(recall)
         for i in range(1, COMM.size):
             COMM.send((all_parents, pcmci_objects), dest=i)
     else:
@@ -253,3 +257,6 @@ for dataframe in dataframes:
     frame_id += 1
     if frame_id == 3: # JC TODO: Remove ad-hoc testing code here
         break
+
+if COMM.rank == 0:
+    print("Average precision, recall = {}, {} ".format( sum(precision_list) * 1.0 / len(precision_list), sum(recall_list) * 1.0 / len(precision_list)  ))

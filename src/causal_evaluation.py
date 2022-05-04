@@ -78,15 +78,18 @@ class Evaluator():
             elif discovery_array[idx[0], idx[1]] == 1:
                 fp_list.append("{} -> {}".format(attr_names[idx[0]], attr_names[idx[1]]))
                 fp += 1
+        precision = (tp * 1.0) / (tp + fp)
+        recall = (tp * 1.0) / (tp + fn)
         print("* FNs: {}".format(fn_list))
         print("* FPs: {}".format(fp_list))
-        print(  "n_discovery = %d" % n_discovery
+        print("n_discovery = %d" % n_discovery
                   + "\ntruth_count = %s" % truth_count 
                   + "\ntp = %d" % tp
                   + "\nfn = %d" % fn 
                   + "\nfp = %d" % fp
-                  + "\nprecision = {}".format((tp * 1.0) / (tp + fp))
-                  + "\nrecall = {}".format((tp * 1.0) / (tp + fn)))
+                  + "\nprecision = {}".format(precision)
+                  + "\nrecall = {}".format(recall))
+        return precision, recall
 
 if __name__ == '__main__':
     # Parameter setting
