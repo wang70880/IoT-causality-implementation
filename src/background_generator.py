@@ -139,6 +139,23 @@ class BackgroundGenerator():
             self._print_pair_list(self.correlation_dict[type]['activity'])
             self._print_pair_list(self.correlation_dict[type]['physics'])
 
+    def apply_background_knowledge(self, selected_links=None, knowledge_type='', frame_id=0):
+        assert(selected_links is not None)
+        # print(attr_names)
+        for tau in range(1, tau_max + 1):
+            background_array = self.correlation_dict[knowledge_type][frame_id][tau] \
+                    if knowledge_type != 'functionality' else np.add(self.correlation_dict[knowledge_type]['activity'], background_generator.correlation_dict[knowledge_type]['physics'])
+            for worker_index, link_dict in selected_links.items():
+                # print("Job id: {}".format(worker_index))
+                for outcome, cause_list in link_dict.items():
+                    new_cause_list = []
+                    for (cause, lag) in cause_list:
+                        if abs(lag) == tau and background_array[cause, outcome] > 0:
+                            new_cause_list.append((cause, lag))
+                            # print(" Identified edge: ({},{}) -> {} / ({}, {}) -> {}".format(attr_names[cause], lag, attr_names[outcome], cause, lag, outcome))
+                    selected_links[worker_index][outcome] = new_cause_list
+        return selected_links
+
 if __name__ == '__main__':
     # Parameter setting
     dataset = 'hh101'

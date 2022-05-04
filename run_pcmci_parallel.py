@@ -15,6 +15,8 @@ step and the MCI step.
 
 from mimetypes import init
 from turtle import back
+
+from attr import attr
 from background_generator import BackgroundGenerator
 from mpi4py import MPI
 import numpy as np
@@ -114,23 +116,6 @@ def _run_mci_parallel(j, pcmci_of_j, all_parents, selected_links,\
 
     return j, results_in_j
 
-def apply_background_knowledge(background_generator=None, knowledge_type='', frame_id=0, tau_max=1, attr_names=[]):
-    selected_links = {n: {m: [(i, -t) for i in range(N) for \
-                t in range(tau_min, tau_max + 1)] if m == n else [] for m in range(N)} for n in range(N)}
-    for tau in range(1, tau_max + 1):
-        background_array =  background_generator.correlation_dict[knowledge_type][frame_id][tau] \
-                            if knowledge_type != 'functionality' else np.add(background_generator.correlation_dict[knowledge_type]['activity'], background_generator.correlation_dict[knowledge_type]['physics'])
-        for worker_index, link_dict in selected_links.items():
-            #print("Job id: {}".format(worker_index))
-            for outcome, cause_list in link_dict.items():
-                new_cause_list = []
-                for (cause, lag) in cause_list:
-                    if abs(lag) == tau and background_array[cause, outcome] == 1:
-                        new_cause_list.append((cause, lag))
-                        # print(" Identified edge: ({},{}) -> {} ".format(attr_names[cause], lag, attr_names[outcome]))
-                selected_links[worker_index][outcome] = new_cause_list
-    return selected_links
-
 # Parameter Settings
 dataset = 'hh101'
 stable_only = 0
@@ -158,9 +143,12 @@ for dataframe in dataframes:
     T = dataframe.T; N = dataframe.N
     selected_variables = list(range(N))
     # selected_variables = [attr_names.index('M012')] # JC TODO: Remove ad-hoc codes here
-    """Apply background knowledge to prune some edges in advance."""
-    selected_links = apply_background_knowledge(background_generator=background_generator, knowledge_type='spatial', frame_id=frame_id, tau_max=tau_max, attr_names=attr_names)
-    exit()
+    """
+    JC NOTE: Apply background knowledge to prune some edges in advance.
+    """
+    selected_links = {n: {m: [(i, -t) for i in range(N) for \
+            t in range(tau_min, tau_max + 1)] if m == n else [] for m in range(N)} for n in range(N)}
+    selected_links = background_generator.apply_background_knowledge(selected_links, 'spatial', frame_id)
     # Scatter jobs given the avaliable processes
     splitted_jobs = None
     if COMM.rank == 0:
