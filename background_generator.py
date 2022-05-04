@@ -55,7 +55,7 @@ class BackgroundGenerator():
                 attr_array = temporal_pair_dict[frame_id][lag]
                 for idx, x in np.ndenumerate(attr_array):
                     # attr_array[idx] = 0 if x == 0 else 1
-                    attr_array[idx] = 0 if x < self.partition_config[1] else 1 # JC NOTE: Filter out pairs with low frequencies (threshold: the number of days for current frame)
+                    attr_array[idx] = 0 if x < 2 * self.partition_config[1] else 1 # JC NOTE: Filter out pairs with low frequencies (threshold: the number of days for current frame)
 
         return temporal_pair_dict
     
@@ -144,7 +144,7 @@ class BackgroundGenerator():
         # print(attr_names)
         for tau in range(1, self.tau_max + 1):
             background_array = self.correlation_dict[knowledge_type][frame_id][tau] \
-                    if knowledge_type != 'functionality' else np.add(self.correlation_dict[knowledge_type]['activity'], background_generator.correlation_dict[knowledge_type]['physics'])
+                    if knowledge_type != 'functionality' else self.correlation_dict[knowledge_type]['activity']
             for worker_index, link_dict in selected_links.items():
                 # print("Job id: {}".format(worker_index))
                 for outcome, cause_list in link_dict.items():
