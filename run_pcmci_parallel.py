@@ -124,7 +124,7 @@ cond_ind_test = CMIsymb()
 tau_max = 1; tau_min = 1
 verbosity = 0  # -1: No debugging information; 0: Debugging information in this module; 2: Debugging info in PCMCI class; 3: Debugging info in CIT implementations
 ## For stable-pc
-pc_alpha = 0.1
+pc_alpha = 0.01
 max_conds_dim = 10
 maximum_comb = 5
 ## For MCI
