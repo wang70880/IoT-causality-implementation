@@ -122,9 +122,9 @@ stable_only = 0
 partition_config = (1, 10)
 cond_ind_test = CMIsymb()
 tau_max = 1; tau_min = 1
-verbosity = 2  # -1: No debugging information; 0: Debugging information in this module; 2: Debugging info in PCMCI class; 3: Debugging info in CIT implementations
+verbosity = 0  # -1: No debugging information; 0: Debugging information in this module; 2: Debugging info in PCMCI class; 3: Debugging info in CIT implementations
 ## For stable-pc
-pc_alpha = 0.5
+pc_alpha = 0.3
 max_conds_dim = 5
 maximum_comb = 1
 ## For MCI
@@ -251,5 +251,5 @@ for dataframe in dataframes:
                 evaluator._adhoc_estimate_single_discovery_accuracy(frame_id, tau_max, sorted_links_with_name)
             pcmci_links_dict[frame_id] = sorted_links_with_name
     frame_id += 1
-    if frame_id == 1: # JC TODO: Remove ad-hoc testing code here
+    if frame_id == 3: # JC TODO: Remove ad-hoc testing code here
         break
