@@ -124,11 +124,11 @@ cond_ind_test = CMIsymb()
 tau_max = 1; tau_min = 1
 verbosity = 0  # -1: No debugging information; 0: Debugging information in this module; 2: Debugging info in PCMCI class; 3: Debugging info in CIT implementations
 ## For stable-pc
-pc_alpha = 0.3
+pc_alpha = 0.1
 max_conds_dim = 5
 maximum_comb = 1
 ## For MCI
-alpha_level = 0.1
+alpha_level = 0.01
 max_conds_px = 5; max_conds_py= 5
 ## Resulting dict
 pcmci_links_dict = {}; stable_links_dict = {}
