@@ -145,13 +145,6 @@ event_preprocessor = evt_proc.Hprocessor(dataset)
 attr_names, dataframes = event_preprocessor.initiate_data_preprocessing(partition_config=partition_config)
 background_generator = bk_generator.BackgroundGenerator(dataset, event_preprocessor, partition_config, tau_max)
 evaluator = causal_eval.Evaluator(dataset=dataset, event_processor=event_preprocessor, background_generator=background_generator, tau_max=tau_max)
-if COMM.rank == 0:
-    print("**** Initiate PCMCI for partition_config = {}, bk = {} ****".format(partition_config, apply_bk)
-          + "\n Algorithm parameters:"
-          + "\n * independence test = %s" % cond_ind_test.measure
-          + "\n * tau_min = {}, tau_max = {}".format(tau_min, tau_max)
-          + "\n * pc_alpha = {}, max_conds_dim = {}, max_comb = {}".format(pc_alpha, max_conds_dim, maximum_comb)
-          + "\n * alpha_level = {}, max_conds_px = {}, max_conds_py = {}".format(alpha_level, max_conds_px, max_conds_py))
 frame_id = 0
 for dataframe in dataframes:
     T = dataframe.T; N = dataframe.N
@@ -258,10 +251,17 @@ for dataframe in dataframes:
                 print("truth_count, precision, recall = {}, {}, {}".format(truth_count, precision, recall))
             pcmci_links_dict[frame_id] = sorted_links_with_name
     frame_id += 1
-    if frame_id == 5: # JC TODO: Remove ad-hoc testing code here
+    if frame_id == len(dataframes) - 1: # JC NOTE: Skip the last frame in case that the number of records is not enough.
         break
 if COMM.rank == 0:
-    print("Number of frames: {}".format(frame_id))
-    print("Average counts of records: {}".format(statistics.mean(record_count_list)))
-    print("stablePC evaluations: average time, truth-count, precision, recall = {}, {}, {}, {}".format(statistics.mean(pc_time_list), statistics.mean(pc_truth_count_list), statistics.mean(pc_precision_list), statistics.mean(pc_recall_list)))
-    print("MCI evaluations: average time, truth-count, precision, recall = {}, {}, {}, {}".format(statistics.mean(mci_time_list), statistics.mean(mci_truth_count_list), statistics.mean(mci_precision_list), statistics.mean(mci_recall_list)))
+    print("**** PCMCI results for partition_config = {}, bk = {} ****".format(partition_config, apply_bk)
+          + "\n Algorithm parameters:"
+          + "\n Number of frames: {}".format(frame_id)
+          + "\n * independence test = %s" % cond_ind_test.measure
+          + "\n * tau_min = {}, tau_max = {}".format(tau_min, tau_max)
+          + "\n * pc_alpha = {}, max_conds_dim = {}, max_comb = {}".format(pc_alpha, max_conds_dim, maximum_comb)
+          + "\n * alpha_level = {}, max_conds_px = {}, max_conds_py = {}".format(alpha_level, max_conds_px, max_conds_py)
+          + "\n Average counts of records: {}".format(statistics.mean(record_count_list))
+          + "\nstablePC evaluations: average time, truth-count, precision, recall = {}, {}, {}, {}".format(statistics.mean(pc_time_list), statistics.mean(pc_truth_count_list), statistics.mean(pc_precision_list), statistics.mean(pc_recall_list))
+          + "\nMCI evaluations: average time, truth-count, precision, recall = {}, {}, {}, {}".format(statistics.mean(mci_time_list), statistics.mean(mci_truth_count_list), statistics.mean(mci_precision_list), statistics.mean(mci_recall_list))
+          )
