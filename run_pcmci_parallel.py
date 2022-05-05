@@ -152,8 +152,8 @@ for dataframe in dataframes:
             t in range(tau_min, tau_max + 1)] if m == n else [] for m in range(N)} for n in range(N)}
     # JC TODO: Remove ad-hoc codes here which sets the selected_links to be directly the golden standard
     selected_links = background_generator.apply_background_knowledge(selected_links, 'heuristic-temporal', frame_id)
-    selected_links = background_generator.apply_background_knowledge(selected_links, 'spatial', frame_id)
-    selected_links = background_generator.apply_background_knowledge(selected_links, 'functionality', frame_id)
+    #selected_links = background_generator.apply_background_knowledge(selected_links, 'spatial', frame_id)
+    #selected_links = background_generator.apply_background_knowledge(selected_links, 'functionality', frame_id)
     # Scatter jobs given the avaliable processes
     splitted_jobs = None
     if COMM.rank == 0:
@@ -255,7 +255,7 @@ for dataframe in dataframes:
                 evaluator._adhoc_estimate_single_discovery_accuracy(frame_id, tau_max, sorted_links_with_name)
             pcmci_links_dict[frame_id] = sorted_links_with_name
     frame_id += 1
-    if frame_id == 3: # JC TODO: Remove ad-hoc testing code here
+    if frame_id == 5: # JC TODO: Remove ad-hoc testing code here
         break
 
 if COMM.rank == 0:

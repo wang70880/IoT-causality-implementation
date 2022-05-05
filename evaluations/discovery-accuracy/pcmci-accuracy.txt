@@ -1,21 +1,7 @@
-[pc_alpha = 0.2, alpha_level = 0.1, # of frames = 5]
-Identification with no info (precision, recall) =  
-Identification with spatial info (precision, recall) = 
-Identification with spatial + temporal info (precision, recall) = 
-Identification with full info (precision, recall) = 
-
 [pc_alpha = 0.1, alpha_level = 0.01, # of frames = 5, temporal=(2,4)]
 Identification with heuristic-temporal info (precision, recall) = 0.829, 0.939
 Identification with full info (precision, recall) = 0.828, 0.949
 
-[pc_alpha = 0.1, alpha_level = 0.001, # of frames = 5]
-Identification with no info (precision, recall) =  0.24, 0.909
-Identification with functionality info (precision, recall) = 0.26, 0.915
-Identification with spatial info (precision, recall) = 0.437, 0.896
-Identification with temporal info (precision, recall) = 1.0, 0.931
-Identification with spatial + temporal info (precision, recall) = 1.0, 0.936
-Identification with full info (precision, recall) = 1.0, 0.942
-
-Identification with heuristic-temporal info (precision, recall) = 
-Identification with heuristic-temporal + spatial info (precision, recall) = 
-Identification with full info (precision, recall) = 1.0 0.910
+[pc_alpha = 0.1, alpha_level = 0.01, # of frames = 5, temporal=(3,4)]
+Identification with heuristic-temporal info (precision, recall) = 0.903, 0.921
+Identification with full info (precision, recall) = 0.910, 0.933

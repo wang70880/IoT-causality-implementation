@@ -1,7 +1,7 @@
 #!/bin/sh
 cp ./causal_evaluation.py src/causal_evaluation.py
 cp ./background_generator.py src/background_generator.py
-com="[Testing] Set selected_links to be the golden standard and find appropriateparameters (pc_alpha, alpha_level) to maximize the accuracy."
+com="[Testing] Identify a suitable parameter setting: pc_alpha=0.1, alpha_level=0.01, temporal=(3,4)."
 git add -A
 git commit -m "$com"
 git push
