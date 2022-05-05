@@ -50,19 +50,17 @@ class BackgroundGenerator():
                     if event_id + lag >= num_event:
                         continue
                     temporal_pair_dict[frame_id][lag] = np.zeros(shape=(num_attrs, num_attrs), dtype=np.int64) if lag not in temporal_pair_dict[frame_id].keys() else temporal_pair_dict[frame_id][lag]
-                    heuristic_temporal_pair_dict[frame_id][lag] = np.zeros(shape=(num_attrs, num_attrs), dtype=np.int64) if lag not in temporal_pair_dict[frame_id].keys() else temporal_pair_dict[frame_id][lag]
+                    heuristic_temporal_pair_dict[frame_id][lag] = np.zeros(shape=(num_attrs, num_attrs), dtype=np.int64) if lag not in heuristic_temporal_pair_dict[frame_id].keys() else heuristic_temporal_pair_dict[frame_id][lag]
                     prior_attr = attr_sequence[event_id]; con_attr = attr_sequence[event_id + lag]
                     temporal_pair_dict[frame_id][lag][attr_names.index(prior_attr), attr_names.index(con_attr)] += 1
-                    heuristic_temporal_pair_dict[frame_id][lag][attr_names.index(prior_attr), attr_names.index(con_attr)] += 1
         for frame_id in range(len(self.event_processor.frame_dict.keys())): # Construct the array
             for lag in range (1, self.tau_max + 1):
                 attr_array = temporal_pair_dict[frame_id][lag]
                 heuristic_attr_array = heuristic_temporal_pair_dict[frame_id][lag]
                 for idx, x in np.ndenumerate(attr_array):
-                    # attr_array[idx] = 0 if x == 0 else 1
                     """JC TODO: Explain here why we set 5 as the golden standard and why our heuristic standard is set to 4."""
-                    attr_array[idx] = 0 if x < 5 * self.partition_config[1] else 1 
-                    heuristic_attr_array[idx] = 0 if x < 2 * self.partition_config[1] else 1 
+                    heuristic_attr_array[idx] = 0 if x < 2 * self.partition_config[1] else 1
+                    attr_array[idx] = 0 if x < 4 * self.partition_config[1] else 1  
                 print("sum(heuristic_temporal_array) - sum(temporal_array) for frame_id = {}, lag = {} is {}".format(frame_id, lag, np.sum(heuristic_attr_array) - np.sum(attr_array)))
 
         return temporal_pair_dict, heuristic_temporal_pair_dict
