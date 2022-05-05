@@ -59,7 +59,7 @@ class BackgroundGenerator():
                 heuristic_attr_array = heuristic_temporal_pair_dict[frame_id][lag]
                 for idx, x in np.ndenumerate(attr_array):
                     """JC TODO: Explain here why we set 5 as the golden standard and why our heuristic standard is set to 4."""
-                    heuristic_attr_array[idx] = 0 if x < 2 * self.partition_config[1] else 1
+                    heuristic_attr_array[idx] = 0 if x < 3 * self.partition_config[1] else 1
                     attr_array[idx] = 0 if x < 4 * self.partition_config[1] else 1  
                 print("sum(heuristic_temporal_array) - sum(temporal_array) for frame_id = {}, lag = {} is {}".format(frame_id, lag, np.sum(heuristic_attr_array) - np.sum(attr_array)))
 
