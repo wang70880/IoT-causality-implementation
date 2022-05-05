@@ -89,6 +89,24 @@ NOTE: After applying background knowledge, the number of FPs is reduced.
     fp = 14
     precision = 0.72
     recall = 0.8571428571428571
-NOTE: The reason for MCI fns is the following.
-    1. fps in PC which incur high dimensionality
 ******************************************************************************************************************************
+
+For golden standard detection:
+
+[pc_alpha = 0.5, alpha_level = 0.1, # of frames = 5]
+Identification with no info (precision, recall) =  0.217, 0.929
+Identification with spatial info (precision, recall) = 0.393, 0.943
+Identification with spatial + temporal info (precision, recall) = ?
+Identification with full info (precision, recall) = 1.0, 0.9612547892720306
+
+[pc_alpha = 0.1, alpha_level = 0.001, # of frames = 5]
+Identification with no info (precision, recall) =  0.24, 0.909
+Identification with functionality info (precision, recall) = 0.26, 0.915
+Identification with spatial info (precision, recall) = 0.437, 0.896
+Identification with temporal info (precision, recall) = 1.0, 0.931
+Identification with spatial + temporal info (precision, recall) = test
+Identification with full info (precision, recall) = 1.0, 0.942
+
+[pc_alpha = 0.01, alpha_level = 0.0001, # of frames = 5]
+Identification with spatial info (precision, recall) =  0.461, 0.864
+Identification with full info (precision, recall) =  1.0 0.900

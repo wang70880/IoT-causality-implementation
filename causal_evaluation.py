@@ -57,6 +57,16 @@ class Evaluator():
         self._print_pair_list(self.correlation_dict[type][frame_id][tau])
 
     def _adhoc_estimate_single_discovery_accuracy(self, frame_id, tau, pcmci_results):
+        """This function estimates the discovery accuracy for only user activity correlations.
+
+        Args:
+            frame_id (_type_): _description_
+            tau (_type_): _description_
+            pcmci_results (_type_): _description_
+
+        Returns:
+            _type_: _description_
+        """
         attr_names = self.event_processor.attr_names; num_attrs = len(attr_names)
         n_discovery = 0
         pcmci_array = np.zeros(shape=(num_attrs, num_attrs), dtype=np.int64)

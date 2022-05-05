@@ -11,11 +11,12 @@ class BackgroundGenerator():
         self.tau_max = tau_max
         self.event_processor = event_processor
 
-        self.temporal_pair_dict = self._temporal_pair_identification()
+        self.temporal_pair_dict, self.heuristic_temporal_pair_dict = self._temporal_pair_identification()
         self.spatial_pair_dict = self._spatial_pair_identification()
         self.functionality_pair_dict = self._functionality_pair_identification()
 
         self.correlation_dict = {
+            'heuristic-temporal': self.heuristic_temporal_pair_dict,
             'temporal': self.temporal_pair_dict,
             'spatial': self.spatial_pair_dict,
             'functionality': self.functionality_pair_dict
@@ -35,8 +36,10 @@ class BackgroundGenerator():
 
         """
         temporal_pair_dict = {} # First index: frame_id. Second index: lag. Value: an integer array of shape num_attrs X num_attrs
+        heuristic_temporal_pair_dict = {}
         for frame_id in range( len(self.event_processor.frame_dict.keys())): # Collect all lagged pairs in all frames
             temporal_pair_dict[frame_id] = {}
+            heuristic_temporal_pair_dict[frame_id] = {}
             attr_names = self.event_processor.attr_names; num_attrs = len(attr_names)
             attr_sequence = self.event_processor.frame_dict[frame_id]['attr-sequence']
             state_sequence = self.event_processor.frame_dict[frame_id]['state-sequence']
@@ -47,17 +50,21 @@ class BackgroundGenerator():
                     if event_id + lag >= num_event:
                         continue
                     temporal_pair_dict[frame_id][lag] = np.zeros(shape=(num_attrs, num_attrs), dtype=np.int64) if lag not in temporal_pair_dict[frame_id].keys() else temporal_pair_dict[frame_id][lag]
+                    heuristic_temporal_pair_dict[frame_id][lag] = np.zeros(shape=(num_attrs, num_attrs), dtype=np.int64) if lag not in temporal_pair_dict[frame_id].keys() else temporal_pair_dict[frame_id][lag]
                     prior_attr = attr_sequence[event_id]; con_attr = attr_sequence[event_id + lag]
                     temporal_pair_dict[frame_id][lag][attr_names.index(prior_attr), attr_names.index(con_attr)] += 1
-
-        for frame_id in range( len(self.event_processor.frame_dict.keys())):
+                    heuristic_temporal_pair_dict[frame_id][lag][attr_names.index(prior_attr), attr_names.index(con_attr)] += 1
+        for frame_id in range(len(self.event_processor.frame_dict.keys())): # Construct the array
             for lag in range (1, self.tau_max + 1):
                 attr_array = temporal_pair_dict[frame_id][lag]
+                heuristic_attr_array = heuristic_temporal_pair_dict[frame_id][lag]
                 for idx, x in np.ndenumerate(attr_array):
                     # attr_array[idx] = 0 if x == 0 else 1
-                    attr_array[idx] = 0 if x < 5 * self.partition_config[1] else 1 # JC NOTE: Filter out pairs with low frequencies (threshold: the number of days for current frame)
+                    """JC TODO: Explain here why we set 5 as the golden standard and why our heuristic standard is set to 4."""
+                    attr_array[idx] = 0 if x < 5 * self.partition_config[1] else 1 
+                    heuristic_attr_array[idx] = 0 if x < 4 * self.partition_config[1] else 1 
 
-        return temporal_pair_dict
+        return temporal_pair_dict, heuristic_temporal_pair_dict
     
     def _testbed_area_infomation(self):
         area_list = []

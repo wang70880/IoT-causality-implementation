@@ -151,7 +151,7 @@ for dataframe in dataframes:
     selected_links = {n: {m: [(i, -t) for i in range(N) for \
             t in range(tau_min, tau_max + 1)] if m == n else [] for m in range(N)} for n in range(N)}
     # JC TODO: Remove ad-hoc codes here which sets the selected_links to be directly the golden standard
-    selected_links = background_generator.apply_background_knowledge(selected_links, 'temporal', frame_id)
+    selected_links = background_generator.apply_background_knowledge(selected_links, 'heuristic-temporal', frame_id)
     selected_links = background_generator.apply_background_knowledge(selected_links, 'spatial', frame_id)
     selected_links = background_generator.apply_background_knowledge(selected_links, 'functionality', frame_id)
     # Scatter jobs given the avaliable processes
