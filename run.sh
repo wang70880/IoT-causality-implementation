@@ -5,7 +5,7 @@ declare -a partition_array=(5 10 15 20 30)
 evaluatePartitionAccuracy() {
     for bk in ${bk_array[@]}; do
         for partition in ${partition_array[@]}; do
-            mpiexec -n 35 python -u run_pcmci_parallel.py $partition $bk &>> output.txt &
+            eval 'mpiexec -n 35 python -u run_pcmci_parallel.py ${partition} ${bk} &>> output.txt'
         done
     done
 }

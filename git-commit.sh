@@ -1,5 +1,5 @@
 #!/bin/sh
-com="[Evaluation] Evaluate the accuracy of discovery given different partitions and background knowledge"
+com="[Evaluation] Update the run script"
 git add -A
 git commit -m "$com"
 git push
