@@ -116,10 +116,11 @@ def _run_mci_parallel(j, pcmci_of_j, all_parents, selected_links,\
 
     return j, results_in_j
 
+
 # Parameter Settings
 dataset = 'hh101'
 stable_only = 0
-partition_config = (1, 10)
+partition_config = 10
 cond_ind_test = CMIsymb()
 tau_max = 1; tau_min = 1
 verbosity = 0  # -1: No debugging information; 0: Debugging information in this module; 2: Debugging info in PCMCI class; 3: Debugging info in CIT implementations
@@ -163,7 +164,7 @@ for dataframe in dataframes:
             print(  "\n * frame_id = %d" % frame_id
                   + "\n * independence test = %s" % cond_ind_test.measure
                   + "\n * n_records = %d" % T 
-                  + "\n * partition_days = %d" % partition_config[1]
+                  + "\n * partition_days = %d" % partition_config
                   + "\n * tau_min = {}, tau_max = {}".format(tau_min, tau_max)
                   + "\n * pc_alpha = {}, max_conds_dim = {}, max_comb = {}".format(pc_alpha, max_conds_dim, maximum_comb)
                   + "\n * alpha_level = {}, max_conds_px = {}, max_conds_py = {}".format(alpha_level, max_conds_px, max_conds_py))

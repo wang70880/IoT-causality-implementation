@@ -391,17 +391,16 @@ class Hprocessor(Processor):
 			fout.close()
 		return attr_names, transition_events_states
 	
-	def partition_data_frame(self, attr_names=[], transition_events_states=[], partition_config = ()):
+	def partition_data_frame(self, attr_names=[], transition_events_states=[], partition_config = 10):
 		"""Partition the data frame according to the set of triggered attributes
 
 		Args:
 			transition_events_states (list, optional): _description_. Defaults to [].
-			partition_config (tuple(int, dict), must): The (scheme_id, parameters) tuple deciding how to partition the data
+			partition_config (int, must): The partitioned days
 		
 		Returns:
 			dataframes (list[Dataframe]): The separated data frames
 		"""
-		assert (len(partition_config) == 2)
 		dataframes = []
 		frame_dict = {}
 		states_array = np.stack([tup[1] for tup in transition_events_states], axis=0)
@@ -409,7 +408,7 @@ class Hprocessor(Processor):
 			assert(x in [0, 1])
 		events_list = [tup[0] for tup in transition_events_states]
 
-		day_criteria = partition_config[1]
+		day_criteria = partition_config
 		last_timestamp = ''
 		seg_points = []
 		count = 0
@@ -450,7 +449,7 @@ class Hprocessor(Processor):
 
 		return dataframes
 	
-	def initiate_data_preprocessing(self, partition_config=()):
+	def initiate_data_preprocessing(self, partition_config=10):
 		"""The starting function for preprocessing data
 		"""
 		parsed_events = self.sanitize_raw_events()

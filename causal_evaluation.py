@@ -104,7 +104,7 @@ class Evaluator():
 if __name__ == '__main__':
     # Parameter setting
     dataset = 'hh101'
-    partition_config = (1, 10)
+    partition_config = 10
     tau_max = 1; tau_min = 1
     verbosity = 0  # -1: No debugging information; 0: Debugging information in parallel module; 1: Debugging info in PCMCI class; 2: Debugging info in CIT implementations
     ## For stable-pc

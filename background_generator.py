@@ -30,7 +30,7 @@ class BackgroundGenerator():
             Note that many temporal pairs stem from the disorder of IoT logs. Therefore, we filter out pairs with low frequencies.
 
         Args:
-            partition_config (tuple): _description_
+            partition_config (int): _description_
             tau_max (int, optional): _description_. Defaults to 1.
         Returns:
 
@@ -59,8 +59,8 @@ class BackgroundGenerator():
                 heuristic_attr_array = heuristic_temporal_pair_dict[frame_id][lag]
                 for idx, x in np.ndenumerate(attr_array):
                     """JC TODO: Explain here why we set 5 as the golden standard and why our heuristic standard is set to 4."""
-                    heuristic_attr_array[idx] = 0 if x < 3 * self.partition_config[1] else 1
-                    attr_array[idx] = 0 if x < 4 * self.partition_config[1] else 1  
+                    heuristic_attr_array[idx] = 0 if x < 3 * self.partition_config else 1
+                    attr_array[idx] = 0 if x < 4 * self.partition_config else 1  
 
         return temporal_pair_dict, heuristic_temporal_pair_dict
     
@@ -164,7 +164,7 @@ class BackgroundGenerator():
 if __name__ == '__main__':
     # Parameter setting
     dataset = 'hh101'
-    partition_config = (1, 10)
+    partition_config = 10
     tau_max = 2; tau_min = 1
     event_preprocessor = evt_proc.Hprocessor(dataset)
     attr_names, dataframes = event_preprocessor.initiate_data_preprocessing(partition_config=partition_config)
