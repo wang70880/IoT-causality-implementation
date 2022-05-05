@@ -116,7 +116,6 @@ def _run_mci_parallel(j, pcmci_of_j, all_parents, selected_links,\
 
     return j, results_in_j
 
-
 # Parameter Settings
 dataset = 'hh101'
 stable_only = 0
