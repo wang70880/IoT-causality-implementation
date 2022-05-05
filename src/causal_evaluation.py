@@ -68,12 +68,11 @@ class Evaluator():
             _type_: _description_
         """
         attr_names = self.event_processor.attr_names; num_attrs = len(attr_names)
-        n_discovery = 0
         pcmci_array = np.zeros(shape=(num_attrs, num_attrs), dtype=np.int64)
         for outcome_attr in pcmci_results.keys(): # Transform the pcmci_results dict into array format (given the specific time lag \tau)
             for (cause_attr, lag) in pcmci_results[outcome_attr]:
                 pcmci_array[attr_names.index(cause_attr), attr_names.index(outcome_attr)] = 1 if lag == -1 * tau else 0
-        print("[frame_id={}, tau={}] Evaluating accuracy for user-activity correlations".format(frame_id, tau))
+        #print("[frame_id={}, tau={}] Evaluating accuracy for user-activity correlations".format(frame_id, tau))
         discovery_array = pcmci_array * self.background_generator.functionality_pair_dict['activity']; truth_array = self.user_correlation_dict[frame_id][tau]
         n_discovery = np.sum(discovery_array); truth_count = np.sum(truth_array)
         tp = 0; fn = 0; fp = 0
@@ -90,16 +89,16 @@ class Evaluator():
                 fp += 1
         precision = (tp * 1.0) / (tp + fp)
         recall = (tp * 1.0) / (tp + fn)
-        print("* FNs: {}".format(fn_list))
-        print("* FPs: {}".format(fp_list))
-        print("n_discovery = %d" % n_discovery
-                  + "\ntruth_count = %s" % truth_count 
-                  + "\ntp = %d" % tp
-                  + "\nfn = %d" % fn 
-                  + "\nfp = %d" % fp
-                  + "\nprecision = {}".format(precision)
-                  + "\nrecall = {}".format(recall))
-        return precision, recall
+        #print("* FNs: {}".format(fn_list))
+        #print("* FPs: {}".format(fp_list))
+        #print("n_discovery = %d" % n_discovery
+        #          + "\ntruth_count = %s" % truth_count 
+        #          + "\ntp = %d" % tp
+        #          + "\nfn = %d" % fn 
+        #          + "\nfp = %d" % fp
+        #          + "\nprecision = {}".format(precision)
+        #          + "\nrecall = {}".format(recall))
+        return truth_count, precision, recall
 
 if __name__ == '__main__':
     # Parameter setting

@@ -21,6 +21,7 @@ from background_generator import BackgroundGenerator
 from mpi4py import MPI
 import numpy as np
 import os, sys, pickle
+import statistics
 import time
 
 from src.tigramite.tigramite import data_processing as pp
@@ -116,13 +117,15 @@ def _run_mci_parallel(j, pcmci_of_j, all_parents, selected_links,\
 
     return j, results_in_j
 
-# Parameter Settings
+"""Parameter Settings"""
+partition_config = int(sys.argv[1])
+apply_bk = int(sys.argv[2])
+
 dataset = 'hh101'
 stable_only = 0
-partition_config = 10
 cond_ind_test = CMIsymb()
 tau_max = 1; tau_min = 1
-verbosity = 0  # -1: No debugging information; 0: Debugging information in this module; 2: Debugging info in PCMCI class; 3: Debugging info in CIT implementations
+verbosity = -1 # -1: No debugging information; 0: Debugging information in this module; 2: Debugging info in PCMCI class; 3: Debugging info in CIT implementations
 ## For stable-pc
 pc_alpha = 0.1
 max_conds_dim = 5
@@ -132,6 +135,11 @@ alpha_level = 0.01
 max_conds_px = 5; max_conds_py= 5
 ## Resulting dict
 pcmci_links_dict = {}; stable_links_dict = {}
+# For evaluations
+pc_time_list = []; mci_time_list = []
+pc_truth_count_list = []; mci_truth_count_list = []
+pc_precision_list = []; pc_recall_list = []
+mci_precision_list = []; mci_recall_list = []
 """Preprocess the data. Construct background knowledge and golden standard"""
 event_preprocessor = evt_proc.Hprocessor(dataset)
 attr_names, dataframes = event_preprocessor.initiate_data_preprocessing(partition_config=partition_config)
@@ -139,21 +147,17 @@ background_generator = bk_generator.BackgroundGenerator(dataset, event_preproces
 evaluator = causal_eval.Evaluator(dataset=dataset, event_processor=event_preprocessor, background_generator=background_generator, tau_max=tau_max)
 
 frame_id = 0
-precision_list = []
-recall_list = []
 for dataframe in dataframes:
     T = dataframe.T; N = dataframe.N
     selected_variables = list(range(N))
     # selected_variables = [attr_names.index('M012')] # JC TODO: Remove ad-hoc codes here
-    """
-    JC NOTE: Apply background knowledge to prune some edges in advance.
-    """
+    """JC NOTE: Apply background knowledge to prune some edges in advance."""
     selected_links = {n: {m: [(i, -t) for i in range(N) for \
             t in range(tau_min, tau_max + 1)] if m == n else [] for m in range(N)} for n in range(N)}
-    # JC TODO: Remove ad-hoc codes here which sets the selected_links to be directly the golden standard
     selected_links = background_generator.apply_background_knowledge(selected_links, 'heuristic-temporal', frame_id)
-    #selected_links = background_generator.apply_background_knowledge(selected_links, 'spatial', frame_id)
-    #selected_links = background_generator.apply_background_knowledge(selected_links, 'functionality', frame_id)
+    if apply_bk == 1:
+        selected_links = background_generator.apply_background_knowledge(selected_links, 'spatial', frame_id)
+        selected_links = background_generator.apply_background_knowledge(selected_links, 'functionality', frame_id)
     # Scatter jobs given the avaliable processes
     splitted_jobs = None
     if COMM.rank == 0:
@@ -171,7 +175,6 @@ for dataframe in dataframes:
         if verbosity > -1:
             print("splitted selected_variables = ", splitted_jobs)
     scattered_jobs = COMM.scatter(splitted_jobs, root=0)
-
     """Each process calls stable-pc"""
     pc_start = time.time()
     results = []
@@ -180,7 +183,6 @@ for dataframe in dataframes:
                                                             tau_min=tau_min, tau_max=tau_max, pc_alpha=pc_alpha,\
                                                             max_conds_dim=max_conds_dim, verbosity=verbosity, maximum_comb=maximum_comb)
         results.append((j, pcmci_of_j, parents_of_j))
-
     """Gather stable-pc results on rank 0, and distribute the gathered result to each slave node."""
     results = MPI.COMM_WORLD.gather(results, root=0)
     if COMM.rank == 0: 
@@ -195,12 +197,12 @@ for dataframe in dataframes:
             all_parents_with_name[attr_names[outcome_id]] = [(attr_names[cause_id],lag) for (cause_id, lag) in cause_list]
         stable_links_dict[frame_id] = all_parents_with_name
         pc_end = time.time()
+        truth_count, precision, recall = evaluator._adhoc_estimate_single_discovery_accuracy(frame_id, tau_max, all_parents_with_name)
+        pc_time_list.append((pc_end - pc_start) * 1.0 / 60); pc_truth_count_list.append(truth_count); pc_precision_list.append(precision); pc_recall_list.append(recall)
         if verbosity > -1:
             print("##\n## PC-stable discovery for frame {} finished. Consumed time: {} mins\n##".format(frame_id, (pc_end - pc_start) * 1.0 / 60))
             print("Evaluating PC-stable's accuracy:".format(frame_id))
-            precision, recall = evaluator._adhoc_estimate_single_discovery_accuracy(frame_id, tau_max, all_parents_with_name)
-            precision_list.append(precision)
-            recall_list.append(recall)
+            print("truth_count, precision, recall = {}, {}, {}".format(truth_count, precision, recall))
         for i in range(1, COMM.size):
             COMM.send((all_parents, pcmci_objects), dest=i)
     else:
@@ -250,13 +252,17 @@ for dataframe in dataframes:
                 for p in sorted_links:
                     sorted_links_with_name[attr_names[j]].append((attr_names[p[0]], p[1]))
             mci_end = time.time()
+            truth_count, precision, recall = evaluator._adhoc_estimate_single_discovery_accuracy(frame_id, tau_max, sorted_links_with_name)
+            mci_time_list.append((mci_end - mci_start) * 1.0 / 60); mci_truth_count_list.append(truth_count); mci_precision_list.append(precision); mci_recall_list.append(recall)
             if verbosity > -1:
                 print("##\n## MCI for frame {} finished. Consumed time: {} mins\n##".format(frame_id, (mci_end - mci_start) * 1.0 / 60))
-                evaluator._adhoc_estimate_single_discovery_accuracy(frame_id, tau_max, sorted_links_with_name)
+                print("Evaluating MCI's accuracy:".format(frame_id))
+                print("truth_count, precision, recall = {}, {}, {}".format(truth_count, precision, recall))
             pcmci_links_dict[frame_id] = sorted_links_with_name
     frame_id += 1
     if frame_id == 5: # JC TODO: Remove ad-hoc testing code here
         break
 
 if COMM.rank == 0:
-    print("Average precision, recall = {}, {} ".format( sum(precision_list) * 1.0 / len(precision_list), sum(recall_list) * 1.0 / len(precision_list)  ))
+    print("stablePC evaluations: average time, truth-count, precision, recall = {}, {} ".format(statistics.mean(pc_time_list), statistics.mean(pc_truth_count_list), statistics.mean(pc_precision_list), statistics.mean(pc_recall_list)))
+    print("MCI evaluations: average time, truth-count, precision, recall = {}, {} ".format(statistics.mean(mci_time_list), statistics.mean(mci_truth_count_list), statistics.mean(mci_precision_list), statistics.mean(mci_recall_list)))
