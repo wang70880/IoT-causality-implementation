@@ -17,7 +17,6 @@ from mimetypes import init
 from turtle import back
 
 from attr import attr
-from background_generator import BackgroundGenerator
 from mpi4py import MPI
 import numpy as np
 import os, sys, pickle
