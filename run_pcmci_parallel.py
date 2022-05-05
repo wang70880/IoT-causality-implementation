@@ -135,6 +135,7 @@ max_conds_px = 5; max_conds_py= 5
 ## Resulting dict
 pcmci_links_dict = {}; stable_links_dict = {}
 # For evaluations
+record_count_list =[]
 pc_time_list = []; mci_time_list = []
 pc_truth_count_list = []; mci_truth_count_list = []
 pc_precision_list = []; pc_recall_list = []
@@ -145,9 +146,17 @@ attr_names, dataframes = event_preprocessor.initiate_data_preprocessing(partitio
 background_generator = bk_generator.BackgroundGenerator(dataset, event_preprocessor, partition_config, tau_max)
 evaluator = causal_eval.Evaluator(dataset=dataset, event_processor=event_preprocessor, background_generator=background_generator, tau_max=tau_max)
 
+print("**** Initiate PCMCI for partition_config = {}, bk = {} ****".format(partition_config, apply_bk)
+      + "\n Algorithm parameters:"
+      + "\n * independence test = %s" % cond_ind_test.measure
+      + "\n * tau_min = {}, tau_max = {}".format(tau_min, tau_max)
+      + "\n * pc_alpha = {}, max_conds_dim = {}, max_comb = {}".format(pc_alpha, max_conds_dim, maximum_comb)
+      + "\n * alpha_level = {}, max_conds_px = {}, max_conds_py = {}".format(alpha_level, max_conds_px, max_conds_py))
+
 frame_id = 0
 for dataframe in dataframes:
     T = dataframe.T; N = dataframe.N
+    record_count_list.append(T)
     selected_variables = list(range(N))
     # selected_variables = [attr_names.index('M012')] # JC TODO: Remove ad-hoc codes here
     """JC NOTE: Apply background knowledge to prune some edges in advance."""
@@ -161,15 +170,7 @@ for dataframe in dataframes:
     splitted_jobs = None
     if COMM.rank == 0:
         if verbosity > -1:
-            print("## Running Parallelized Tigramite PC algorithm\n##"
-                  "Parameters:")
-            print(  "\n * frame_id = %d" % frame_id
-                  + "\n * independence test = %s" % cond_ind_test.measure
-                  + "\n * n_records = %d" % T 
-                  + "\n * partition_days = %d" % partition_config
-                  + "\n * tau_min = {}, tau_max = {}".format(tau_min, tau_max)
-                  + "\n * pc_alpha = {}, max_conds_dim = {}, max_comb = {}".format(pc_alpha, max_conds_dim, maximum_comb)
-                  + "\n * alpha_level = {}, max_conds_px = {}, max_conds_py = {}".format(alpha_level, max_conds_px, max_conds_py))
+            print("## Running Parallelized Tigramite PC algorithm\n##")
         splitted_jobs = _split(selected_variables, COMM.size) # Split selected_variables into however many cores are available.
         if verbosity > -1:
             print("splitted selected_variables = ", splitted_jobs)
@@ -263,5 +264,6 @@ for dataframe in dataframes:
         break
 
 if COMM.rank == 0:
-    print("stablePC evaluations: average time, truth-count, precision, recall = {}, {} ".format(statistics.mean(pc_time_list), statistics.mean(pc_truth_count_list), statistics.mean(pc_precision_list), statistics.mean(pc_recall_list)))
-    print("MCI evaluations: average time, truth-count, precision, recall = {}, {} ".format(statistics.mean(mci_time_list), statistics.mean(mci_truth_count_list), statistics.mean(mci_precision_list), statistics.mean(mci_recall_list)))
+    print("Average counts of records: {}".format(statistics.mean(record_count_list)))
+    print("stablePC evaluations: average time, truth-count, precision, recall = {}, {}, {}, {}".format(statistics.mean(pc_time_list), statistics.mean(pc_truth_count_list), statistics.mean(pc_precision_list), statistics.mean(pc_recall_list)))
+    print("MCI evaluations: average time, truth-count, precision, recall = {}, {}, {}, {}".format(statistics.mean(mci_time_list), statistics.mean(mci_truth_count_list), statistics.mean(mci_precision_list), statistics.mean(mci_recall_list)))
