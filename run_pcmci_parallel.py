@@ -145,14 +145,13 @@ event_preprocessor = evt_proc.Hprocessor(dataset)
 attr_names, dataframes = event_preprocessor.initiate_data_preprocessing(partition_config=partition_config)
 background_generator = bk_generator.BackgroundGenerator(dataset, event_preprocessor, partition_config, tau_max)
 evaluator = causal_eval.Evaluator(dataset=dataset, event_processor=event_preprocessor, background_generator=background_generator, tau_max=tau_max)
-
-print("**** Initiate PCMCI for partition_config = {}, bk = {} ****".format(partition_config, apply_bk)
-      + "\n Algorithm parameters:"
-      + "\n * independence test = %s" % cond_ind_test.measure
-      + "\n * tau_min = {}, tau_max = {}".format(tau_min, tau_max)
-      + "\n * pc_alpha = {}, max_conds_dim = {}, max_comb = {}".format(pc_alpha, max_conds_dim, maximum_comb)
-      + "\n * alpha_level = {}, max_conds_px = {}, max_conds_py = {}".format(alpha_level, max_conds_px, max_conds_py))
-
+if COMM.rank == 0:
+    print("**** Initiate PCMCI for partition_config = {}, bk = {} ****".format(partition_config, apply_bk)
+          + "\n Algorithm parameters:"
+          + "\n * independence test = %s" % cond_ind_test.measure
+          + "\n * tau_min = {}, tau_max = {}".format(tau_min, tau_max)
+          + "\n * pc_alpha = {}, max_conds_dim = {}, max_comb = {}".format(pc_alpha, max_conds_dim, maximum_comb)
+          + "\n * alpha_level = {}, max_conds_px = {}, max_conds_py = {}".format(alpha_level, max_conds_px, max_conds_py))
 frame_id = 0
 for dataframe in dataframes:
     T = dataframe.T; N = dataframe.N
@@ -169,10 +168,9 @@ for dataframe in dataframes:
     # Scatter jobs given the avaliable processes
     splitted_jobs = None
     if COMM.rank == 0:
-        if verbosity > -1:
-            print("## Running Parallelized Tigramite PC algorithm\n##")
         splitted_jobs = _split(selected_variables, COMM.size) # Split selected_variables into however many cores are available.
         if verbosity > -1:
+            print("## Running Parallelized Tigramite PC algorithm\n##")
             print("splitted selected_variables = ", splitted_jobs)
     scattered_jobs = COMM.scatter(splitted_jobs, root=0)
     """Each process calls stable-pc"""
@@ -183,7 +181,7 @@ for dataframe in dataframes:
                                                             tau_min=tau_min, tau_max=tau_max, pc_alpha=pc_alpha,\
                                                             max_conds_dim=max_conds_dim, verbosity=verbosity, maximum_comb=maximum_comb)
         results.append((j, pcmci_of_j, parents_of_j))
-    """Gather stable-pc results on rank 0, and distribute the gathered result to each slave node."""
+    """Gather stable-pc results on rank 0, and evaluate the accuracy."""
     results = MPI.COMM_WORLD.gather(results, root=0)
     if COMM.rank == 0: 
         all_parents = {}
@@ -262,8 +260,8 @@ for dataframe in dataframes:
     frame_id += 1
     if frame_id == 5: # JC TODO: Remove ad-hoc testing code here
         break
-
 if COMM.rank == 0:
+    print("Number of frames: {}".format(frame_id))
     print("Average counts of records: {}".format(statistics.mean(record_count_list)))
     print("stablePC evaluations: average time, truth-count, precision, recall = {}, {}, {}, {}".format(statistics.mean(pc_time_list), statistics.mean(pc_truth_count_list), statistics.mean(pc_precision_list), statistics.mean(pc_recall_list)))
     print("MCI evaluations: average time, truth-count, precision, recall = {}, {}, {}, {}".format(statistics.mean(mci_time_list), statistics.mean(mci_truth_count_list), statistics.mean(mci_precision_list), statistics.mean(mci_recall_list)))
