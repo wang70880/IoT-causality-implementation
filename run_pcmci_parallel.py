@@ -122,7 +122,7 @@ partition_config = int(sys.argv[1])
 apply_bk = int(sys.argv[2])
 
 dataset = 'hh101'
-stable_only = 0
+stable_only = 1
 cond_ind_test = CMIsymb()
 tau_max = 1; tau_min = 1
 verbosity = -1 # -1: No debugging information; 0: Debugging information in this module; 2: Debugging info in PCMCI class; 3: Debugging info in CIT implementations
@@ -137,6 +137,7 @@ max_conds_px = 5; max_conds_py= 5
 pcmci_links_dict = {}; stable_links_dict = {}
 # For evaluations
 record_count_list =[]
+pc_result_dict = {}; mci_result_dict = {}
 pc_time_list = []; mci_time_list = []
 pc_truth_count_list = []; mci_truth_count_list = []
 pc_precision_list = []; pc_recall_list = []
@@ -147,6 +148,7 @@ attr_names, dataframes = event_preprocessor.initiate_data_preprocessing(partitio
 background_generator = bk_generator.BackgroundGenerator(dataset, event_preprocessor, partition_config, tau_max)
 evaluator = causal_eval.Evaluator(dataset=dataset, event_processor=event_preprocessor, background_generator=background_generator, tau_max=tau_max)
 frame_id = 0
+"""Initiate Causal Discovery algorithm."""
 for dataframe in dataframes:
     T = dataframe.T; N = dataframe.N
     record_count_list.append(T)
@@ -189,12 +191,9 @@ for dataframe in dataframes:
             all_parents_with_name[attr_names[outcome_id]] = [(attr_names[cause_id],lag) for (cause_id, lag) in cause_list]
         stable_links_dict[frame_id] = all_parents_with_name
         pc_end = time.time()
-        truth_count, precision, recall = evaluator._adhoc_estimate_single_discovery_accuracy(frame_id, tau_max, all_parents_with_name)
-        pc_time_list.append((pc_end - pc_start) * 1.0 / 60); pc_truth_count_list.append(truth_count); pc_precision_list.append(precision); pc_recall_list.append(recall)
+        pc_result_dict[frame_id] = all_parents_with_name; pc_time_list.append((pc_end - pc_start) * 1.0 / 60)
         if verbosity > -1:
             print("##\n## PC-stable discovery for frame {} finished. Consumed time: {} mins\n##".format(frame_id, (pc_end - pc_start) * 1.0 / 60))
-            print("Evaluating PC-stable's accuracy:".format(frame_id))
-            print("truth_count, precision, recall = {}, {}, {}".format(truth_count, precision, recall))
         for i in range(1, COMM.size):
             COMM.send((all_parents, pcmci_objects), dest=i)
     else:
@@ -241,25 +240,27 @@ for dataframe in dataframes:
                 for p in sorted_links:
                     sorted_links_with_name[attr_names[j]].append((attr_names[p[0]], p[1]))
             mci_end = time.time()
-            truth_count, precision, recall = evaluator._adhoc_estimate_single_discovery_accuracy(frame_id, tau_max, sorted_links_with_name)
-            mci_time_list.append((mci_end - mci_start) * 1.0 / 60); mci_truth_count_list.append(truth_count); mci_precision_list.append(precision); mci_recall_list.append(recall)
+            mci_result_dict[frame_id] = sorted_links_with_name; mci_time_list.append((mci_end - mci_start) * 1.0 / 60)
             if verbosity > -1:
                 print("##\n## MCI for frame {} finished. Consumed time: {} mins\n##".format(frame_id, (mci_end - mci_start) * 1.0 / 60))
-                print("Evaluating MCI's accuracy:".format(frame_id))
-                print("truth_count, precision, recall = {}, {}, {}".format(truth_count, precision, recall))
             pcmci_links_dict[frame_id] = sorted_links_with_name
     frame_id += 1
     if frame_id == len(dataframes) - 1: # JC NOTE: Skip the last frame in case that the number of records is not enough.
         break
+
+"""Evaluations of discovery accuracy and comparisons with ARM."""
 if COMM.rank == 0:
-    print("**** Discovery results for partition_config = {}, bk = {} ****".format(partition_config, apply_bk)
-          + "\n Algorithm parameters:"
-          + "\n Number of frames: {}".format(frame_id)
-          + "\n * independence test = %s" % cond_ind_test.measure
-          + "\n * tau_min = {}, tau_max = {}".format(tau_min, tau_max)
-          + "\n * pc_alpha = {}, max_conds_dim = {}, max_comb = {}".format(pc_alpha, max_conds_dim, maximum_comb)
-          + "\n * alpha_level = {}, max_conds_px = {}, max_conds_py = {}".format(alpha_level, max_conds_px, max_conds_py)
-          + "\n Average counts of records: {}".format(statistics.mean(record_count_list))
-          + "\nstablePC evaluations: average time, truth-count, precision, recall = {}, {}, {}, {}".format(statistics.mean(pc_time_list), statistics.mean(pc_truth_count_list), statistics.mean(pc_precision_list), statistics.mean(pc_recall_list))
-          + "\nMCI evaluations: average time, truth-count, precision, recall = {}, {}, {}, {}".format(statistics.mean(mci_time_list), statistics.mean(mci_truth_count_list), statistics.mean(mci_precision_list), statistics.mean(mci_recall_list))
-          )
+    pc_avg_truth_count, pc_avg_precision, pc_avg_recall = evaluator.estimate_average_discovery_accuracy(1, pc_result_dict)
+    str = "**** Discovery results for partition_config = {}, bk = {} ****".format(partition_config, apply_bk) \
+          + "\n Algorithm parameters:"\
+          + "\n Number of frames: {}".format(frame_id) \
+          + "\n * independence test = %s" % cond_ind_test.measure \
+          + "\n * tau_min = {}, tau_max = {}".format(tau_min, tau_max) \
+          + "\n * pc_alpha = {}, max_conds_dim = {}, max_comb = {}".format(pc_alpha, max_conds_dim, maximum_comb) \
+          + "\n * alpha_level = {}, max_conds_px = {}, max_conds_py = {}".format(alpha_level, max_conds_px, max_conds_py) \
+          + "\n Average counts of records: {}".format(statistics.mean(record_count_list)) \
+          + "\nstablePC evaluations: average time, truth-count, precision, recall = {}, {}, {}, {}".format(statistics.mean(pc_time_list), pc_avg_truth_count, pc_avg_precision, pc_avg_recall)
+    if stable_only == 0: # If the PCMCI is also initiated, show the evaluation result.
+        mci_avg_truth_count, mci_avg_precision, mci_avg_recall = evaluator.estimate_average_discovery_accuracy(1, mci_result_dict)
+        str += "\nMCI evaluations: average time, truth-count, precision, recall = {}, {}, {}, {}".format(statistics.mean(mci_time_list), mci_avg_truth_count, mci_avg_precision, mci_avg_recall)
+    print(str)

@@ -1,5 +1,5 @@
 #!/bin/sh
-com="[Evaluation] Finish the evaluation of discovery accuracy; Prepare to compare with association rule mining."
+com="[Testing] Update the evaluation module and test the accuracy of the program; Prepare to compare with association rule mining."
 git add -A
 git commit -m "$com"
 git push

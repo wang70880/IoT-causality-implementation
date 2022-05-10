@@ -3,6 +3,8 @@ from tkinter import W
 import jenkspy
 import numpy as np
 from datetime import datetime
+
+from sklearn.linear_model import PassiveAggressiveClassifier
 from src.tigramite.tigramite import data_processing as pp
 
 class Processor:
@@ -449,6 +451,9 @@ class Hprocessor(Processor):
 
 		return dataframes
 	
+	def association_rule_mining(self):
+		pass
+
 	def initiate_data_preprocessing(self, partition_config=10):
 		"""The starting function for preprocessing data
 		"""
