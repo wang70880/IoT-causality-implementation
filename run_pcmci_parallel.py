@@ -31,6 +31,7 @@ from src.tigramite.tigramite.independence_tests import CMIsymb
 import src.event_processing as evt_proc
 import src.background_generator as bk_generator
 import src.causal_evaluation as causal_eval
+import src.causal_monitor as causal_monitor
 
 # Default communicator
 COMM = MPI.COMM_WORLD
@@ -150,30 +151,30 @@ for dataframe in dataframes:
     T = dataframe.T; N = dataframe.N
     record_count_list.append(T)
     selected_variables = list(range(N))
-    # selected_variables = [attr_names.index('M012')] # JC TODO: Remove ad-hoc codes here
-    """JC NOTE: Apply background knowledge to prune some edges in advance."""
+    splitted_jobs = None
+    results = []
+    """Apply background knowledge to prune some edges in advance."""
     selected_links = {n: {m: [(i, -t) for i in range(N) for \
             t in range(tau_min, tau_max + 1)] if m == n else [] for m in range(N)} for n in range(N)}
-    selected_links = background_generator.apply_background_knowledge(selected_links, 'heuristic-temporal', frame_id)
-    if apply_bk == 1:
+    if apply_bk >= 1:
+        selected_links = background_generator.apply_background_knowledge(selected_links, 'heuristic-temporal', frame_id)
+    if apply_bk >= 2:
         selected_links = background_generator.apply_background_knowledge(selected_links, 'spatial', frame_id)
         selected_links = background_generator.apply_background_knowledge(selected_links, 'functionality', frame_id)
-    # Scatter jobs given the avaliable processes
-    splitted_jobs = None
+    
+    """[Numba] Scatter jobs given the avaliable processes."""
     if COMM.rank == 0:
         splitted_jobs = _split(selected_variables, COMM.size) # Split selected_variables into however many cores are available.
-        if verbosity > -1:
-            print("## Running Parallelized Tigramite PC algorithm\n##")
-            print("splitted selected_variables = ", splitted_jobs)
     scattered_jobs = COMM.scatter(splitted_jobs, root=0)
+    
     """Each process calls stable-pc"""
     pc_start = time.time()
-    results = []
     for j in scattered_jobs:
         (j, pcmci_of_j, parents_of_j) = _run_pc_stable_parallel(j=j, dataframe=dataframe, cond_ind_test=cond_ind_test, selected_links=selected_links,\
                                                             tau_min=tau_min, tau_max=tau_max, pc_alpha=pc_alpha,\
                                                             max_conds_dim=max_conds_dim, verbosity=verbosity, maximum_comb=maximum_comb)
         results.append((j, pcmci_of_j, parents_of_j))
+    
     """Gather stable-pc results on rank 0, and evaluate the accuracy."""
     results = MPI.COMM_WORLD.gather(results, root=0)
     if COMM.rank == 0: 
@@ -198,21 +199,18 @@ for dataframe in dataframes:
             COMM.send((all_parents, pcmci_objects), dest=i)
     else:
         (all_parents, pcmci_objects) = COMM.recv(source=0)
-
-    """If the function requires to run PCMCI instead of single stablePC"""
+    
+    """If MCI procedure is needed, run it."""
     if stable_only == 0:
-        if COMM.rank == 0 and verbosity > -1:
-            print("\n## Running Parallelized MCI algorithm\n##")
         scattered_jobs = COMM.scatter(splitted_jobs, root=0)
         results = []
-        # Each process calls MCI algorithm
         mci_start = time.time()
+        """Each process calls MCI algorithm."""
         for j in scattered_jobs:
             (j, results_in_j) = _run_mci_parallel(j, pcmci_objects[j], all_parents, selected_links=selected_links,\
                                             tau_min=tau_min, tau_max=tau_max, alpha_level=alpha_level,\
                                             max_conds_px = max_conds_px, max_conds_py=max_conds_py)
             results.append((j, results_in_j))
-            # print("[Rank {}] Finish MCI algorithm for variable {}, consumed time: {} mins".format(COMM.rank, attr_names[j], (mci_end - mci_start) * 1.0 / 60))
         # The root node merge the result and generate final results
         results = MPI.COMM_WORLD.gather(results, root=0)
         if COMM.rank == 0:
@@ -254,7 +252,7 @@ for dataframe in dataframes:
     if frame_id == len(dataframes) - 1: # JC NOTE: Skip the last frame in case that the number of records is not enough.
         break
 if COMM.rank == 0:
-    print("**** PCMCI results for partition_config = {}, bk = {} ****".format(partition_config, apply_bk)
+    print("**** Discovery results for partition_config = {}, bk = {} ****".format(partition_config, apply_bk)
           + "\n Algorithm parameters:"
           + "\n Number of frames: {}".format(frame_id)
           + "\n * independence test = %s" % cond_ind_test.measure
