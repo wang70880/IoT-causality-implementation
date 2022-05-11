@@ -28,6 +28,7 @@ def draw_accuracy_histogram():
     assert(len(nontemporal_precision_list) == len(nontemporal_recall_list))
 
     fig, ax = plt.subplots(figsize =(12, 8), nrows=2, ncols=2)
+    fig.delaxes(ax[1, 1])
 
     barWidth = 0.25
     br1 = np.arange(len(nontemporal_precision_list))
@@ -69,6 +70,7 @@ def draw_accuracy_histogram():
         else:
             autolabel(rects, ax, 0.6)
 
-    plt.show()
+    #plt.show()
+    plt.savefig('causal-discovery.pdf')
 
 draw_accuracy_histogram()

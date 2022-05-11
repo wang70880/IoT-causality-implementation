@@ -451,9 +451,6 @@ class Hprocessor(Processor):
 
 		return dataframes
 	
-	def association_rule_mining(self):
-		pass
-
 	def initiate_data_preprocessing(self, partition_config=10):
 		"""The starting function for preprocessing data
 		"""

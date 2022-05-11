@@ -6,7 +6,6 @@ import numpy as np
 import src.event_processing as evt_proc
 import src.background_generator as bk_generator
 import statistics
-from pymining import itemmining, assocrules, perftesting
 
 class Evaluator():
 

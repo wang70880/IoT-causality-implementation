@@ -1,5 +1,5 @@
 #!/bin/sh
-com="[Testing] Update the evaluation module and test the accuracy of the program; Prepare to compare with association rule mining."
+com="[Testing] test the speed and the output of different ARM algorithm; Prepare to compare with association rule mining."
 git add -A
 git commit -m "$com"
 git push
