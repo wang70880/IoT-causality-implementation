@@ -55,4 +55,4 @@ if __name__ == '__main__':
     event_preprocessor = evt_proc.Hprocessor(dataset)
     attr_names, dataframes = event_preprocessor.initiate_data_preprocessing(partition_config=partition_config)
     armer = ARMer(dataset, event_preprocessor, tau_max)
-    armer.association_rule_mining(min_support=4 * partition_config, min_support=60, min_confidence=0.5)
+    armer.association_rule_mining(min_support=3 * partition_config, min_confidence=0.5)
