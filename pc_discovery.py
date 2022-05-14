@@ -134,20 +134,18 @@ maximum_comb = 1
 alpha_level = 0.01
 max_conds_px = 5; max_conds_py= 5
 ## Resulting dict
-pcmci_links_dict = {}; stable_links_dict = {}
+pc_result_dict = {}; mci_result_dict = {}
 # For evaluations
 record_count_list =[]
-pc_result_dict = {}; mci_result_dict = {}
 pc_time_list = []; mci_time_list = []
-pc_truth_count_list = []; mci_truth_count_list = []
-pc_precision_list = []; pc_recall_list = []
-mci_precision_list = []; mci_recall_list = []
+
 """Preprocess the data. Construct background knowledge and golden standard"""
 event_preprocessor = evt_proc.Hprocessor(dataset)
 attr_names, dataframes = event_preprocessor.initiate_data_preprocessing(partition_config=partition_config)
 background_generator = bk_generator.BackgroundGenerator(dataset, event_preprocessor, partition_config, tau_max)
 evaluator = causal_eval.Evaluator(dataset=dataset, event_processor=event_preprocessor, background_generator=background_generator, tau_max=tau_max)
 frame_id = 0
+
 """Initiate Causal Discovery algorithm."""
 for dataframe in dataframes:
     T = dataframe.T; N = dataframe.N
@@ -189,7 +187,6 @@ for dataframe in dataframes:
         all_parents_with_name = {}
         for outcome_id, cause_list in all_parents.items():
             all_parents_with_name[attr_names[outcome_id]] = [(attr_names[cause_id],lag) for (cause_id, lag) in cause_list]
-        stable_links_dict[frame_id] = all_parents_with_name
         pc_end = time.time()
         pc_result_dict[frame_id] = all_parents_with_name; pc_time_list.append((pc_end - pc_start) * 1.0 / 60)
         if verbosity > -1:
@@ -243,12 +240,11 @@ for dataframe in dataframes:
             mci_result_dict[frame_id] = sorted_links_with_name; mci_time_list.append((mci_end - mci_start) * 1.0 / 60)
             if verbosity > -1:
                 print("##\n## MCI for frame {} finished. Consumed time: {} mins\n##".format(frame_id, (mci_end - mci_start) * 1.0 / 60))
-            pcmci_links_dict[frame_id] = sorted_links_with_name
     frame_id += 1
     if frame_id == len(dataframes) - 1: # JC NOTE: Skip the last frame in case that the number of records is not enough.
         break
 
-"""Evaluations of discovery accuracy and comparisons with ARM."""
+"""Evaluate discovery accuracy and compare with ARM."""
 if COMM.rank == 0:
     pc_avg_truth_count, pc_avg_precision, pc_avg_recall = evaluator.estimate_average_discovery_accuracy(1, pc_result_dict)
     str = "**** Discovery results for partition_config = {}, bk = {} ****".format(partition_config, apply_bk) \
@@ -264,3 +260,9 @@ if COMM.rank == 0:
         mci_avg_truth_count, mci_avg_precision, mci_avg_recall = evaluator.estimate_average_discovery_accuracy(1, mci_result_dict)
         str += "\nMCI evaluations: average time, truth-count, precision, recall = {}, {}, {}, {}".format(statistics.mean(mci_time_list), mci_avg_truth_count, mci_avg_precision, mci_avg_recall)
     print(str)
+    # JC TODO: Comparisons with ARM (It seems that ARM is executed so slow..)
+
+"""State prediction and anomaly detections."""
+if COMM.rank == 0:
+    # JC TODO: Prepare to initiate bayesian prediction and implement the phantom machine for predictions.
+    pass
