@@ -1,5 +1,5 @@
 #!/bin/sh
-com="[Testing] test the speed and the output of different ARM algorithm; Prepare to compare with association rule mining."
+com="[Testing] Testing the bayesian predictor module: the correctness of material transformation functionality"
 git add -A
 git commit -m "$com"
 git push
