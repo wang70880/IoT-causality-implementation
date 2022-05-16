@@ -1,5 +1,7 @@
 import numpy as np
-from pomegranate import *
+import bnlearn as bn
+import pandas as pd
+from time import time
 
 def _lag_name(attr:'str', lag:'int'):
     return '{}({})'.format(attr, -1 * lag)
@@ -37,6 +39,11 @@ class BayesianPredictor:
         return expanded_var_names, expanded_causal_graph, expanded_data_array
 
     def _construct_bayesian_model(self):
+        start = time()
         edge_list = [(self.expanded_var_names[i], self.expanded_var_names[j])\
                         for (i, j), x in np.ndenumerate(self.expanded_causal_graph) if x == 1]
         print(edge_list)
+        dag = bn.make_DAG(edge_list); df = pd.DataFrame(data=self.expanded_data_array, columns=self.expanded_var_names)
+        model_mle = bn.parameter_learning.fit(dag, df, methodtype='maximumlikelihood')
+        end = time()
+        print("Consumption time for MLE: {} seconds".format((end-start) * 1.0 / 60))

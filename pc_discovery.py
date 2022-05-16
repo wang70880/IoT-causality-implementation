@@ -244,8 +244,9 @@ for dataframe in dataframes:
                 print("##\n## MCI for frame {} finished. Consumed time: {} mins\n##".format(frame_id, (mci_end - mci_start) * 1.0 / 60))
     
     if test_flag == 1:  # JC TODO: Remove ad-hoc testing codes here or update the test_flag!
-        bayesian_predictor = BayesianPredictor(dataframe, tau_max, pc_result_dict[0])
-        bayesian_predictor._construct_bayesian_model()
+        if COMM.rank == 0:
+            bayesian_predictor = BayesianPredictor(dataframe, tau_max, pc_result_dict[0])
+            bayesian_predictor._construct_bayesian_model()
         break
 
     frame_id += 1
