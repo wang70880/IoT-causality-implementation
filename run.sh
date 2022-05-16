@@ -1,6 +1,6 @@
 #!/bin/sh
 declare -a bk_array=(1)
-declare -a partition_array=(20)
+declare -a partition_array=(3)
 
 evaluatePartitionAccuracy() {
     for bk in ${bk_array[@]}; do
