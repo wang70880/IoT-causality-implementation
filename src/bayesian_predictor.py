@@ -4,13 +4,15 @@ import pandas as pd
 from time import time
 
 def _lag_name(attr:'str', lag:'int'):
-    return '{}({})'.format(attr, -1 * lag)
+    new_name = '{}({})'.format(attr, -1 * lag) if lag > 0 else '{}({})'.format(attr, lag)
+    return new_name
 
 class BayesianPredictor:
 
     def __init__(self, dataframe, tau_max, link_dict) -> None:
         self.expanded_var_names, self.expanded_causal_graph, self.expanded_data_array =\
                      self._transform_materials(dataframe, tau_max, link_dict)
+        self.n_vars = len(self.expanded_var_names)
     
     def _transform_materials(self, dataframe, tau_max, link_dict):
         """
@@ -37,6 +39,11 @@ class BayesianPredictor:
         for i in range(0, dataframe.T - tau_max): # Construct expanded data array
             expanded_data_array[i] = np.concatenate([dataframe.values[i+tau] for tau in range(0, tau_max+1)])
         return expanded_var_names, expanded_causal_graph, expanded_data_array
+
+    def analyze_discovery_statistics(self):
+        print("[BayesianPredictor] Analyzing discovery statistics.")
+        for i in range(self.n_vars):
+            pass
 
     def _construct_bayesian_model(self):
         start = time()
