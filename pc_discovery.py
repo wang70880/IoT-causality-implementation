@@ -32,6 +32,7 @@ import src.event_processing as evt_proc
 import src.background_generator as bk_generator
 import src.causal_evaluation as causal_eval
 import src.causal_monitor as causal_monitor
+from src.bayesian_predictor import BayesianPredictor
 
 # Default communicator
 COMM = MPI.COMM_WORLD
@@ -126,6 +127,7 @@ stable_only = 1
 cond_ind_test = CMIsymb()
 tau_max = 1; tau_min = 1
 verbosity = -1 # -1: No debugging information; 0: Debugging information in this module; 2: Debugging info in PCMCI class; 3: Debugging info in CIT implementations
+test_flag = 1
 ## For stable-pc
 pc_alpha = 0.1
 max_conds_dim = 5
@@ -240,6 +242,12 @@ for dataframe in dataframes:
             mci_result_dict[frame_id] = sorted_links_with_name; mci_time_list.append((mci_end - mci_start) * 1.0 / 60)
             if verbosity > -1:
                 print("##\n## MCI for frame {} finished. Consumed time: {} mins\n##".format(frame_id, (mci_end - mci_start) * 1.0 / 60))
+    
+    if test_flag == 1:  # JC TODO: Remove ad-hoc testing codes here or update the test_flag!
+        bayesian_predictor = BayesianPredictor(dataframe, tau_max, pc_result_dict[0])
+        bayesian_predictor._construct_bayesian_model()
+        break
+
     frame_id += 1
     if frame_id == len(dataframes) - 1: # JC NOTE: Skip the last frame in case that the number of records is not enough.
         break
