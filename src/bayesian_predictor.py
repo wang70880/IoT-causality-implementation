@@ -44,7 +44,9 @@ class BayesianPredictor:
     def analyze_discovery_statistics(self):
         print("[BayesianPredictor] Analyzing discovery statistics.")
         outcoming_degree_list = [sum(self.expanded_causal_graph[i]) for i in range(self.n_vars)]
+        print(outcoming_degree_list)
         incoming_degree_list = [sum(self.expanded_causal_graph[:,i]) for i in range(self.n_vars)]
+        print(incoming_degree_list)
         isolated_attr_list = [self.expanded_var_names[i] for i in range(self.n_vars)\
                                     if outcoming_degree_list[i] + incoming_degree_list[i] == 0]
         str = " * # isolated attrs: {}\n".format(len(isolated_attr_list))\

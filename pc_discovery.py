@@ -259,7 +259,7 @@ if COMM.rank == 0:
     pc_avg_truth_count, pc_avg_precision, pc_avg_recall = evaluator.estimate_average_discovery_accuracy(1, pc_result_dict)
     str = "**** Discovery results for partition_config = {}, bk = {} ****".format(partition_config, apply_bk) \
           + "\n Algorithm parameters:"\
-          + "\n Number of frames: {}".format(frame_id) \
+          + "\n * # frames: {}".format(frame_id) \
           + "\n * independence test = %s" % cond_ind_test.measure \
           + "\n * tau_min = {}, tau_max = {}".format(tau_min, tau_max) \
           + "\n * pc_alpha = {}, max_conds_dim = {}, max_comb = {}".format(pc_alpha, max_conds_dim, maximum_comb) \
