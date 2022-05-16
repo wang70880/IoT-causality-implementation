@@ -2,6 +2,7 @@ import numpy as np
 import bnlearn as bn
 import pandas as pd
 from time import time
+import statistics
 
 def _lag_name(attr:'str', lag:'int'):
     new_name = '{}({})'.format(attr, -1 * lag) if lag > 0 else '{}({})'.format(attr, lag)
@@ -42,8 +43,18 @@ class BayesianPredictor:
 
     def analyze_discovery_statistics(self):
         print("[BayesianPredictor] Analyzing discovery statistics.")
-        for i in range(self.n_vars):
-            pass
+        outcoming_degree_list = [sum(self.expanded_data_array[i]) for i in range(self.n_vars)]
+        incoming_degree_list = [sum(self.expanded_data_array[:,i]) for i in range(self.n_vars)]
+        isolated_attr_list = [self.expanded_var_names[i] for i in range(self.n_vars)\
+                                    if outcoming_degree_list[i] + incoming_degree_list[i] == 0]
+        str = " * # isolated attrs: {}\n".format(len(isolated_attr_list))\
+            + " * # no-out attrs: {}\n".format(outcoming_degree_list.count(0) - len(isolated_attr_list))\
+            + " * # no-incoming attrs: {}\n".format(incoming_degree_list.count(0) - len(isolated_attr_list))\
+            + " * (max, mean, min) for outcomming degrees: ({}, {}, {})\n"\
+            .format(max(outcoming_degree_list), statistics.mean(outcoming_degree_list), min(outcoming_degree_list))\
+            + " * (max, mean, min) for incoming degrees: ({}, {}, {})\n"\
+            .format(max(incoming_degree_list), statistics.mean(incoming_degree_list), min(incoming_degree_list))
+        print(str)
 
     def _construct_bayesian_model(self):
         start = time()

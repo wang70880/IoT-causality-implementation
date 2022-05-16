@@ -247,6 +247,7 @@ for dataframe in dataframes:
         if COMM.rank == 0:
             bayesian_predictor = BayesianPredictor(dataframe, tau_max, pc_result_dict[0])
             bayesian_predictor._construct_bayesian_model()
+            bayesian_predictor.analyze_discovery_statistics()
         break
 
     frame_id += 1
