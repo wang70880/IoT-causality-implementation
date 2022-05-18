@@ -170,6 +170,7 @@ class BackgroundGenerator():
             selected_links = self.apply_background_knowledge(selected_links, 'spatial', frame_id)
             selected_links = self.apply_background_knowledge(selected_links, 'functionality', frame_id)
         return selected_links
+
 if __name__ == '__main__':
     # Parameter setting
     dataset = 'hh101'

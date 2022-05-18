@@ -160,7 +160,6 @@ class BayesianFitter:
         start = time.time()
         edge_list = [(self.expanded_var_names[i], self.expanded_var_names[j])\
                         for (i, j), x in np.ndenumerate(self.expanded_causal_graph) if x == 1]
-        print(edge_list)
         dag = bn.make_DAG(edge_list); df = pd.DataFrame(data=self.expanded_data_array, columns=self.expanded_var_names)
         model_mle = bn.parameter_learning.fit(dag, df, methodtype='maximumlikelihood', verbose=0)
         end = time.time()
@@ -211,19 +210,18 @@ attr_names, dataframes = event_preprocessor.initiate_data_preprocessing(partitio
 
 """Background Generator"""
 background_generator = bk_generator.BackgroundGenerator(dataset, event_preprocessor, partition_config, tau_max)
-selected_links = background_generator
 evaluator = causal_eval.Evaluator(dataset=dataset, event_processor=event_preprocessor, background_generator=background_generator, tau_max=tau_max)
 frame_id = 0
 
-"""Interaction Miner."""
 for dataframe in dataframes:
+    """Interaction Miner"""
     T = dataframe.T; N = dataframe.N
     record_count_list.append(T)
     selected_variables = list(range(N))
     splitted_jobs = None
     results = []
     selected_links = background_generator.generate_candidate_interactions(apply_bk, frame_id, N) # Get candidate interactions
-    """Paralleled Discovery Engine"""
+    # 1. Paralleled Discovery Engine
     if COMM.rank == 0: # Assign selected_variables into whatever cores are available.
         splitted_jobs = _split(selected_variables, COMM.size)
     scattered_jobs = COMM.scatter(splitted_jobs, root=0)
@@ -296,13 +294,15 @@ for dataframe in dataframes:
             mci_result_dict[frame_id] = sorted_links_with_name; mci_time_list.append((mci_end - mci_start) * 1.0 / 60)
             if verbosity > -1:
                 print("##\n## MCI for frame {} finished. Consumed time: {} mins\n##".format(frame_id, (mci_end - mci_start) * 1.0 / 60))
-    
-    """Bayesian Fitting Process"""
+    # 2. Bayesian Fitting Process
     if COMM.rank == 0:
         interaction_graph = pc_result_dict[frame_id] if stable_only ==1 else mci_result_dict[frame_id]
         bayesian_fitter = BayesianFitter(dataframe, tau_max, interaction_graph)
         fitted_model = bayesian_fitter.construct_bayesian_model()
-        print(fitted_model)
+        for cpd in fitted_model.get_cpds():
+            print(cpd)
+
+    """Security Monitor"""
 
     frame_id += 1
     if test_flag == 1: # JC TODO: Remove ad-hoc testing code here
