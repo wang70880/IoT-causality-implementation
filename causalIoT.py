@@ -1,125 +1,330 @@
-from cmath import tau
-from code import interact
-from collections import defaultdict
-from pathlib import Path
-from os import name, supports_bytes_environ, system
-import statistics
-from typing_extensions import runtime
-import random
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""
+Tigramite causal discovery for time series: Parallization script implementing 
+the PCMCI method based on mpi4py. 
+
+Parallelization is done across variables j for both the PC condition-selection
+step and the MCI step.
+"""
+
+# Author: Jakob Runge <jakobrunge@posteo.de>
+#
+# License: GNU General Public License v3.0
+
+
+from mimetypes import init
+from turtle import back
+
+from attr import attr
+from tabnanny import verbose
+from mpi4py import MPI
 import numpy as np
 import pandas as pd
+import os, sys, pickle
+import statistics
 import time
-from pymining import itemmining, assocrules, perftesting
-from matplotlib import pyplot as plt
+import bnlearn as bn
+
+from src.tigramite.tigramite import data_processing as pp
+from src.tigramite.tigramite.toymodels import structural_causal_processes as toys
+from src.tigramite.tigramite.pcmci import PCMCI
+from src.tigramite.tigramite.independence_tests import CMIsymb
 
 import src.event_processing as evt_proc
-from src.policy_miner import PolicyMiner
-from src.tigramite.tigramite import plotting as tp
+import src.background_generator as bk_generator
+import src.causal_evaluation as causal_eval
 
-process_devices_dict = {}
-process_index_dict = {}
+# Default communicator
+COMM = MPI.COMM_WORLD
 
-CROSS_VALIDATION_PIECE = 8
+def _split(container, count):
+    """
+    Simple function splitting a range of selected variables (or range(N)) 
+    into equal length chunks. Order is not preserved.
+    """
+    return [container[_i::count] for _i in range(count)]
 
-if __name__ == '__main__':
-	# Parameter settings
-	dataset = 'hh101'
-	partion_config = (1, 5)
-	discovery_method = 'stable-pc'
-	tau_max = 1
-	pc_alpha = 0.1
-	alpha_level = 0.05
-	verbosity = 1
-	maximum_comb = 5
-	max_conds_dim = 5
+def _run_pc_stable_parallel(j, dataframe, cond_ind_test, selected_links,\
+    tau_min=1, tau_max=1, pc_alpha = 0.1,verbosity=0,\
+    maximum_comb = None, max_conds_dim=None):
+    """Wrapper around PCMCI.run_pc_stable estimating the parents for a single 
+    variable j.
 
-	print("* Initiate data preprocessing.")
-	start = time.time()
-	event_preprocessor = evt_proc.Hprocessor(dataset)
-	attr_names, dataframes = event_preprocessor.initiate_data_preprocessing(partion_config)
-	end = time.time()
-	print("* Data preprocessing finished. Elapsed time: {} mins".format((end - start) * 1.0 / 60))
+    Parameters
+    ----------
+    j : int
+        Variable index.
 
-	current_task = 1; total_task = len(dataframes)
-	for dataframe in dataframes:
-		print("************** Current task, total task = {}, {} **************".format(current_task, total_task))
-		print("Number of records: {}".format(dataframe.T))
-		policy_miner = PolicyMiner(dataframe=dataframe, discovery_method=discovery_method)
-		print("* Initiate causal discovery.")
-		start = time.time()
-		policy_miner.initiate_causal_discovery(tau_max=tau_max, pc_alpha=pc_alpha, alpha_level=alpha_level, max_comb=maximum_comb, max_conds_dim=max_conds_dim, verbosity=verbosity)
-		end = time.time()
-		print("* Causal discovery finished. Elapsed time: {} mins".format((end - start) * 1.0 / 60))
+    Returns
+    -------
+    j, pcmci_of_j, parents_of_j : tuple
+        Variable index, PCMCI object, and parents of j
+    """
 
-		print("* Initiate causal inference.")
-		start = time.time()
-		effects_dict = policy_miner.initiate_causal_inference(tau_max=tau_max)
-		end = time.time()
-		print("* Causal effect estimation finished. Elapsed time: {} mins".format((end - start) * 1.0 / 60))
-		print(effects_dict)
-		current_task += 1
-		if current_task >= 1:
-			break
+    pcmci_of_j = PCMCI(
+        dataframe=dataframe,
+        cond_ind_test=cond_ind_test,
+        verbosity=verbosity)
 
-	# NOTE: Test codes for causal effect estimation module
-	# dataframe = dataframes[0]
-	# time_series_graph = CausalEffects.get_graph_from_dict({0: [(0, -1), (1, -1), (15, -1), (16, -1)], 1: [(1, -1), (31, -1), (13, -1), (4, -1), (18, -1)], 2: [(2, -1), (1, -1), (18, -1), (14, -1), (32, -1)], 3: [(3, -1), (17, -1), (4, -1)], 4: [(4, -1), (3, -1), (17, -1), (6, -1)], 5: [(5, -1), (17, -1), (6, -1), (31, -1)], 6: [(6, -1), (9, -1), (14, -1), (10, -1)], 7: [(7, -1), (23, -1), (16, -1)], 8: [(8, -1), (24, -1)], 9: [(9, -1)], 10: [(10, -1), (9, -1), (15, -1), (13, -1), (1, -1)], 11: [(11, -1), (2, -1), (27, -1), (14, -1), (16, -1)], 12: [(12, -1), (15, -1), (13, -1), (1, -1)], 13: [(13, -1), (10, -1), (14, -1)], 14: [(14, -1), (1, -1), (9, -1), (11, -1), (31, -1)], 15: [(15, -1), (10, -1), (1, -1), (16, -1)], 16: [(16, -1), (33, -1), (28, -1)], 17: [(17, -1), (4, -1)], 18: [(18, -1), (1, -1), (27, -1), (30, -1), (2, -1), (16, -1)], 19: [(19, -1), (21, -1), (25, -1), (32, -1), (27, -1), (13, -1)], 20: [(20, -1), (7, -1), (25, -1), (17, -1), (23, -1), (19, -1), (1, -1), (32, -1)], 21: [(21, -1), (19, -1), (25, -1), (32, -1), (27, -1)], 22: [(1, -1), (9, -1), (22, -1), (25, -1), (18, -1), (16, -1), (12, -1), (21, -1), (28, -1)], 23: [(23, -1), (7, -1), (20, -1)], 24: [(24, -1), (8, -1)], 25: [(25, -1), (1, -1), (20, -1), (29, -1), (27, -1), (19, -1), (18, -1), (21, -1), (26, -1), (28, -1), (32, -1), (22, -1), (7, -1), (23, -1)], 26: [(26, -1), (25, -1), (20, -1), (27, -1), (18, -1)], 27: [(27, -1), (1, -1), (18, -1), (25, -1), (0, -1), (11, -1)], 28: [(28, -1), (1, -1), (25, -1), (4, -1), (27, -1)], 29: [(25, -1), (17, -1), (1, -1), (15, -1), (27, -1), (28, -1), (26, -1), (34, -1), (29, -1)], 30: [(30, -1), (25, -1), (1, -1), (15, -1)], 31: [(31, -1)], 32: [(32, -1), (31, -1)], 33: [(33, -1), (34, -1)], 34: [(34, -1), (33, -1)]}, tau_max=1)
-	# X = [(attr_names.index('M001'), -1)] # M001 at time -1
-	# Y = [(attr_names.index('D002'), 0)] # D002 at time 0
-	# S = []
-	# causal_inference = CausalInference(dataframe=dataframe, time_series_graph=time_series_graph, X=X, Y=Y, S=S)
-	# causal_inference.check__XYS_paths()
-	# causal_inference.get_optimal_set()
-	# causal_inference.check_optimality()
+    # Run PC condition-selection algorithm. Also here further parameters can be
+    # specified:
+    parents_of_j = pcmci_of_j.run_pc_stable(
+        selected_links=selected_links[j],
+        tau_min=tau_min,
+        tau_max=tau_max,
+        pc_alpha=pc_alpha,
+        max_combinations=maximum_comb,
+        max_conds_dim=max_conds_dim
+    )
 
-	# intervention_data = [0]*len(X)
-	# effect = causal_inference.intervention_effect_prediction(intervention_data)
-	# print(effect)
-	#current_task = 1; total_task = len(dataframes)
-	#for dataframe in dataframes:
-	#	start = time.time()
-	#	print("Current task, total task = {}, {}".format(current_task, total_task))
-	#	causal_miner = CausalDiscovery(dataframe=dataframe, cond_ind_test=CMIsymb(
-	#		significance='shuffle_test', n_symbs= None
-	#	), verbosity=1
-	#	)
-	#	all_parents, results = causal_miner.initiate_stablePC()
-	#	# results = causal_miner.initiate_PCMCI()
-	#	end = time.time()
-	#	print("Elapsed time: {}".format((end-start) * 1.0 / 60))
+    # We return also the PCMCI object because it may contain pre-computed 
+    # results can be re-used in the MCI step (such as residuals or null
+    # distributions)
+    return j, pcmci_of_j, parents_of_j
 
-	#	current_task += 1
-	#	break
+def _run_mci_parallel(j, pcmci_of_j, all_parents, selected_links,\
+    tau_min=1, tau_max=1, alpha_level = 0.01,\
+    max_conds_px = None, max_conds_py=None):
+    """Wrapper around PCMCI.run_mci step.
+    Parameters
+    ----------
+    j : int
+        Variable index.
 
-	# datasets= ['hh101', 'hh102', 'hh111'] # It seems that only these three datasets contain s-a interactions.
-	# for dataset in datasets:
-	# 	testing_piece_index = CROSS_VALIDATION_PIECE - 1
-	# 	hh_processor = Hprocessor(dataset)
-	# 	hh_processor.preprocess_data()
-	# 	hh_processor.instrument_data()
-	# 	hh_processor.partition_training_testing_data(testing_piece_index)
+    pcmci_of_j : object
+        PCMCI object for variable j. This may contain pre-computed results 
+        (such as residuals or null distributions).
 
-	# ############################### Initiate Causal Discovery and Learn from History ###################################
-	# 	print("Statistics of dataset {}:".format(dataset))
-	# 	print("	* Number of involved devices: {}".format(len(hh_processor.device_count_dict.keys())))
-	# 	interaction_graphs = hh_processor.start()
+    all_parents : dict
+        Dictionary of parents for all variables. Needed for MCI independence
+        tests.
 
-	# ############################### Initiate Evaluations for Causal Discoveries ###################################
-	# 	hh_processor.association_rule_mining(TIME_INTERVAL_LIST, min_conf=0.5) # Call ARM for future evaluations
-	# 	evaluator = Evaluator(dataset, TIME_INTERVAL_LIST, hh_processor.instrumented_automation_rule_dict, hh_processor.true_interactions_dict, interaction_graphs)
-	# 	# evaluator.discovery_accuracy_analysis()
-	# 	evaluator.inspection_accuracy_analysis()
-	# 	# evaluator.compare_stable_causal(datasets, TIME_INTERVAL_LIST)
+    Returns
+    -------
+    j, results_in_j : tuple
+        Variable index and results dictionary containing val_matrix, p_matrix,
+        and optionally conf_matrix with non-zero entries only for
+        matrix[:,j,:].
+    """
+    results_in_j = pcmci_of_j.run_mci(
+        selected_links=selected_links[j],
+        tau_min=tau_min,
+        tau_max=tau_max,
+        parents=all_parents,
+        alpha_level=alpha_level,
+        max_conds_px=max_conds_px,
+        max_conds_py = max_conds_py
+    )
 
-	# ############################### Initiate Runtime Anomaly Detection and Evaluations ###################################
-	# 	# NOTE: There should be a loop here (for the anomaly case) which traverses generate each anomaly case, initiate the detection, and initiate the evaluation
-	# 	case_id = 8; max_anomaly = 50
-	# 	anomalous_device, true_anomaly_lines = evaluator.anomaly_generation(case_id, max_anomaly) # Use the evaluator to generate runtime anomalies in testing data
-	# 	detector = Detector(dataset, TIME_INTERVAL_LIST, interaction_graphs)
-	# 	reported_anomaly_lines, promopt_lines = detector.anomaly_detection(case_id, anomalous_device, true_anomaly_lines)
-	# 	evaluator.detection_accuracy_analysis(case_id, reported_anomaly_lines, promopt_lines)
+    return j, results_in_j
 
-	############################### Initiate Plotting ###################################
-	# plotter = Plotter()
-	# plotter.plot_histogram(['hh101', 'hh102', 'hh111'], 'precision', 3, ['ARM', 'Temporal-PC', 'Stable-PC'], [[0.5236, 0.64, 0.451], [0.997, 0.989, 0.985], [0.883, 0.868, 0.862]], 'evaluate_precision.pdf')
-	# plotter.plot_histogram(['hh101', 'hh102', 'hh111'], 'recall', 3, ['ARM', 'Temporal-PC', 'Stable-PC'], [[0.997, 0.981, 0.981], [0.995, 0.979, 0.985], [0.998, 0.983, 0.986]], 'evaluate_recall.pdf')
+def _lag_name(attr:'str', lag:'int'):
+    new_name = '{}({})'.format(attr, -1 * lag) if lag > 0 else '{}({})'.format(attr, lag)
+    return new_name
+
+class BayesianFitter:
+
+    def __init__(self, dataframe, tau_max, link_dict) -> None:
+        self.expanded_var_names, self.expanded_causal_graph, self.expanded_data_array =\
+                     self._transform_materials(dataframe, tau_max, link_dict)
+        self.n_vars = len(self.expanded_var_names)
+    
+    def _transform_materials(self, dataframe, tau_max, link_dict):
+        """
+        This function transforms the original N variables into N(tau_max + 1) variables
+        As a result,
+            1. the resulting number of variables equals to N(tau_max + 1)
+            2. The resulting causal graph is a N(tau_max + 1) * N(tau_max + 1) binary array
+            3. The resulting data array is of shape (T - tau_max) * N(tau_max + 1)
+        Args:
+            dataframe (_type_): The original data frame
+            tau_max (_type_): User-specified maximum time lag
+            link_dict (_type_): Results returned by pc-stable algorithm, which is a dict recording the edges
+        Returns:
+            expanded_var_names (list[str]): Record the name of expanded variables (starting from t-tau_max to t)
+        """
+        expanded_var_names = dataframe.var_names.copy(); expanded_causal_graph = None; expanded_data_array = None
+        for tau in range(1, tau_max + 1): # Construct expanded_var_names
+            expanded_var_names = [*[_lag_name(x, tau) for x in dataframe.var_names], *expanded_var_names]
+        expanded_causal_graph = np.zeros(shape=(len(expanded_var_names), len(expanded_var_names)), dtype=np.uint8)
+        for outcome, cause_list in link_dict.items(): # Construct expanded causal graph (a binary array)
+            for (cause, lag) in cause_list:
+                expanded_causal_graph[expanded_var_names.index(_lag_name(cause, lag)), expanded_var_names.index(outcome)] = 1
+        expanded_data_array = np.zeros(shape=(dataframe.T - tau_max, len(expanded_var_names)), dtype=np.uint8)
+        for i in range(0, dataframe.T - tau_max): # Construct expanded data array
+            expanded_data_array[i] = np.concatenate([dataframe.values[i+tau] for tau in range(0, tau_max+1)])
+        return expanded_var_names, expanded_causal_graph, expanded_data_array
+
+    def construct_bayesian_model(self):
+        start = time.time()
+        edge_list = [(self.expanded_var_names[i], self.expanded_var_names[j])\
+                        for (i, j), x in np.ndenumerate(self.expanded_causal_graph) if x == 1]
+        print(edge_list)
+        dag = bn.make_DAG(edge_list); df = pd.DataFrame(data=self.expanded_data_array, columns=self.expanded_var_names)
+        model_mle = bn.parameter_learning.fit(dag, df, methodtype='maximumlikelihood', verbose=0)
+        end = time.time()
+        # print("Consumption time for MLE: {} seconds".format((end-start) * 1.0 / 60))
+        return model_mle
+
+    def analyze_discovery_statistics(self):
+        print("[BayesianPredictor] Analyzing discovery statistics.")
+        outcoming_degree_list = [sum(self.expanded_causal_graph[i]) for i in range(self.n_vars)]
+        incoming_degree_list = [sum(self.expanded_causal_graph[:,i]) for i in range(self.n_vars)]
+        isolated_attr_list = [self.expanded_var_names[i] for i in range(self.n_vars)\
+                                    if outcoming_degree_list[i] + incoming_degree_list[i] == 0]
+        str = " * # isolated attrs: {}\n".format(len(isolated_attr_list))\
+            + " * # no-out attrs: {}\n".format(outcoming_degree_list.count(0) - len(isolated_attr_list))\
+            + " * # no-incoming attrs: {}\n".format(incoming_degree_list.count(0) - len(isolated_attr_list))\
+            + " * (max, mean, min) for outcoming degrees: ({}, {}, {})\n".format(max(outcoming_degree_list),\
+                        sum(outcoming_degree_list)*1.0/(self.n_vars - len(isolated_attr_list)), min(outcoming_degree_list))\
+            + " * (max, mean, min) for incoming degrees: ({}, {}, {})\n".format(max(incoming_degree_list),\
+                        sum(incoming_degree_list)*1.0/(self.n_vars - len(isolated_attr_list)), min(incoming_degree_list))
+        print(str)
+
+"""Parameter Settings"""
+partition_config = int(sys.argv[1])
+apply_bk = int(sys.argv[2])
+
+dataset = 'hh101'
+stable_only = 1
+cond_ind_test = CMIsymb()
+tau_max = 1; tau_min = 1
+verbosity = -1 # -1: No debugging information; 0: Debugging information in this module; 2: Debugging info in PCMCI class; 3: Debugging info in CIT implementations
+test_flag = 1
+## For stable-pc
+pc_alpha = 0.1
+max_conds_dim = 5
+maximum_comb = 1
+## For MCI
+alpha_level = 0.01
+max_conds_px = 5; max_conds_py= 5
+## Resulting dict
+pc_result_dict = {}; mci_result_dict = {}
+# For evaluations
+record_count_list =[]
+pc_time_list = []; mci_time_list = []
+
+"""Event preprocessing"""
+event_preprocessor = evt_proc.Hprocessor(dataset)
+attr_names, dataframes = event_preprocessor.initiate_data_preprocessing(partition_config=partition_config)
+
+"""Background Generator"""
+background_generator = bk_generator.BackgroundGenerator(dataset, event_preprocessor, partition_config, tau_max)
+selected_links = background_generator
+evaluator = causal_eval.Evaluator(dataset=dataset, event_processor=event_preprocessor, background_generator=background_generator, tau_max=tau_max)
+frame_id = 0
+
+"""Interaction Miner."""
+for dataframe in dataframes:
+    T = dataframe.T; N = dataframe.N
+    record_count_list.append(T)
+    selected_variables = list(range(N))
+    splitted_jobs = None
+    results = []
+    selected_links = background_generator.generate_candidate_interactions(apply_bk, frame_id, N) # Get candidate interactions
+    """Paralleled Discovery Engine"""
+    if COMM.rank == 0: # Assign selected_variables into whatever cores are available.
+        splitted_jobs = _split(selected_variables, COMM.size)
+    scattered_jobs = COMM.scatter(splitted_jobs, root=0)
+    pc_start = time.time()
+    for j in scattered_jobs: # Each process calls stable-pc algorithm to infer the edges
+        (j, pcmci_of_j, parents_of_j) = _run_pc_stable_parallel(j=j, dataframe=dataframe, cond_ind_test=cond_ind_test, selected_links=selected_links,\
+                                                            tau_min=tau_min, tau_max=tau_max, pc_alpha=pc_alpha,\
+                                                            max_conds_dim=max_conds_dim, verbosity=verbosity, maximum_comb=maximum_comb)
+        results.append((j, pcmci_of_j, parents_of_j))
+    results = MPI.COMM_WORLD.gather(results, root=0)
+    pc_end = time.time()
+    if COMM.rank == 0: # The root node gathers the result and generate the interaction graph.
+        all_parents = {}
+        pcmci_objects = {}
+        for res in results:
+            for (j, pcmci_of_j, parents_of_j) in res:
+                all_parents[j] = parents_of_j[j]
+                pcmci_objects[j] = pcmci_of_j
+        all_parents_with_name = {}
+        for outcome_id, cause_list in all_parents.items():
+            all_parents_with_name[attr_names[outcome_id]] = [(attr_names[cause_id],lag) for (cause_id, lag) in cause_list]
+        pc_result_dict[frame_id] = all_parents_with_name; pc_time_list.append((pc_end - pc_start) * 1.0 / 60)
+        if verbosity > -1:
+            print("##\n## PC-stable discovery for frame {} finished. Consumed time: {} mins\n##".format(frame_id, (pc_end - pc_start) * 1.0 / 60))
+    if stable_only == 0: # Each process further calls the MCI procedure (if needed)
+        if COMM.rank == 0: # First distribute the gathered pc results to each process
+            for i in range(1, COMM.size):
+                COMM.send((all_parents, pcmci_objects), dest=i)
+        else:
+            (all_parents, pcmci_objects) = COMM.recv(source=0)
+        scattered_jobs = COMM.scatter(splitted_jobs, root=0)
+        results = []
+        mci_start = time.time()
+        """Each process calls MCI algorithm."""
+        for j in scattered_jobs:
+            (j, results_in_j) = _run_mci_parallel(j, pcmci_objects[j], all_parents, selected_links=selected_links,\
+                                            tau_min=tau_min, tau_max=tau_max, alpha_level=alpha_level,\
+                                            max_conds_px = max_conds_px, max_conds_py=max_conds_py)
+            results.append((j, results_in_j))
+        # The root node merge the result and generate final results
+        results = MPI.COMM_WORLD.gather(results, root=0)
+        if COMM.rank == 0:
+            all_results = {}
+            for res in results:
+                for (j, results_in_j) in res:
+                    for key in results_in_j.keys():
+                        if results_in_j[key] is None:  
+                            all_results[key] = None
+                        else:
+                            if key not in all_results.keys():
+                                if key == 'p_matrix':
+                                    all_results[key] = np.ones(results_in_j[key].shape)
+                                else:
+                                    all_results[key] = np.zeros(results_in_j[key].shape, dtype=results_in_j[key].dtype)
+                            all_results[key][:, j, :] = results_in_j[key][:, j, :]
+            p_matrix = all_results['p_matrix']
+            val_matrix = all_results['val_matrix']
+            conf_matrix = all_results['conf_matrix']
+ 
+            sig_links = (p_matrix <= alpha_level)
+            sorted_links_with_name = {}
+            for j in selected_variables:
+                links = dict([((p[0], -p[1]), np.abs(val_matrix[p[0], j, abs(p[1])]))
+                            for p in zip(*np.where(sig_links[:, j, :]))])
+                sorted_links = sorted(links, key=links.get, reverse=True)
+                sorted_links_with_name[attr_names[j]] = []
+                for p in sorted_links:
+                    sorted_links_with_name[attr_names[j]].append((attr_names[p[0]], p[1]))
+            mci_end = time.time()
+            mci_result_dict[frame_id] = sorted_links_with_name; mci_time_list.append((mci_end - mci_start) * 1.0 / 60)
+            if verbosity > -1:
+                print("##\n## MCI for frame {} finished. Consumed time: {} mins\n##".format(frame_id, (mci_end - mci_start) * 1.0 / 60))
+    
+    """Bayesian Fitting Process"""
+    if COMM.rank == 0:
+        interaction_graph = pc_result_dict[frame_id] if stable_only ==1 else mci_result_dict[frame_id]
+        bayesian_fitter = BayesianFitter(dataframe, tau_max, interaction_graph)
+        fitted_model = bayesian_fitter.construct_bayesian_model()
+        print(fitted_model)
+
+    frame_id += 1
+    if test_flag == 1: # JC TODO: Remove ad-hoc testing code here
+        if frame_id > 0:
+            break
+    if frame_id == len(dataframes) - 1:
+        break
+
+"""Evaluate discovery accuracy and compare with ARM."""
+if COMM.rank == 0:
+    pc_avg_truth_count, pc_avg_precision, pc_avg_recall = evaluator.estimate_average_discovery_accuracy(1, pc_result_dict)
+    str = "**** Discovery results for partition_config = {}, bk = {} ****".format(partition_config, apply_bk) \
+          + "\n Algorithm parameters:"\
+          + "\n * # frames: {}".format(frame_id) \
+          + "\n * independence test = %s" % cond_ind_test.measure \
+          + "\n * tau_min = {}, tau_max = {}".format(tau_min, tau_max) \
+          + "\n * pc_alpha = {}, max_conds_dim = {}, max_comb = {}".format(pc_alpha, max_conds_dim, maximum_comb) \
+          + "\n * alpha_level = {}, max_conds_px = {}, max_conds_py = {}".format(alpha_level, max_conds_px, max_conds_py) \
+          + "\n Average counts of records: {}".format(statistics.mean(record_count_list)) \
+          + "\nstablePC evaluations: average time, truth-count, precision, recall = {}, {}, {}, {}".format(statistics.mean(pc_time_list), pc_avg_truth_count, pc_avg_precision, pc_avg_recall)
+    if stable_only == 0: # If the PCMCI is also initiated, show the evaluation result.
+        mci_avg_truth_count, mci_avg_precision, mci_avg_recall = evaluator.estimate_average_discovery_accuracy(1, mci_result_dict)
+        str += "\nMCI evaluations: average time, truth-count, precision, recall = {}, {}, {}, {}".format(statistics.mean(mci_time_list), mci_avg_truth_count, mci_avg_precision, mci_avg_recall)
+    print(str)
+    # JC TODO: Comparisons with ARM (It seems that ARM is executed so slow..)

@@ -1,5 +1,5 @@
 #!/bin/sh
-com="[Testing] Testing the bayesian predictor module: the correctness of expansion and edge-list construction"
+com="[Implementation] Update the architecture of Interaction Miner module. [Testing] Test the updated architecture."
 git add -A
 git commit -m "$com"
 git push

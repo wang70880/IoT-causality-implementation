@@ -161,6 +161,15 @@ class BackgroundGenerator():
                     selected_links[worker_index][outcome] = new_cause_list
         return selected_links
 
+    def generate_candidate_interactions(self, apply_bk, frame_id, N):
+        selected_links = {n: {m: [(i, -t) for i in range(N) for \
+                t in range(1, self.tau_max + 1)] if m == n else [] for m in range(N)} for n in range(N)}
+        if apply_bk >= 1:
+            selected_links = self.apply_background_knowledge(selected_links, 'heuristic-temporal', frame_id)
+        if apply_bk >= 2:
+            selected_links = self.apply_background_knowledge(selected_links, 'spatial', frame_id)
+            selected_links = self.apply_background_knowledge(selected_links, 'functionality', frame_id)
+        return selected_links
 if __name__ == '__main__':
     # Parameter setting
     dataset = 'hh101'
