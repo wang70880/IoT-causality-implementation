@@ -1,6 +1,7 @@
 from os import stat, path
 from tkinter import W
 import jenkspy
+import math
 import numpy as np
 from datetime import datetime
 
@@ -393,7 +394,7 @@ class Hprocessor(Processor):
 			fout.close()
 		return attr_names, transition_events_states
 	
-	def partition_data_frame(self, attr_names=[], transition_events_states=[], partition_config = 10):
+	def partition_data_frame(self, attr_names=[], transition_events_states=[], partition_config = 10, training_ratio=1.0):
 		"""Partition the data frame according to the set of triggered attributes
 
 		Args:
@@ -403,11 +404,9 @@ class Hprocessor(Processor):
 		Returns:
 			dataframes (list[Dataframe]): The separated data frames
 		"""
-		dataframes = []
+		dataframes = []; testing_dataframes = []
 		frame_dict = {}
 		states_array = np.stack([tup[1] for tup in transition_events_states], axis=0)
-		for index, x in np.ndenumerate(states_array):
-			assert(x in [0, 1])
 		events_list = [tup[0] for tup in transition_events_states]
 
 		day_criteria = partition_config
@@ -429,35 +428,38 @@ class Hprocessor(Processor):
 		for seg_point in seg_points: # Get the data frame with range [last_point, seg_point]
 			if seg_point - last_point < 100: # If current day contains too few records, append the current day's record to the next day.
 				continue
-			dataframe = pp.DataFrame(data=states_array[last_point:seg_point, ], var_names=attr_names)
-			dataframes.append(dataframe)
+			testing_start_point = math.floor(last_point + training_ratio * (seg_point - last_point))
+			training_data = states_array[last_point:testing_start_point, ]; testing_data = states_array[testing_start_point: seg_point, ]
+			dataframe = pp.DataFrame(data=training_data, var_names=attr_names); testing_dataframe = pp.DataFrame(data=testing_data, var_names=attr_names)
+			dataframes.append(dataframe); testing_dataframes.append(testing_dataframe)
 			frame_dict[frame_count] = {}
 			frame_dict[frame_count]['number'] = seg_point - last_point
 			frame_dict[frame_count]['day-interval'] = day_criteria
-			frame_dict[frame_count]['start-date'] = "{} {}".format(events_list[last_point][0], events_list[last_point][1])
-			frame_dict[frame_count]['end-date'] = "{} {}".format(events_list[seg_point][0], events_list[seg_point][1])
-			frame_dict[frame_count]['attr-sequence'] = [tup[0][2] for tup in transition_events_states[last_point:seg_point]]
-			frame_dict[frame_count]['attr-type-sequence'] = [tup[0][3] for tup in transition_events_states[last_point:seg_point]]
-			frame_dict[frame_count]['state-sequence'] = [1 if tup[0][4] == 'A' else 0 for tup in transition_events_states[last_point:seg_point]]
+			frame_dict[frame_count]['training-data'] = dataframe; frame_dict[frame_count]['testing-data'] = testing_dataframe 
+			frame_dict[frame_count]['testing-start-index'] = testing_start_point
+			frame_dict[frame_count]['start-date'] = "{} {}".format(events_list[last_point][0], events_list[last_point][1]); frame_dict[frame_count]['end-date'] = "{} {}".format(events_list[seg_point][0], events_list[seg_point][1])
+			frame_dict[frame_count]['attr-sequence'] = [tup[0][2] for tup in transition_events_states[last_point:testing_start_point]]; frame_dict[frame_count]['testing-attr-sequence'] = [tup[0][2] for tup in transition_events_states[testing_start_point:seg_point]]
+			frame_dict[frame_count]['attr-type-sequence'] = [tup[0][3] for tup in transition_events_states[last_point:seg_point]]; frame_dict[frame_count]['testing-attr-type-sequence'] = [tup[0][3] for tup in transition_events_states[testing_start_point:seg_point]]
+			frame_dict[frame_count]['state-sequence'] = [1 if tup[0][4] == 'A' else 0 for tup in transition_events_states[last_point:seg_point]]; frame_dict[frame_count]['testing-state-sequence'] = [1 if tup[0][4] == 'A' else 0 for tup in transition_events_states[testing_start_point:seg_point]]
 			frame_count += 1
 			last_point = seg_point
 
 		self.attr_names = attr_names	
 		self.transition_events_states = transition_events_states
 		self.seg_points = seg_points
-		self.dataframes = dataframes
+		self.dataframes = dataframes; self.testing_dataframes = testing_dataframes
 		self.frame_dict = frame_dict
 		self.frame_count = frame_count
 
 		return dataframes
 	
-	def initiate_data_preprocessing(self, partition_config=10):
+	def initiate_data_preprocessing(self, partition_config=10, training_ratio=1.0):
 		"""The starting function for preprocessing data
 		"""
 		parsed_events = self.sanitize_raw_events()
 		unified_parsed_events = self.unify_value_type(parsed_events)
 		attr_names, transition_events_states = self.create_data_frame(unified_parsed_events)
-		dataframes = self.partition_data_frame(attr_names, transition_events_states, partition_config)
+		dataframes = self.partition_data_frame(attr_names, transition_events_states, partition_config, training_ratio=training_ratio)
 		return attr_names, dataframes
 	
 	def deprecated_instrument_data(self):

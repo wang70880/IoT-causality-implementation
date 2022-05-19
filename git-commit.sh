@@ -1,5 +1,5 @@
 #!/bin/sh
-com="[Implementation] Update the architecture of Interaction Miner module. [Testing] Test the updated architecture."
+com="[Implementation] Seperate testing data and training data. [Testing] Test the discovery accuracy on training data and the implementation accuracy of data seperation."
 git add -A
 git commit -m "$com"
 git push

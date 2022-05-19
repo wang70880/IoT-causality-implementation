@@ -34,6 +34,7 @@ from src.tigramite.tigramite.independence_tests import CMIsymb
 import src.event_processing as evt_proc
 import src.background_generator as bk_generator
 import src.causal_evaluation as causal_eval
+import src.security_guard as security_guard
 
 # Default communicator
 COMM = MPI.COMM_WORLD
@@ -206,7 +207,7 @@ pc_time_list = []; mci_time_list = []
 
 """Event preprocessing"""
 event_preprocessor = evt_proc.Hprocessor(dataset)
-attr_names, dataframes = event_preprocessor.initiate_data_preprocessing(partition_config=partition_config)
+attr_names, dataframes = event_preprocessor.initiate_data_preprocessing(partition_config=partition_config, training_ratio=0.8)
 
 """Background Generator"""
 background_generator = bk_generator.BackgroundGenerator(dataset, event_preprocessor, partition_config, tau_max)
@@ -302,7 +303,12 @@ for dataframe in dataframes:
         for cpd in fitted_model.get_cpds():
             print(cpd)
 
-    """Security Monitor"""
+    """Security Guard"""
+    if COMM.rank == 0:
+        security_guard = security_guard.SecurityGuard(fitted_model)
+        testing_attr_sequence = event_preprocessor.frame_count[frame_id]['testing-attr-sequence']
+        testing_state_sequence = event_preprocessor.frame_count[frame_id]['testing-state-sequence']
+        assert(len(testing_attr_sequence) == len(testing_state_sequence))
 
     frame_id += 1
     if test_flag == 1: # JC TODO: Remove ad-hoc testing code here
