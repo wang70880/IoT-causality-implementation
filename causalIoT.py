@@ -121,7 +121,8 @@ def _run_mci_parallel(j, pcmci_of_j, all_parents, selected_links,\
     return j, results_in_j
 
 def _lag_name(attr:'str', lag:'int'):
-    new_name = '{}({})'.format(attr, -1 * lag) if lag > 0 else '{}({})'.format(attr, lag)
+    assert(lag >= 0)
+    new_name = '{}({})'.format(attr, -1 * lag) if lag > 0 else '{}'.format(attr)
     return new_name
 
 class BayesianFitter:
@@ -129,7 +130,7 @@ class BayesianFitter:
     def __init__(self, dataframe, tau_max, link_dict) -> None:
         self.expanded_var_names, self.expanded_causal_graph, self.expanded_data_array =\
                      self._transform_materials(dataframe, tau_max, link_dict)
-        self.n_vars = len(self.expanded_var_names)
+        self.n_expanded_vars = len(self.expanded_var_names)
     
     def _transform_materials(self, dataframe, tau_max, link_dict):
         """
@@ -145,8 +146,8 @@ class BayesianFitter:
         Returns:
             expanded_var_names (list[str]): Record the name of expanded variables (starting from t-tau_max to t)
         """
-        expanded_var_names = dataframe.var_names.copy(); expanded_causal_graph = None; expanded_data_array = None
-        for tau in range(1, tau_max + 1): # Construct expanded_var_names
+        expanded_var_names = []; expanded_causal_graph = None; expanded_data_array = None
+        for tau in range(0, tau_max + 1): # Construct expanded_var_names
             expanded_var_names = [*[_lag_name(x, tau) for x in dataframe.var_names], *expanded_var_names]
         expanded_causal_graph = np.zeros(shape=(len(expanded_var_names), len(expanded_var_names)), dtype=np.uint8)
         for outcome, cause_list in link_dict.items(): # Construct expanded causal graph (a binary array)
@@ -158,28 +159,33 @@ class BayesianFitter:
         return expanded_var_names, expanded_causal_graph, expanded_data_array
 
     def construct_bayesian_model(self):
+        """Construct a parameterized causal graph (i.e., a bayesian model)
+
+        Returns:
+            model: A pgmpy.model object
+        """
         start = time.time()
         edge_list = [(self.expanded_var_names[i], self.expanded_var_names[j])\
                         for (i, j), x in np.ndenumerate(self.expanded_causal_graph) if x == 1]
         dag = bn.make_DAG(edge_list); df = pd.DataFrame(data=self.expanded_data_array, columns=self.expanded_var_names)
-        model_mle = bn.parameter_learning.fit(dag, df, methodtype='maximumlikelihood', verbose=0)
+        model = bn.parameter_learning.fit(dag, df, methodtype='maximumlikelihood', verbose=0)['model']
         end = time.time()
         # print("Consumption time for MLE: {} seconds".format((end-start) * 1.0 / 60))
-        return model_mle
+        return model
 
     def analyze_discovery_statistics(self):
         print("[BayesianPredictor] Analyzing discovery statistics.")
-        outcoming_degree_list = [sum(self.expanded_causal_graph[i]) for i in range(self.n_vars)]
-        incoming_degree_list = [sum(self.expanded_causal_graph[:,i]) for i in range(self.n_vars)]
-        isolated_attr_list = [self.expanded_var_names[i] for i in range(self.n_vars)\
+        outcoming_degree_list = [sum(self.expanded_causal_graph[i]) for i in range(self.n_expanded_vars)]
+        incoming_degree_list = [sum(self.expanded_causal_graph[:,i]) for i in range(self.n_expanded_vars)]
+        isolated_attr_list = [self.expanded_var_names[i] for i in range(self.n_expanded_vars)\
                                     if outcoming_degree_list[i] + incoming_degree_list[i] == 0]
         str = " * # isolated attrs: {}\n".format(len(isolated_attr_list))\
             + " * # no-out attrs: {}\n".format(outcoming_degree_list.count(0) - len(isolated_attr_list))\
             + " * # no-incoming attrs: {}\n".format(incoming_degree_list.count(0) - len(isolated_attr_list))\
             + " * (max, mean, min) for outcoming degrees: ({}, {}, {})\n".format(max(outcoming_degree_list),\
-                        sum(outcoming_degree_list)*1.0/(self.n_vars - len(isolated_attr_list)), min(outcoming_degree_list))\
+                        sum(outcoming_degree_list)*1.0/(self.n_expanded_vars - len(isolated_attr_list)), min(outcoming_degree_list))\
             + " * (max, mean, min) for incoming degrees: ({}, {}, {})\n".format(max(incoming_degree_list),\
-                        sum(incoming_degree_list)*1.0/(self.n_vars - len(isolated_attr_list)), min(incoming_degree_list))
+                        sum(incoming_degree_list)*1.0/(self.n_expanded_vars - len(isolated_attr_list)), min(incoming_degree_list))
         print(str)
 
 """Parameter Settings"""
@@ -300,16 +306,13 @@ for dataframe in dataframes:
         interaction_graph = pc_result_dict[frame_id] if stable_only ==1 else mci_result_dict[frame_id]
         bayesian_fitter = BayesianFitter(dataframe, tau_max, interaction_graph)
         fitted_model = bayesian_fitter.construct_bayesian_model()
-        print(fitted_model['model'])
-        print(fitted_model['adjmat'])
-        print(fitted_model['model_edges'])
 
     """Security Guard"""
     if COMM.rank == 0:
-        security_guard = security_guard.SecurityGuard(fitted_model)
+        security_guard = security_guard.SecurityGuard(tau_max, bayesian_fitter.expanded_var_names, bayesian_fitter.expanded_causal_graph)
+
         testing_attr_sequence = event_preprocessor.frame_dict[frame_id]['testing-attr-sequence']
         testing_state_sequence = event_preprocessor.frame_dict[frame_id]['testing-state-sequence']
-        assert(len(testing_attr_sequence) == len(testing_state_sequence))
 
     frame_id += 1
     if test_flag == 1: # JC TODO: Remove ad-hoc testing code here
