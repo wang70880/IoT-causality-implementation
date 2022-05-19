@@ -300,14 +300,15 @@ for dataframe in dataframes:
         interaction_graph = pc_result_dict[frame_id] if stable_only ==1 else mci_result_dict[frame_id]
         bayesian_fitter = BayesianFitter(dataframe, tau_max, interaction_graph)
         fitted_model = bayesian_fitter.construct_bayesian_model()
-        for cpd in fitted_model.get_cpds():
-            print(cpd)
+        print(fitted_model['model'])
+        print(fitted_model['adjmat'])
+        print(fitted_model['model_edges'])
 
     """Security Guard"""
     if COMM.rank == 0:
         security_guard = security_guard.SecurityGuard(fitted_model)
-        testing_attr_sequence = event_preprocessor.frame_count[frame_id]['testing-attr-sequence']
-        testing_state_sequence = event_preprocessor.frame_count[frame_id]['testing-state-sequence']
+        testing_attr_sequence = event_preprocessor.frame_dict[frame_id]['testing-attr-sequence']
+        testing_state_sequence = event_preprocessor.frame_dict[frame_id]['testing-state-sequence']
         assert(len(testing_attr_sequence) == len(testing_state_sequence))
 
     frame_id += 1

@@ -439,8 +439,8 @@ class Hprocessor(Processor):
 			frame_dict[frame_count]['testing-start-index'] = testing_start_point
 			frame_dict[frame_count]['start-date'] = "{} {}".format(events_list[last_point][0], events_list[last_point][1]); frame_dict[frame_count]['end-date'] = "{} {}".format(events_list[seg_point][0], events_list[seg_point][1])
 			frame_dict[frame_count]['attr-sequence'] = [tup[0][2] for tup in transition_events_states[last_point:testing_start_point]]; frame_dict[frame_count]['testing-attr-sequence'] = [tup[0][2] for tup in transition_events_states[testing_start_point:seg_point]]
-			frame_dict[frame_count]['attr-type-sequence'] = [tup[0][3] for tup in transition_events_states[last_point:seg_point]]; frame_dict[frame_count]['testing-attr-type-sequence'] = [tup[0][3] for tup in transition_events_states[testing_start_point:seg_point]]
-			frame_dict[frame_count]['state-sequence'] = [1 if tup[0][4] == 'A' else 0 for tup in transition_events_states[last_point:seg_point]]; frame_dict[frame_count]['testing-state-sequence'] = [1 if tup[0][4] == 'A' else 0 for tup in transition_events_states[testing_start_point:seg_point]]
+			frame_dict[frame_count]['attr-type-sequence'] = [tup[0][3] for tup in transition_events_states[last_point:testing_start_point]]; frame_dict[frame_count]['testing-attr-type-sequence'] = [tup[0][3] for tup in transition_events_states[testing_start_point:seg_point]]
+			frame_dict[frame_count]['state-sequence'] = [1 if tup[0][4] == 'A' else 0 for tup in transition_events_states[last_point:testing_start_point]]; frame_dict[frame_count]['testing-state-sequence'] = [1 if tup[0][4] == 'A' else 0 for tup in transition_events_states[testing_start_point:seg_point]]
 			frame_count += 1
 			last_point = seg_point
 
