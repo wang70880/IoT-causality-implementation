@@ -41,10 +41,10 @@ class SecurityGuard():
     def _lookup_posterior_probability(self, event):
         attr = event[0]; state = event[1]
         attr_expanded_index = self.expanded_var_names.index(attr)
-        PAR = np.where(self.expanded_causal_graph[:,attr_expanded_index] == 1)[0]
-        print(PAR)
-        phantom_states = [self.phantom_state_machine[x] for x in PAR]
-        cpd = [x for x in self.model.get_cpds() if x.variable == attr][0]
-        prob = cpd.reduce(values= list(zip(PAR, phantom_states)), inplace=False)
+        par_indices = np.where(self.expanded_causal_graph[:,attr_expanded_index] == 1)[0]; par_names = [self.expanded_var_names[i] for i in par_indices]
+        phantom_states = [self.phantom_state_machine[x] for x in par_indices]
+        phi = self.model.get_cpds(attr).to_factor()
+        print(phi)
+        prob = 0
         return prob
         
