@@ -43,9 +43,10 @@ class SecurityGuard():
         attr_expanded_index = self.expanded_var_names.index(attr)
         par_indices = np.where(self.expanded_causal_graph[:,attr_expanded_index] == 1)[0]; par_names = [self.expanded_var_names[i] for i in par_indices]
         phantom_states = [self.phantom_state_machine[x] for x in par_indices]
+        param_dict = {p[0]: p[1] for p in zip(par_names, phantom_states)}; param_dict[attr] = state
+        print(param_dict)
         phi = self.model.get_cpds(attr).to_factor()
-        print(phi)
-        print("\n\n\n\n\n")
-        prob = 0
+        prob = phi.get_value(**param_dict)
+        print(prob)
         return prob
         
