@@ -24,7 +24,9 @@ import pandas as pd
 import os, sys, pickle
 import statistics
 import time
-import bnlearn as bn
+
+from pgmpy.models import BayesianModel
+from pgmpy.estimators import MaximumLikelihoodEstimator
 
 from src.tigramite.tigramite import data_processing as pp
 from src.tigramite.tigramite.toymodels import structural_causal_processes as toys
@@ -128,6 +130,7 @@ def _lag_name(attr:'str', lag:'int'):
 class BayesianFitter:
 
     def __init__(self, dataframe, tau_max, link_dict) -> None:
+        self.tau_max = tau_max
         self.expanded_var_names, self.expanded_causal_graph, self.expanded_data_array =\
                      self._transform_materials(dataframe, tau_max, link_dict)
         self.n_expanded_vars = len(self.expanded_var_names)
@@ -167,11 +170,12 @@ class BayesianFitter:
         start = time.time()
         edge_list = [(self.expanded_var_names[i], self.expanded_var_names[j])\
                         for (i, j), x in np.ndenumerate(self.expanded_causal_graph) if x == 1]
-        dag = bn.make_DAG(edge_list); df = pd.DataFrame(data=self.expanded_data_array, columns=self.expanded_var_names)
-        model = bn.parameter_learning.fit(dag, df, methodtype='maximumlikelihood', verbose=0)['model']
+        model = BayesianModel(edge_list)
+        df = pd.DataFrame(data=self.expanded_data_array, columns=self.expanded_var_names)
+        model.fit(df, estimator= MaximumLikelihoodEstimator) #JC TODO: Here we use MLE, what if we try Bayesian parameter estimation?
         end = time.time()
         # print("Consumption time for MLE: {} seconds".format((end-start) * 1.0 / 60))
-        return model
+        self.model = model
 
     def analyze_discovery_statistics(self):
         print("[BayesianPredictor] Analyzing discovery statistics.")
@@ -305,14 +309,14 @@ for dataframe in dataframes:
     if COMM.rank == 0:
         interaction_graph = pc_result_dict[frame_id] if stable_only ==1 else mci_result_dict[frame_id]
         bayesian_fitter = BayesianFitter(dataframe, tau_max, interaction_graph)
-        fitted_model = bayesian_fitter.construct_bayesian_model()
+        bayesian_fitter.construct_bayesian_model()
 
     """Security Guard"""
     if COMM.rank == 0:
-        security_guard = security_guard.SecurityGuard(tau_max, bayesian_fitter.expanded_var_names, bayesian_fitter.expanded_causal_graph)
-
-        testing_attr_sequence = event_preprocessor.frame_dict[frame_id]['testing-attr-sequence']
-        testing_state_sequence = event_preprocessor.frame_dict[frame_id]['testing-state-sequence']
+        security_guard = security_guard.SecurityGuard(bayesian_fitter)
+        testing_event_list = list(zip(event_preprocessor.frame_dict[frame_id]['testing-attr-sequence'], event_preprocessor.frame_dict[frame_id]['testing-state-sequence']))
+        for evt in testing_event_list:
+            security_guard.anomaly_detection(evt)
 
     frame_id += 1
     if test_flag == 1: # JC TODO: Remove ad-hoc testing code here
