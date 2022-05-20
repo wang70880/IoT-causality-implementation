@@ -5,9 +5,7 @@ class SecurityGuard():
         self.tau_max = bayesian_fitter.tau_max
         self.expanded_var_names = bayesian_fitter.expanded_var_names; self.n_expanded_vars = len(self.expanded_var_names)
         self.expanded_causal_graph = bayesian_fitter.expanded_causal_graph
-        self.n_vars = self.n_expanded_vars / (self.tau_max + 1); self.var_names = self.expanded_var_names[-self.n_vars:].copy()
-        print(self.expanded_var_names)
-        print(self.var_names)
+        self.n_vars = int(self.n_expanded_vars / (self.tau_max + 1)); self.var_names = self.expanded_var_names[-self.n_vars:].copy()
         self.model = bayesian_fitter.model
         # Phantom state machine
         self.phantom_state_machine = [0] * self.n_expanded_vars
@@ -19,7 +17,7 @@ class SecurityGuard():
         self.phantom_state_machine = [*self.phantom_state_machine[self.n_vars:], *current_state_vector]
     
     def anomaly_detection(self, event):
-        anomaly_flag = 1
+        anomaly_flag = 0
         num_parent = self._num_parents(event[0])
         parent_case_counts = [0, 0]
         if num_parent > 0:
@@ -45,6 +43,7 @@ class SecurityGuard():
         attr = event[0]; state = event[1]
         attr_expanded_index = self.expanded_var_names.index(attr)
         PAR = np.where(self.expanded_causal_graph[:,attr_expanded_index] == 1)
+        print(PAR)
         phantom_states = [self.phantom_state_machine[x] for x in PAR]
         cpd = [x for x in self.model.get_cpds() if x.variables == attr][0]
         prob = cpd.reduce(values= list(zip(PAR, phantom_states)), inplace=False)
