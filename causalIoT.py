@@ -25,7 +25,7 @@ import os, sys, pickle
 import statistics
 import time
 
-from pgmpy.models import BayesianModel
+from pgmpy.models import BayesianNetwork 
 from pgmpy.estimators import MaximumLikelihoodEstimator
 
 from src.tigramite.tigramite import data_processing as pp
@@ -155,7 +155,7 @@ class BayesianFitter:
         expanded_causal_graph = np.zeros(shape=(len(expanded_var_names), len(expanded_var_names)), dtype=np.uint8)
         for outcome, cause_list in link_dict.items(): # Construct expanded causal graph (a binary array)
             for (cause, lag) in cause_list:
-                expanded_causal_graph[expanded_var_names.index(_lag_name(cause, lag)), expanded_var_names.index(outcome)] = 1
+                expanded_causal_graph[expanded_var_names.index(_lag_name(cause, abs(lag))), expanded_var_names.index(outcome)] = 1
         expanded_data_array = np.zeros(shape=(dataframe.T - tau_max, len(expanded_var_names)), dtype=np.uint8)
         for i in range(0, dataframe.T - tau_max): # Construct expanded data array
             expanded_data_array[i] = np.concatenate([dataframe.values[i+tau] for tau in range(0, tau_max+1)])
@@ -170,7 +170,7 @@ class BayesianFitter:
         start = time.time()
         edge_list = [(self.expanded_var_names[i], self.expanded_var_names[j])\
                         for (i, j), x in np.ndenumerate(self.expanded_causal_graph) if x == 1]
-        model = BayesianModel(edge_list)
+        model = BayesianNetwork(edge_list)
         df = pd.DataFrame(data=self.expanded_data_array, columns=self.expanded_var_names)
         model.fit(df, estimator= MaximumLikelihoodEstimator) #JC TODO: Here we use MLE, what if we try Bayesian parameter estimation?
         end = time.time()

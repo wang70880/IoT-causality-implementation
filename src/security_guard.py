@@ -5,7 +5,9 @@ class SecurityGuard():
         self.tau_max = bayesian_fitter.tau_max
         self.expanded_var_names = bayesian_fitter.expanded_var_names; self.n_expanded_vars = len(self.expanded_var_names)
         self.expanded_causal_graph = bayesian_fitter.expanded_causal_graph
-        self.n_vars = self.n_expanded_vars / (self.tau_max + 1); self.var_names = self.expanded_var_names[-1*self.n_vars:].copy()
+        self.n_vars = self.n_expanded_vars / (self.tau_max + 1); self.var_names = self.expanded_var_names[-self.n_vars:].copy()
+        print(self.expanded_var_names)
+        print(self.var_names)
         self.model = bayesian_fitter.model
         # Phantom state machine
         self.phantom_state_machine = [0] * self.n_expanded_vars
