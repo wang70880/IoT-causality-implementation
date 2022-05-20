@@ -314,6 +314,7 @@ for dataframe in dataframes:
     """Security Guard"""
     if COMM.rank == 0:
         security_guard = security_guard.SecurityGuard(bayesian_fitter)
+        assert(event_preprocessor.frame_dict[frame_id]['testing-data'].var_names == security_guard.var_names)
         testing_event_list = list(zip(event_preprocessor.frame_dict[frame_id]['testing-attr-sequence'], event_preprocessor.frame_dict[frame_id]['testing-state-sequence']))
         evt_count = 0
         for evt in testing_event_list:
@@ -321,7 +322,7 @@ for dataframe in dataframes:
                 cur_states = list(event_preprocessor.frame_dict[frame_id]['testing-data'].values[evt_count])
                 security_guard.set_phantom_state_machine(cur_states)
             else: # Start the anomaly detection
-                security_guard.anomaly_detection(evt)
+                exo_flag, anomaly_flag = security_guard.anomaly_detection(evt)
             evt_count += 1
 
     frame_id += 1
