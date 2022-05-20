@@ -10,11 +10,16 @@ class SecurityGuard():
         # Phantom state machine
         self.phantom_state_machine = [0] * self.n_expanded_vars
     
+    def set_phantom_state_machine(self, current_state_vector):
+        print(current_state_vector)
+        self.phantom_state_machine = [*self.phantom_state_machine[self.n_vars:], *current_state_vector]
+        print(self.phantom_state_machine)
+
     def update_phantom_state_machine(self, event):
         attr = event[0]; state = event[1]
         current_state_vector = self.phantom_state_machine[-1*self.n_vars:].copy()
         current_state_vector[self.var_names.index(attr)] = state
-        self.phantom_state_machine = [*self.phantom_state_machine[self.n_vars:], *current_state_vector]
+        self.set_phantom_state_machine(current_state_vector)
     
     def anomaly_detection(self, event):
         anomaly_flag = 0
@@ -42,7 +47,7 @@ class SecurityGuard():
     def _lookup_posterior_probability(self, event):
         attr = event[0]; state = event[1]
         attr_expanded_index = self.expanded_var_names.index(attr)
-        PAR = np.where(self.expanded_causal_graph[:,attr_expanded_index] == 1)
+        PAR = np.where(self.expanded_causal_graph[:,attr_expanded_index] == 1)[0]
         print(PAR)
         phantom_states = [self.phantom_state_machine[x] for x in PAR]
         cpd = [x for x in self.model.get_cpds() if x.variables == attr][0]

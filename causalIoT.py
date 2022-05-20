@@ -315,8 +315,14 @@ for dataframe in dataframes:
     if COMM.rank == 0:
         security_guard = security_guard.SecurityGuard(bayesian_fitter)
         testing_event_list = list(zip(event_preprocessor.frame_dict[frame_id]['testing-attr-sequence'], event_preprocessor.frame_dict[frame_id]['testing-state-sequence']))
+        evt_count = 0
         for evt in testing_event_list:
-            security_guard.anomaly_detection(evt)
+            if evt_count <= security_guard.tau_max:
+                cur_states = list(event_preprocessor.frame_dict[frame_id]['testing-data'].values[evt_count])
+                security_guard.set_phantom_state_machine(cur_states)
+            else:
+                security_guard.anomaly_detection(evt)
+            evt_count += 1
 
     frame_id += 1
     if test_flag == 1: # JC TODO: Remove ad-hoc testing code here
