@@ -317,10 +317,10 @@ for dataframe in dataframes:
         testing_event_list = list(zip(event_preprocessor.frame_dict[frame_id]['testing-attr-sequence'], event_preprocessor.frame_dict[frame_id]['testing-state-sequence']))
         evt_count = 0
         for evt in testing_event_list:
-            if evt_count <= security_guard.tau_max:
+            if evt_count <= security_guard.tau_max: # Omit the first tau_max events (assuming to be benign, which is used for setting up initial states of phantom SM)
                 cur_states = list(event_preprocessor.frame_dict[frame_id]['testing-data'].values[evt_count])
                 security_guard.set_phantom_state_machine(cur_states)
-            else:
+            else: # Start the anomaly detection
                 security_guard.anomaly_detection(evt)
             evt_count += 1
 
