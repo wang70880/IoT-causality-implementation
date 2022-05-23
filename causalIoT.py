@@ -131,9 +131,11 @@ class BayesianFitter:
 
     def __init__(self, dataframe, tau_max, link_dict) -> None:
         self.tau_max = tau_max
+        self.var_names = dataframe.var_names; self.n_vars = len(self.var_names)
         self.expanded_var_names, self.expanded_causal_graph, self.expanded_data_array =\
                      self._transform_materials(dataframe, tau_max, link_dict)
         self.n_expanded_vars = len(self.expanded_var_names)
+        self.model = None
     
     def _transform_materials(self, dataframe, tau_max, link_dict):
         """
@@ -151,7 +153,7 @@ class BayesianFitter:
         """
         expanded_var_names = []; expanded_causal_graph = None; expanded_data_array = None
         for tau in range(0, tau_max + 1): # Construct expanded_var_names
-            expanded_var_names = [*[_lag_name(x, tau) for x in dataframe.var_names], *expanded_var_names]
+            expanded_var_names = [*[_lag_name(x, tau) for x in self.var_names], *expanded_var_names]
         expanded_causal_graph = np.zeros(shape=(len(expanded_var_names), len(expanded_var_names)), dtype=np.uint8)
         for outcome, cause_list in link_dict.items(): # Construct expanded causal graph (a binary array)
             for (cause, lag) in cause_list:
@@ -176,6 +178,42 @@ class BayesianFitter:
         end = time.time()
         # print("Consumption time for MLE: {} seconds".format((end-start) * 1.0 / 60))
         self.model = model
+    
+    def exo_check(self, attr:'str'):
+        """Check if the current attribute is an exogenous attribute.
+
+        Args:
+            attr (str): Name of the attribute
+
+        Returns:
+            n_parents: The number of parents
+        """
+        attr_expanded_index = self.expanded_var_names.index(attr)
+        return sum(self.expanded_causal_graph[:,attr_expanded_index]) == 0
+    
+    def predict_attr_state(self, attr, parent_state_dict):
+        """ Predict the value of the target attribute given its parent states, i.e., E[attr|par(attr)]
+
+        Args:
+            attr (str): The target attribute
+            parent_state_dict (dict[str, int]): The dictionary recording the name and state for each parent of attr
+
+        Returns:
+            val: The estimated state of the attribute
+        """
+        val = 0.0
+        phi = self.model.get_cpds(attr).to_factor()
+        state_dict = parent_state_dict.copy()
+        for possible_val in [0, 1]: # In our case, each attribute is a binary variable. Therefore the state space is [0, 1]
+            state_dict[attr] = possible_val
+            val += possible_val * phi.get_value(**state_dict) * 1.0
+        return val
+
+    def get_parents(self, attr:'str'):
+        attr_expanded_index = self.expanded_var_names.index(attr)
+        par_indices = list(np.where(self.expanded_causal_graph[:,attr_expanded_index] == 1)[0])
+        return [self.expanded_var_names[x] for x in par_indices]
+        #return {index: self.expanded_var_names[i] for index in par_indices}
 
     def analyze_discovery_statistics(self):
         print("[BayesianPredictor] Analyzing discovery statistics.")
@@ -319,16 +357,17 @@ for dataframe in dataframes:
         evt_count = 0; exo_count = 0
         for evt in testing_event_list:
             if evt_count <= security_guard.tau_max: # Omit the first tau_max events (assuming to be benign, which is used for setting up initial states of phantom SM)
-                cur_states = list(event_preprocessor.frame_dict[frame_id]['testing-data'].values[evt_count])
-                security_guard.set_phantom_state_machine(cur_states)
+                security_guard.initialize(evt)
             else: # Start the anomaly detection
-                exo_flag, anomaly_flag = security_guard.anomaly_detection(evt)
-                exo_count += exo_flag
+                anomaly_flag = security_guard.anomaly_detection(event=evt, threshold=1.0)
+            # JC TEST: Print out the anomalous events (false positives in the original dataframe)
+            if anomaly_flag:
+                print("An anomaly detected for event {}!".format(evt))
             evt_count += 1
         print("# of testing events, # of exo events = {}, {}".format(evt_count, exo_count))
 
     frame_id += 1
-    if test_flag == 1: # JC TODO: Remove ad-hoc testing code here
+    if test_flag == 1: # JC TEST: Test for single data frame
         if frame_id > 0:
             break
     if frame_id == len(dataframes) - 1:

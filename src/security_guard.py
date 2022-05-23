@@ -1,52 +1,84 @@
 import numpy as np
-class SecurityGuard():
-    def __init__(self, bayesian_fitter) -> None:
-        # The parameterized causal graph
-        self.tau_max = bayesian_fitter.tau_max
-        self.expanded_var_names = bayesian_fitter.expanded_var_names; self.n_expanded_vars = len(self.expanded_var_names)
-        self.expanded_causal_graph = bayesian_fitter.expanded_causal_graph
-        self.n_vars = int(self.n_expanded_vars / (self.tau_max + 1)); self.var_names = self.expanded_var_names[-self.n_vars:].copy()
-        self.model = bayesian_fitter.model
-        # Phantom state machine
-        self.phantom_state_machine = [0] * self.n_expanded_vars
-    
-    def set_phantom_state_machine(self, current_state_vector):
+
+def _lag_name(attr:'str', lag:'int'):
+    assert(lag >= 0)
+    new_name = '{}({})'.format(attr, -1 * lag) if lag > 0 else '{}'.format(attr)
+    return new_name
+
+class PhantomStateMachine():
+
+    def __init__(self, var_names, expanded_var_names) -> None:
+        self.var_names = var_names; self.expanded_var_names = expanded_var_names
+        self.n_vars = len(var_names); self.n_expanded_vars = len(self.expanded_var_names)
+        self.phantom_states = [0] * self.n_expanded_vars
+
+    def set_state(self, current_state_vector):
+        assert(len(current_state_vector) == self.n_vars)
         self.phantom_state_machine = [*self.phantom_state_machine[self.n_vars:], *current_state_vector]
 
-    def update_phantom_state_machine(self, event):
+    def update_state(self, event):
         attr = event[0]; state = event[1]
         current_state_vector = self.phantom_state_machine[-1*self.n_vars:].copy()
         current_state_vector[self.var_names.index(attr)] = state
-        self.set_phantom_state_machine(current_state_vector)
+        self.set_state(current_state_vector)
+
+    def get_states(self, attr_list):
+        return {attr: self.phantom_states[self.expanded_var_names.index(attr)] for attr in attr_list}
+
+class ChainManager():
     
-    def anomaly_detection(self, event):
-        anomaly_flag = 0
-        num_parent = self._num_parents(event[0])
-        exo_flag = 0
-        if num_parent > 0:
-            posterior_prob = self._lookup_posterior_probability(event) # Get estimated probability
-            print(posterior_prob)
-            # JC TODO: Determine the anomaly flag according to the posterior probability
+    #JC TODO: Currently it only supports the pool check/update for tau =1.
+
+    def __init__(self) -> None:
+        self.chain_pool = {}
+    
+    def update_pool(self, attr, expanded_parent_list):
+         
+        lag_attr = _lag_name(attr, 1)
+        if len(expanded_parent_list) == 0:
+            self.chain_pool[attr] = [] if attr not in self.chain_pool.keys() else self.chain_pool[attr]
+            self.chain_pool[attr].append(lag_attr)
         else:
-            # JC TODO: What if the causal discovery algorithm did not return any parents of the variable?
-            exo_flag = 1
-        if anomaly_flag == 0:
-            self.update_phantom_state_machine(event)
-        return exo_flag, anomaly_flag
+            for chain in self.chain_pool.values():
+                if chain[-1] in expanded_parent_list:
+                    chain.append(lag_attr)
+
+    def check_pool(self, expanded_parent_list):
+        # An exogenous attribute or there is a chain matching current attr's parent.
+        return len(expanded_parent_list) == 0 or any([chain[-1] in expanded_parent_list for chain in self.chain_pool.values()])
+
+class SecurityGuard():
+
+    def __init__(self, bayesian_fitter) -> None:
+        # The parameterized causal graph
+        self.bayesian_fitter = bayesian_fitter
+        # Phantom state machine
+        self.phantom_state_machine = PhantomStateMachine(bayesian_fitter.var_names, bayesian_fitter.expanded_var_names)
+        # Chain manager
+        self.chain_manager = ChainManager()
     
-    def _num_parents(self, attr:'str'):
-        attr_expanded_index = self.expanded_var_names.index(attr)
-        return sum(self.expanded_causal_graph[:,attr_expanded_index])
+    def initialize(self, event):
+        self.phantom_state_machine.update_state(event)
+        self.chain_manager.update_pool(event[0], [])
     
-    def _lookup_posterior_probability(self, event):
+    def _compute_anomaly_score(self, state, predicted_state):
+        # Here we take the quadratic loss as the anomaly score.
+        # See paper "A Unifying Framework for Detecting Outliers and Change Points from Time Series"
+        return 1.0 * (state - predicted_state) ** 2
+    
+    def anomaly_detection(self, event, threshold):
+        # JC TODO: Calculating the threshold is not implemented.
         attr = event[0]; state = event[1]
-        attr_expanded_index = self.expanded_var_names.index(attr)
-        par_indices = np.where(self.expanded_causal_graph[:,attr_expanded_index] == 1)[0]; par_names = [self.expanded_var_names[i] for i in par_indices]
-        phantom_states = [self.phantom_state_machine[x] for x in par_indices]
-        param_dict = {p[0]: p[1] for p in zip(par_names, phantom_states)}; param_dict[attr] = state
-        print(param_dict)
-        phi = self.model.get_cpds(attr).to_factor()
-        prob = phi.get_value(**param_dict)
-        print(prob)
-        return prob
-        
+        anomaly_flag = 0
+        expanded_parent_list = self.bayesian_fitter.get_parents(attr)
+        # First initiate the pool check to identify the 1st-type violation
+        anomaly_flag = self.chain_manager.check_pool(attr, expanded_parent_list)
+        # Then initiate the probability check to identify the 2nd-type violation
+        parent_state_dict = self.phantom_state_machine.get_states(expanded_parent_list)
+        predicted_state =  self.bayesian_fitter.predict_attr_state(attr, parent_state_dict)
+        anomaly_score = self._compute_anomaly_score(state, predicted_state)
+        anomaly_flag = anomaly_score > threshold
+        if not anomaly_flag: # If the current event is not an anomaly: Update the chain pool and the phantom state machine
+            self.chain_manager.update_pool(attr, expanded_parent_list)
+            self.phantom_state_machine.update_state(event)
+        return anomaly_flag
