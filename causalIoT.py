@@ -323,8 +323,9 @@ for dataframe in dataframes:
                 security_guard.set_phantom_state_machine(cur_states)
             else: # Start the anomaly detection
                 exo_flag, anomaly_flag = security_guard.anomaly_detection(evt)
-            evt_count += 1; exo_count += exo_flag
-        print("# of testing events, # of exo events = {}, {}".format(evt_count, exo_flag))
+                exo_count += exo_flag
+            evt_count += 1
+        print("# of testing events, # of exo events = {}, {}".format(evt_count, exo_count))
 
     frame_id += 1
     if test_flag == 1: # JC TODO: Remove ad-hoc testing code here
