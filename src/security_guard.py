@@ -78,7 +78,8 @@ class ChainManager():
 
     def print_chains(self):
         for index, chain in enumerate(self.chain_pool):
-            print("Chain {}: {}".format(index, '->'.join(chain)))
+            attr_name_chain = [self.expanded_var_names[i] for i in chain]
+            print("Chain {}: {}".format(index, '->'.join(attr_name_chain)))
 
 class SecurityGuard():
 
