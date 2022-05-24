@@ -107,7 +107,7 @@ class SecurityGuard():
     def anomaly_detection(self, event, threshold):
         attr = event[0]; expanded_attr_index = self.expanded_var_names.index(attr)
         anomaly_flag = 1
-        expanded_parent_indices = self.bayesian_fitter.get_expanded_parent_indices(expanded_attr_index); exo_flag = len(expanded_parent_indices) > 0
+        expanded_parent_indices = self.bayesian_fitter.get_expanded_parent_indices(expanded_attr_index); exo_flag = len(expanded_parent_indices) == 0
 
         # First initiate detections of type-1 attacks.
         if exo_flag or len(self.chain_manager.match(expanded_attr_index)) > 0:
@@ -116,7 +116,10 @@ class SecurityGuard():
         if self.verbosity > 0 and anomaly_flag > 0:
             str = "\nType-1 anomalies are detected.\n"\
                     + "  * Current event: {}\n".format(event)\
-                    + "  * Exogenous attribute: {}".format(exo_flag)
+                    + "  * Exogenous attribute: {}\n".format(exo_flag)
+            if not exo_flag:
+                parent_names = [self.expanded_var_names[i] for i in expanded_parent_indices]
+                str += "    * The parent set: {}\n".format(parent_names)
             print(str)
             self.chain_manager.print_chains()
 
