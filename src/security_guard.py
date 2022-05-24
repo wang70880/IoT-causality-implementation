@@ -83,16 +83,23 @@ class ChainManager():
 
 class SecurityGuard():
 
-    def __init__(self, bayesian_fitter, verbosity) -> None:
+    def __init__(self, bayesian_fitter, verbosity, sig_level) -> None:
         self.verbosity = verbosity
         self.var_names: 'list[str]' = bayesian_fitter.var_names
         self.expanded_var_names: 'list[str]' = bayesian_fitter.expanded_var_names
+        # The score threshold
+        self.sig_level = sig_level
+        self.score_threshold = 0.0
         # The parameterized causal graph
         self.bayesian_fitter = bayesian_fitter
         # Phantom state machine
         self.phantom_state_machine = PhantomStateMachine(bayesian_fitter.var_names, bayesian_fitter.expanded_var_names)
         # Chain manager
         self.chain_manager = ChainManager(bayesian_fitter.var_names, bayesian_fitter.expanded_var_names, bayesian_fitter.expanded_causal_graph)
+    
+    def get_score_threshold(self, training_frame):
+        # JC TODO: Estimate the score threshold given the significance level (self.sig_level)
+        pass
     
     def initialize(self, event, state_vector):
         self.phantom_state_machine.set_state(state_vector) # Initialize the phantom state machine

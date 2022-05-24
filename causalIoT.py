@@ -351,16 +351,17 @@ for dataframe in dataframes:
     """Security Guard"""
     if COMM.rank == 0:
         detection_verbosity = 1
-        security_guard = security_guard.SecurityGuard(bayesian_fitter=bayesian_fitter, verbosity=detection_verbosity)
-        assert(event_preprocessor.frame_dict[frame_id]['testing-data'].var_names == security_guard.var_names)
+        security_guard = security_guard.SecurityGuard(bayesian_fitter=bayesian_fitter, verbosity=detection_verbosity, sig_level=0.95) # JC TODO: How to decide the sig_level?
+        security_guard.get_score_threshold(training_frame=event_preprocessor.frame_dict[frame_id]['training-data']) # Estimate the score threshold given the training dataframe and sig_level
         testing_event_list = list(zip(event_preprocessor.frame_dict[frame_id]['testing-attr-sequence'], event_preprocessor.frame_dict[frame_id]['testing-state-sequence']))
         evt_count = 0; anomaly_count = 0
         for evt in testing_event_list:
             if evt_count <= tau_max: # use the first tau_max events for warm start
                 security_guard.initialize(evt, event_preprocessor.frame_dict[frame_id]['testing-data'].values[evt_count])
             else: # Start the anomaly detection
-                anomaly_flag = security_guard.anomaly_detection(event=evt, threshold=1.0) # JC TODO: Determine the threshold for detecting type-2 attacks
+                anomaly_flag = security_guard.anomaly_detection(event=evt, threshold=1.0)
                 if anomaly_flag: # JC TEST: Stop the detection if any false positive for type-1 attack is generated.
+                    print("Anomaly line at {}.".format(event_preprocessor.frame_dict[frame_id]['testing-start-index'] + evt_count))
                     anomaly_count += 1
                     break
             evt_count += 1
@@ -374,18 +375,18 @@ for dataframe in dataframes:
         break
 
 """Evaluate discovery accuracy and compare with ARM."""
-if COMM.rank == 0:
-    pc_avg_truth_count, pc_avg_precision, pc_avg_recall = evaluator.estimate_average_discovery_accuracy(1, pc_result_dict)
-    str = "**** Discovery results for partition_config = {}, bk = {} ****".format(partition_config, apply_bk) \
-          + "\n Algorithm parameters:"\
-          + "\n * # frames: {}".format(frame_id) \
-          + "\n * independence test = %s" % cond_ind_test.measure \
-          + "\n * tau_min = {}, tau_max = {}".format(tau_min, tau_max) \
-          + "\n * pc_alpha = {}, max_conds_dim = {}, max_comb = {}".format(pc_alpha, max_conds_dim, maximum_comb) \
-          + "\n * alpha_level = {}, max_conds_px = {}, max_conds_py = {}".format(alpha_level, max_conds_px, max_conds_py) \
-          + "\n Average counts of records: {}".format(statistics.mean(record_count_list)) \
-          + "\nstablePC evaluations: average time, truth-count, precision, recall = {}, {}, {}, {}".format(statistics.mean(pc_time_list), pc_avg_truth_count, pc_avg_precision, pc_avg_recall)
-    if stable_only == 0: # If the PCMCI is also initiated, show the evaluation result.
-        mci_avg_truth_count, mci_avg_precision, mci_avg_recall = evaluator.estimate_average_discovery_accuracy(1, mci_result_dict)
-        str += "\nMCI evaluations: average time, truth-count, precision, recall = {}, {}, {}, {}".format(statistics.mean(mci_time_list), mci_avg_truth_count, mci_avg_precision, mci_avg_recall)
-    print(str)
+#if COMM.rank == 0:
+#    pc_avg_truth_count, pc_avg_precision, pc_avg_recall = evaluator.estimate_average_discovery_accuracy(1, pc_result_dict)
+#    str = "**** Discovery results for partition_config = {}, bk = {} ****".format(partition_config, apply_bk) \
+#          + "\n Algorithm parameters:"\
+#          + "\n * # frames: {}".format(frame_id) \
+#          + "\n * independence test = %s" % cond_ind_test.measure \
+#          + "\n * tau_min = {}, tau_max = {}".format(tau_min, tau_max) \
+#          + "\n * pc_alpha = {}, max_conds_dim = {}, max_comb = {}".format(pc_alpha, max_conds_dim, maximum_comb) \
+#          + "\n * alpha_level = {}, max_conds_px = {}, max_conds_py = {}".format(alpha_level, max_conds_px, max_conds_py) \
+#          + "\n Average counts of records: {}".format(statistics.mean(record_count_list)) \
+#          + "\nstablePC evaluations: average time, truth-count, precision, recall = {}, {}, {}, {}".format(statistics.mean(pc_time_list), pc_avg_truth_count, pc_avg_precision, pc_avg_recall)
+#    if stable_only == 0: # If the PCMCI is also initiated, show the evaluation result.
+#        mci_avg_truth_count, mci_avg_precision, mci_avg_recall = evaluator.estimate_average_discovery_accuracy(1, mci_result_dict)
+#        str += "\nMCI evaluations: average time, truth-count, precision, recall = {}, {}, {}, {}".format(statistics.mean(mci_time_list), mci_avg_truth_count, mci_avg_precision, mci_avg_recall)
+#    print(str)
