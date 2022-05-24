@@ -9,11 +9,11 @@ class PhantomStateMachine():
 
     def set_state(self, current_state_vector):
         assert(len(current_state_vector) == self.n_vars)
-        self.phantom_state_machine = [*self.phantom_state_machine[self.n_vars:], *current_state_vector]
+        self.phantom_states = [*self.phantom_states[self.n_vars:], *current_state_vector]
 
     def update(self, event):
         attr = event[0]; state = event[1]
-        current_state_vector = self.phantom_state_machine[-1*self.n_vars:].copy()
+        current_state_vector = self.phantom_states[-1*self.n_vars:].copy()
         current_state_vector[self.var_names.index(attr)] = state
         self.set_state(current_state_vector)
 
