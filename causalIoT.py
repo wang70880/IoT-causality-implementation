@@ -344,18 +344,19 @@ for dataframe in dataframes:
     # 2. Bayesian Fitting Process
     if COMM.rank == 0:
         interaction_graph = pc_result_dict[frame_id] if stable_only ==1 else mci_result_dict[frame_id]
+        print(interaction_graph)
         bayesian_fitter = BayesianFitter(dataframe, tau_max, interaction_graph)
         bayesian_fitter.construct_bayesian_model()
 
     """Security Guard"""
     if COMM.rank == 0:
-        detection_verbosity = 1 # JC TEST: Test type-1 attack detection (false positives) and print out the anomaly message.
+        detection_verbosity = 1
         security_guard = security_guard.SecurityGuard(bayesian_fitter=bayesian_fitter, verbosity=detection_verbosity)
         assert(event_preprocessor.frame_dict[frame_id]['testing-data'].var_names == security_guard.var_names)
         testing_event_list = list(zip(event_preprocessor.frame_dict[frame_id]['testing-attr-sequence'], event_preprocessor.frame_dict[frame_id]['testing-state-sequence']))
         evt_count = 0; anomaly_count = 0
         for evt in testing_event_list:
-            if evt_count <= security_guard.tau_max: # use the first tau_max events for warm start
+            if evt_count <= tau_max: # use the first tau_max events for warm start
                 security_guard.initialize(evt, event_preprocessor.frame_dict[frame_id]['testing-data'].values[evt_count])
             else: # Start the anomaly detection
                 anomaly_flag = security_guard.anomaly_detection(event=evt, threshold=1.0) # JC TODO: Determine the threshold for detecting type-2 attacks
