@@ -25,8 +25,8 @@ class PhantomStateMachine():
 
 class InteractionChain():
 
-    def __init__(self, n_vars, expanded_causal_graph, anomaly_flag, expanded_attr_index) -> None:
-        self.n_vars = n_vars; self.expanded_causal_graph = expanded_causal_graph
+    def __init__(self, n_vars, expanded_var_names, expanded_causal_graph, anomaly_flag, expanded_attr_index) -> None:
+        self.n_vars = n_vars; self.expanded_var_names = expanded_var_names; self.expanded_causal_graph = expanded_causal_graph
         self.anomaly_flag = anomaly_flag
         self.attr_index_chain = [expanded_attr_index]
         self.header_attr_index = self.attr_index_chain[-1]
@@ -39,6 +39,10 @@ class InteractionChain():
         self.attr_index_chain.append(expanded_attr_index)
         self.attr_index_chain = [x - self.n_vars for x in self.attr_index_chain]
         self.header_attr_index = self.attr_index_chain[-1]
+    
+    def __str__(self):
+        return "anomaly_flag = {}, header_attr = {}, len(chains) = {}\n"\
+              .format(self.anomaly_flag, self.expanded_var_names[self.header_attr_index], len(self.attr_index_chain))
 
 class ChainManager():
     
@@ -47,13 +51,6 @@ class ChainManager():
         self.var_names = var_names; self.n_vars = len(self.var_names)
         self.expanded_var_names = expanded_var_names; self.n_expanded_vars = len(self.expanded_var_names)
         self.expanded_causal_graph = expanded_causal_graph
-    
-    def insert(self, expanded_attr_index:'int', anomaly_flag):
-        if len(self.match(expanded_attr_index)) > 0: # If there exists matched chains (which also means that the attribute is not exogenous), just insert the attribute.
-            self.update(expanded_attr_index, False)
-        else: # No matched chains, just create a new chain for current attributes (no matter whether it is exogenous or endogenous)
-            lagged_attr_index = expanded_attr_index - self.n_vars
-            self.chain_pool.append(InteractionChain(self.n_vars, self.expanded_causal_graph, anomaly_flag, lagged_attr_index))
     
     def match(self, expanded_attr_index:'int', anomaly_flag):
         """Identify the set of normal/abnormal chains which can accommodate the new attribute
@@ -85,14 +82,16 @@ class ChainManager():
                 self.chain_pool[chain_index].update(expanded_attr_index)
         else:
             lagged_attr_index = expanded_attr_index - self.n_vars
-            self.chain_pool.append(InteractionChain(self.n_vars, self.expanded_causal_graph, anomaly_flag, lagged_attr_index))
+            self.chain_pool.append(InteractionChain(self.n_vars, self.expanded_var_names, self.expanded_causal_graph, anomaly_flag, lagged_attr_index))
          
         return affected_chains
 
     def print_chains(self):
+        normal_chains = [chain for chain in self.chain_pool if chain.anomaly_flag == NORMAL]
+        abnormal_chains = [chain for chain in self.chain_pool if chain.anomaly_flag == ABNORMAL]
+        print("Current chain stack with {} normal chains and {} abnormal chains".format(len(normal_chains), len(abnormal_chains)))
         for index, chain in enumerate(self.chain_pool):
-            attr_name_chain = [self.expanded_var_names[i] for i in chain]
-            print("Chain {}: {}".format(index, '->'.join(attr_name_chain)))
+            print(" * Chain {}: {}".format(index, chain))
 
 class SecurityGuard():
 
@@ -117,7 +116,7 @@ class SecurityGuard():
     def initialize(self, event, state_vector):
         self.phantom_state_machine.set_state(state_vector) # Initialize the phantom state machine
         attr = event[0]; expanded_attr_index = self.expanded_var_names.index(attr)
-        self.chain_manager.insert(expanded_attr_index, NORMAL) # Initialize the chain manager
+        self.chain_manager.update(expanded_attr_index, NORMAL) # Initialize the chain manager
     
     def _compute_anomaly_score(self, state, predicted_state):
         # Here we take the quadratic loss as the anomaly score.
