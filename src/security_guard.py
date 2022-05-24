@@ -79,6 +79,7 @@ class ChainManager():
     def print_chains(self):
         for index, chain in enumerate(self.chain_pool):
             print("Chain {}: {}".format(index, '->'.join(chain)))
+
 class SecurityGuard():
 
     def __init__(self, bayesian_fitter, verbosity) -> None:
@@ -112,7 +113,10 @@ class SecurityGuard():
             anomaly_flag = 0
 
         if self.verbosity > 0 and anomaly_flag > 0:
-            print("Type-1 anomalies are detected. Current event: {}".format(event))
+            str = "\nType-1 anomalies are detected.\n"\
+                    + "  * Current event: {}\n".format(event)\
+                    + "  * Exogenous attribute: {}".format(exo_flag)
+            print(str)
             self.chain_manager.print_chains()
 
         # JC TODO: Initiate detections of type-2 attacks.
