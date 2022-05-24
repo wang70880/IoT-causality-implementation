@@ -20,6 +20,23 @@ class PhantomStateMachine():
     def get_states(self, attr_list):
         return {attr: self.phantom_states[self.expanded_var_names.index(attr)] for attr in attr_list}
 
+class InteractionChain():
+
+    def __init__(self, n_vars, expanded_causal_graph, anomaly_flag, expanded_attr_index) -> None:
+        self.n_vars = n_vars; self.expanded_causal_graph = expanded_causal_graph
+        self.anomaly_flag = anomaly_flag
+        self.attr_index_chain = [expanded_attr_index]
+        self.header_attr_index = self.attr_index_chain[-1]
+    
+    def match(self, expanded_attr_index:'int'):
+        return self.expanded_causal_graph[self.header_attr_index, expanded_attr_index] > 0
+    
+    def update(self, expanded_attr_index:'int'):
+        assert(self.match(expanded_attr_index))
+        self.attr_index_chain.append(expanded_attr_index)
+        self.attr_index_chain = [x- self.n_vars for x in self.attr_index_chain]
+        self.header_attr_index = self.attr_index_chain[-1]
+
 class ChainManager():
     
     def __init__(self, var_names, expanded_var_names, expanded_causal_graph) -> None:
