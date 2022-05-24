@@ -29,7 +29,7 @@ class ChainManager():
         self.expanded_causal_graph = expanded_causal_graph
     
     def insert(self, expanded_attr_index:'int'):
-        if self.match(expanded_attr_index) > 0: # If there exists matched chains (which also means that the attribute is not exogenous), just insert the attribute.
+        if len(self.match(expanded_attr_index)) > 0: # If there exists matched chains (which also means that the attribute is not exogenous), just insert the attribute.
             self.update(expanded_attr_index, False)
         else: # No matched chains, just create a new chain for current attributes (no matter whether it is exogenous or endogenous)
             lagged_attr_index = expanded_attr_index - self.n_vars
