@@ -174,7 +174,7 @@ class BayesianFitter:
                         for (i, j), x in np.ndenumerate(self.expanded_causal_graph) if x == 1]
         model = BayesianNetwork(edge_list)
         df = pd.DataFrame(data=self.expanded_data_array, columns=self.expanded_var_names)
-        model.fit(df, estimator= MaximumLikelihoodEstimator) #JC TODO: Here we use MLE, what if we try Bayesian parameter estimation?
+        model.fit(df, estimator= MaximumLikelihoodEstimator) #JC NOTE: Here we use MLE, what if we try Bayesian parameter estimation?
         end = time.time()
         # print("Consumption time for MLE: {} seconds".format((end-start) * 1.0 / 60))
         self.model = model
@@ -209,10 +209,8 @@ class BayesianFitter:
             val += possible_val * phi.get_value(**state_dict) * 1.0
         return val
 
-    def get_parents(self, attr:'str'):
-        attr_expanded_index = self.expanded_var_names.index(attr)
-        par_indices = list(np.where(self.expanded_causal_graph[:,attr_expanded_index] == 1)[0])
-        return [self.expanded_var_names[x] for x in par_indices]
+    def get_expanded_parent_indices(self, expanded_attr_index: 'int'):
+        return list(np.where(self.expanded_causal_graph[:,expanded_attr_index] == 1)[0])
         #return {index: self.expanded_var_names[i] for index in par_indices}
 
     def analyze_discovery_statistics(self):
@@ -351,20 +349,20 @@ for dataframe in dataframes:
 
     """Security Guard"""
     if COMM.rank == 0:
-        security_guard = security_guard.SecurityGuard(bayesian_fitter)
+        detection_verbosity = 1 # JC TEST: Test type-1 attack detection (false positives) and print out the anomaly message.
+        security_guard = security_guard.SecurityGuard(bayesian_fitter=bayesian_fitter, verbosity=detection_verbosity)
         assert(event_preprocessor.frame_dict[frame_id]['testing-data'].var_names == security_guard.var_names)
         testing_event_list = list(zip(event_preprocessor.frame_dict[frame_id]['testing-attr-sequence'], event_preprocessor.frame_dict[frame_id]['testing-state-sequence']))
-        evt_count = 0; exo_count = 0
+        evt_count = 0; anomaly_count = 0
         for evt in testing_event_list:
-            if evt_count <= security_guard.tau_max: # Omit the first tau_max events (assuming to be benign, which is used for setting up initial states of phantom SM)
-                security_guard.initialize(evt)
+            if evt_count <= security_guard.tau_max: # use the first tau_max events for warm start
+                security_guard.initialize(evt, event_preprocessor.frame_dict[frame_id]['testing-data'].values[evt_count])
             else: # Start the anomaly detection
-                anomaly_flag = security_guard.anomaly_detection(event=evt, threshold=1.0)
-            # JC TEST: Print out the anomalous events (false positives in the original dataframe)
-            if anomaly_flag:
-                print("An anomaly detected for event {}!".format(evt))
+                anomaly_flag = security_guard.anomaly_detection(event=evt, threshold=1.0) # JC TODO: Determine the threshold for detecting type-2 attacks
+                if anomaly_flag: # JC TEST: Stop the detection if any false positive for type-1 attack is generated.
+                    break
             evt_count += 1
-        print("# of testing events, # of exo events = {}, {}".format(evt_count, exo_count))
+        print("# of testing events, # of anomalies = {}, {}".format(evt_count))
 
     frame_id += 1
     if test_flag == 1: # JC TEST: Test for single data frame
@@ -389,4 +387,3 @@ if COMM.rank == 0:
         mci_avg_truth_count, mci_avg_precision, mci_avg_recall = evaluator.estimate_average_discovery_accuracy(1, mci_result_dict)
         str += "\nMCI evaluations: average time, truth-count, precision, recall = {}, {}, {}, {}".format(statistics.mean(mci_time_list), mci_avg_truth_count, mci_avg_precision, mci_avg_recall)
     print(str)
-    # JC TODO: Comparisons with ARM (It seems that ARM is executed so slow..)
