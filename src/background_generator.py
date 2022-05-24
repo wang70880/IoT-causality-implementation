@@ -57,8 +57,8 @@ class BackgroundGenerator():
             for lag in range (1, self.tau_max + 1):
                 attr_array = temporal_pair_dict[frame_id][lag]
                 heuristic_attr_array = heuristic_temporal_pair_dict[frame_id][lag]
-                for idx, x in np.ndenumerate(attr_array): # JC TODO: figure out how to set the temporal frequency threshold (Currently it is set to 2).
-                    heuristic_attr_array[idx] = 0 if x < 2 * self.partition_config else 1 
+                for idx, x in np.ndenumerate(attr_array): # JC TODO: figure out how to set the temporal frequency threshold (Currently it is set to partition_days).
+                    heuristic_attr_array[idx] = 0 if x < self.partition_config else 1 
                     attr_array[idx] = 0 if x < 5 * self.partition_config else 1  
 
         return temporal_pair_dict, heuristic_temporal_pair_dict
