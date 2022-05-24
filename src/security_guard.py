@@ -117,22 +117,26 @@ class SecurityGuard():
         expanded_parent_indices = self.bayesian_fitter.get_expanded_parent_indices(expanded_attr_index); exo_flag = len(expanded_parent_indices) == 0
 
         if self.verbosity > 0:
-            print("Now process event {}".format(event))
-
-        # First initiate detections of type-1 attacks.
-        if exo_flag or len(self.chain_manager.match(expanded_attr_index)) > 0:
-            anomaly_flag = 0
-
-        if anomaly_flag > 0:
-            str = "\nType-1 anomalies are detected.\n"\
+            str = "\nStatus of current processing.\n"\
                     + "  * Current event: {}\n".format(event)\
                     + "  * Exogenous attribute: {}\n".format(exo_flag)
             if not exo_flag:
                 parent_names = [self.expanded_var_names[i] for i in expanded_parent_indices]
                 str += "    * The parent set: {}\n".format(parent_names)
             print(str)
-        if self.verbosity > 0:
-            self.chain_manager.print_chains()
+
+        # First initiate detections of type-1 attacks.
+        if exo_flag or len(self.chain_manager.match(expanded_attr_index)) > 0:
+            anomaly_flag = 0
+
+        if anomaly_flag > 0:
+            str = "\nType-1 anomalies are detected!\n"\
+                    + "  * Current event: {}\n".format(event)\
+                    + "  * Exogenous attribute: {}\n".format(exo_flag)
+            if not exo_flag:
+                parent_names = [self.expanded_var_names[i] for i in expanded_parent_indices]
+                str += "    * The parent set: {}\n".format(parent_names)
+            print(str)
 
         # JC TODO: Initiate detections of type-2 attacks.
         # parent_state_dict = self.phantom_state_machine.get_states(expanded_parent_list)
@@ -144,4 +148,6 @@ class SecurityGuard():
         if not anomaly_flag: # If the current event is not an anomaly: Update the chain pool and the phantom state machine
             self.chain_manager.update(expanded_attr_index, exo_flag)
             self.phantom_state_machine.update(event)
+        if self.verbosity > 0:
+            self.chain_manager.print_chains()
         return anomaly_flag
