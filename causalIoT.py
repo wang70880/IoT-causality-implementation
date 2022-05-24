@@ -40,6 +40,8 @@ import src.security_guard as security_guard
 
 # Default communicator
 COMM = MPI.COMM_WORLD
+NORMAL = 0
+ABNORMAL = 1
 
 def _split(container, count):
     """
@@ -360,10 +362,9 @@ for dataframe in dataframes:
                 security_guard.initialize(evt, event_preprocessor.frame_dict[frame_id]['testing-data'].values[evt_count])
             else: # Start the anomaly detection
                 anomaly_flag = security_guard.anomaly_detection(event=evt, threshold=1.0)
-                if anomaly_flag: # JC TEST: Stop the detection if any false positive for type-1 attack is generated.
+                if anomaly_flag == ABNORMAL: # JC TEST: Stop the detection if any false positive for type-1 attack is generated.
                     print("Anomaly line at {}.".format(event_preprocessor.frame_dict[frame_id]['testing-start-index'] + evt_count + 1))
                     anomaly_count += 1
-                    break
             evt_count += 1
         print("# of testing events, # of anomaly events = {}, {}".format(evt_count, anomaly_count))
 

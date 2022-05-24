@@ -1,5 +1,5 @@
 #!/bin/sh
-com="[Implementation] Prepare to implement the InteractionChain class for the anomaly detection module."
+com="[Implementation] Implement the InteractionChain class and the Chain Manager module for detections of type-1 attacks; Test the accuracy of the detections."
 git add -A
 git commit -m "$com"
 git push

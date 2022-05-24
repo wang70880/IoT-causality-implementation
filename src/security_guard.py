@@ -1,5 +1,8 @@
 import numpy as np
 
+NORMAL = 0
+ABNORMAL = 1
+
 class PhantomStateMachine():
 
     def __init__(self, var_names, expanded_var_names) -> None:
@@ -34,27 +37,26 @@ class InteractionChain():
     def update(self, expanded_attr_index:'int'):
         assert(self.match(expanded_attr_index))
         self.attr_index_chain.append(expanded_attr_index)
-        self.attr_index_chain = [x- self.n_vars for x in self.attr_index_chain]
+        self.attr_index_chain = [x - self.n_vars for x in self.attr_index_chain]
         self.header_attr_index = self.attr_index_chain[-1]
 
 class ChainManager():
     
     def __init__(self, var_names, expanded_var_names, expanded_causal_graph) -> None:
-        self.chain_pool:'list[list[int]]' = []
+        self.chain_pool:'list[InteractionChain]' = []
         self.var_names = var_names; self.n_vars = len(self.var_names)
         self.expanded_var_names = expanded_var_names; self.n_expanded_vars = len(self.expanded_var_names)
         self.expanded_causal_graph = expanded_causal_graph
     
-    def insert(self, expanded_attr_index:'int'):
+    def insert(self, expanded_attr_index:'int', anomaly_flag):
         if len(self.match(expanded_attr_index)) > 0: # If there exists matched chains (which also means that the attribute is not exogenous), just insert the attribute.
             self.update(expanded_attr_index, False)
         else: # No matched chains, just create a new chain for current attributes (no matter whether it is exogenous or endogenous)
             lagged_attr_index = expanded_attr_index - self.n_vars
-            if [lagged_attr_index] not in self.chain_pool: 
-                self.chain_pool.append([lagged_attr_index])
+            self.chain_pool.append(InteractionChain(self.n_vars, self.expanded_causal_graph, anomaly_flag, lagged_attr_index))
     
-    def match(self, expanded_attr_index:'int'):
-        """Identify the set of chains which can accommodate the new attribute
+    def match(self, expanded_attr_index:'int', anomaly_flag):
+        """Identify the set of normal/abnormal chains which can accommodate the new attribute
         That is, there exists a lagged variable in the candidate chain which is the parent of the new attribute.
 
         Args:
@@ -63,15 +65,11 @@ class ChainManager():
         Returns:
             matched_chain_indices: The list of indices for satisfied chains (in the chain pool)
         """
-        satisfied_chain_indices: 'list[int]'  = []
-        for chain in self.chain_pool:
-            connection_list = [x for x in chain if self.expanded_causal_graph[x, expanded_attr_index] > 0]
-            if len(connection_list) > 0:
-                satisfied_chain_indices.append(self.chain_pool.index(chain))
+        satisfied_chain_indices = [self.chain_pool.index(chain) for chain in self.chain_pool if chain.anomaly_flag == anomaly_flag and chain.match(expanded_attr_index)]
         return satisfied_chain_indices
     
-    def update(self, expanded_attr_index:'int', exo_flag):
-        """Update the existing chains given the new arrived attribute event.
+    def update(self, expanded_attr_index:'int', anomaly_flag):
+        """Update the existing chains (or create a new chain) given the new arrived attribute event and the anomaly flag.
 
         Args:
             expanded_attr_index (int): The new attribute
@@ -81,16 +79,14 @@ class ChainManager():
             int: The number of updated chains
         """
         affected_chains = 0
-        lagged_attr_index = expanded_attr_index - self.n_vars 
-        if exo_flag and [lagged_attr_index] not in self.chain_pool: # If the current attribute is an exogenous attribute and does not exist in the current pool: Create a new chain for it.
-            self.chain_pool.append([lagged_attr_index])
-            affected_chains += 1
-        elif not exo_flag:
-            matched_chain_indices = self.match(expanded_attr_index)
+        matched_chain_indices = self.match(expanded_attr_index, anomaly_flag)
+        if len(matched_chain_indices) > 0:
             for chain_index in matched_chain_indices:
-                self.chain_pool[chain_index].append(expanded_attr_index)
-                self.chain_pool[chain_index] = [x - self.n_vars for x in self.chain_pool[chain_index] if x - self.n_vars >= 0] # Update the time lag for each chain
-                affected_chains += 1
+                self.chain_pool[chain_index].update(expanded_attr_index)
+        else:
+            lagged_attr_index = expanded_attr_index - self.n_vars
+            self.chain_pool.append(InteractionChain(self.n_vars, self.expanded_causal_graph, anomaly_flag, lagged_attr_index))
+         
         return affected_chains
 
     def print_chains(self):
@@ -121,7 +117,7 @@ class SecurityGuard():
     def initialize(self, event, state_vector):
         self.phantom_state_machine.set_state(state_vector) # Initialize the phantom state machine
         attr = event[0]; expanded_attr_index = self.expanded_var_names.index(attr)
-        self.chain_manager.insert(expanded_attr_index) # Initialize the chain manager
+        self.chain_manager.insert(expanded_attr_index, NORMAL) # Initialize the chain manager
     
     def _compute_anomaly_score(self, state, predicted_state):
         # Here we take the quadratic loss as the anomaly score.
@@ -130,10 +126,10 @@ class SecurityGuard():
     
     def anomaly_detection(self, event, threshold):
         attr = event[0]; expanded_attr_index = self.expanded_var_names.index(attr)
-        anomaly_flag = 1
-        expanded_parent_indices = self.bayesian_fitter.get_expanded_parent_indices(expanded_attr_index); exo_flag = len(expanded_parent_indices) == 0
+        expanded_parent_indices = self.bayesian_fitter.get_expanded_parent_indices(expanded_attr_index)
 
         if self.verbosity > 0:
+            self.chain_manager.print_chains()
             str = "\nStatus of current processing.\n"\
                     + "  * Current event: {}\n".format(event)\
                     + "  * Exogenous attribute: {}\n".format(exo_flag)
@@ -143,16 +139,15 @@ class SecurityGuard():
             print(str)
 
         # First initiate detections of type-1 attacks.
-        if exo_flag or len(self.chain_manager.match(expanded_attr_index)) > 0:
-            anomaly_flag = 0
+        anomaly_flag = NORMAL; exo_flag = len(expanded_parent_indices) == 0
+        if (not exo_flag) and (len(self.chain_manager.match(expanded_attr_index, NORMAL)) == 0):
+            anomaly_flag = ABNORMAL
 
-        if anomaly_flag > 0:
+        if anomaly_flag == ABNORMAL:
             str = "\nType-1 anomalies are detected!\n"\
                     + "  * Current event: {}\n".format(event)\
-                    + "  * Exogenous attribute: {}\n".format(exo_flag)
-            if not exo_flag:
-                parent_names = [self.expanded_var_names[i] for i in expanded_parent_indices]
-                str += "    * The parent set: {}\n".format(parent_names)
+                    + "  * Exogenous attribute: {}\n".format(exo_flag)\
+                    + "  * The parent set: {}\n".format([self.expanded_var_names[i] for i in expanded_parent_indices])
             print(str)
 
         # JC TODO: Initiate detections of type-2 attacks.
@@ -162,9 +157,6 @@ class SecurityGuard():
         # anomaly_flag = anomaly_score > threshold
 
         # Update the chain pool and the phantom state machine according to the detection result.
-        if not anomaly_flag: # If the current event is not an anomaly: Update the chain pool and the phantom state machine
-            self.chain_manager.update(expanded_attr_index, exo_flag)
-            self.phantom_state_machine.update(event)
-        if self.verbosity > 0:
-            self.chain_manager.print_chains()
+        self.chain_manager.update(expanded_attr_index, anomaly_flag)
+        #self.phantom_state_machine.update(event)
         return anomaly_flag
