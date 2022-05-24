@@ -361,7 +361,7 @@ for dataframe in dataframes:
             else: # Start the anomaly detection
                 anomaly_flag = security_guard.anomaly_detection(event=evt, threshold=1.0)
                 if anomaly_flag: # JC TEST: Stop the detection if any false positive for type-1 attack is generated.
-                    print("Anomaly line at {}.".format(event_preprocessor.frame_dict[frame_id]['testing-start-index'] + evt_count))
+                    print("Anomaly line at {}.".format(event_preprocessor.frame_dict[frame_id]['testing-start-index'] + evt_count + 1))
                     anomaly_count += 1
                     break
             evt_count += 1
