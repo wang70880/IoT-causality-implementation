@@ -2,6 +2,11 @@ import numpy as np
 
 NORMAL = 0
 ABNORMAL = 1
+NORMAL_EXO = 2
+NORMAL_ENO = 3
+ABNORMAL_EXO = 4
+ABNORMAL_ENO = 5
+anomaly_flag_dict = {NORMAL: [NORMAL_EXO, NORMAL_ENO], ABNORMAL: [ABNORMAL_EXO, ABNORMAL_ENO]}
 
 class PhantomStateMachine():
 
@@ -75,16 +80,18 @@ class ChainManager():
         Returns:
             int: The number of updated chains
         """
-        affected_chains = 0
+        n_affected_chains = 0; detailed_anomaly_flag = 0
         matched_chain_indices = self.match(expanded_attr_index, anomaly_flag)
         if len(matched_chain_indices) > 0:
+            n_affected_chains = len(matched_chain_indices); detailed_anomaly_flag = anomaly_flag_dict[anomaly_flag][1]
             for chain_index in matched_chain_indices:
                 self.chain_pool[chain_index].update(expanded_attr_index)
         else:
+            n_affected_chains = 1; detailed_anomaly_flag = anomaly_flag_dict[anomaly_flag][0]
             lagged_attr_index = expanded_attr_index - self.n_vars
             self.chain_pool.append(InteractionChain(self.n_vars, self.expanded_var_names, self.expanded_causal_graph, anomaly_flag, lagged_attr_index))
          
-        return affected_chains
+        return n_affected_chains, detailed_anomaly_flag
 
     def print_chains(self):
         normal_chains = [chain for chain in self.chain_pool if chain.anomaly_flag == NORMAL]
@@ -99,6 +106,7 @@ class SecurityGuard():
         self.verbosity = verbosity
         self.var_names: 'list[str]' = bayesian_fitter.var_names
         self.expanded_var_names: 'list[str]' = bayesian_fitter.expanded_var_names
+        self.last_processed_event = ()
         # The score threshold
         self.sig_level = sig_level
         self.score_threshold = 0.0
@@ -108,6 +116,8 @@ class SecurityGuard():
         self.phantom_state_machine = PhantomStateMachine(bayesian_fitter.var_names, bayesian_fitter.expanded_var_names)
         # Chain manager
         self.chain_manager = ChainManager(bayesian_fitter.var_names, bayesian_fitter.expanded_var_names, bayesian_fitter.expanded_causal_graph)
+        # Anomaly analyzer
+        self.anomalous_interaction_dict = {}
     
     def get_score_threshold(self, training_frame):
         # JC TODO: Estimate the score threshold given the significance level (self.sig_level)
@@ -117,6 +127,7 @@ class SecurityGuard():
         self.phantom_state_machine.set_state(state_vector) # Initialize the phantom state machine
         attr = event[0]; expanded_attr_index = self.expanded_var_names.index(attr)
         self.chain_manager.update(expanded_attr_index, NORMAL) # Initialize the chain manager
+        self.last_processed_event = event
     
     def _compute_anomaly_score(self, state, predicted_state):
         # Here we take the quadratic loss as the anomaly score.
@@ -157,6 +168,11 @@ class SecurityGuard():
         # anomaly_flag = anomaly_score > threshold
 
         # Update the chain pool and the phantom state machine according to the detection result.
-        self.chain_manager.update(expanded_attr_index, anomaly_flag)
+        n_affected_chains, detailed_anomaly_flag = self.chain_manager.update(expanded_attr_index, anomaly_flag)
+        if detailed_anomaly_flag == ABNORMAL_EXO:
+            anomalous_interaction = (self.last_processed_event[0], event[0])
+            self.anomalous_interaction_dict[anomalous_interaction] = 1 if anomalous_interaction not in self.anomalous_interaction_dict.keys()\
+                    else self.anomalous_interaction_dict[anomalous_interaction] + 1
         #self.phantom_state_machine.update(event)
+        self.last_processed_event = event
         return anomaly_flag

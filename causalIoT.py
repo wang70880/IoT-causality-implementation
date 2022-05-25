@@ -366,7 +366,8 @@ for dataframe in dataframes:
                     print("Anomaly line at {}.".format(event_preprocessor.frame_dict[frame_id]['testing-start-index'] + evt_count + 1))
                     anomaly_count += 1
             evt_count += 1
-        print("# of testing events, # of anomaly events = {}, {}".format(evt_count, anomaly_count))
+        print("# of testing events, # of anomaly events, # of anomalous interactions = {}, {}, {}".format(evt_count, anomaly_count, len(security_guard.anomalous_interaction_dict.keys())))
+        print(security_guard.anomalous_interaction_dict)
 
     frame_id += 1
     if test_flag == 1: # JC TEST: Test for single data frame
