@@ -61,8 +61,8 @@ class BackgroundGenerator():
                 attr_array = temporal_pair_dict[frame_id][lag]
                 heuristic_attr_array = heuristic_temporal_pair_dict[frame_id][lag]
                 for idx, x in np.ndenumerate(attr_array): # JC TODO: figure out how to set the temporal frequency threshold (Currently it is set to partition_days).
-                    heuristic_attr_array[idx] = 0 if x < self.partition_config else 1 
-                    attr_array[idx] = 0 if x < 2 * self.partition_config else 1  
+                    heuristic_attr_array[idx] = 0 if x < 0.5 * self.partition_config else 1 
+                    attr_array[idx] = 0 if x < self.partition_config else 1  
 
         return temporal_pair_dict, heuristic_temporal_pair_dict
     
@@ -131,8 +131,8 @@ class BackgroundGenerator():
             for lag in range (1, self.tau_max + 1):
                 candidate_pair_dict[frame_id][lag] = self.temporal_pair_dict[frame_id][lag] + self.spatial_pair_dict[frame_id][lag]\
                                                     + merged_functionality_pair_dict 
-                candidate_pair_dict[frame_id][lag][candidate_pair_dict[frame_id][lag] == 3] = 1
                 candidate_pair_dict[frame_id][lag][candidate_pair_dict[frame_id][lag] < 3] = 0
+                candidate_pair_dict[frame_id][lag][candidate_pair_dict[frame_id][lag] == 3] = 1
         return candidate_pair_dict
 
     def _print_pair_list(self, interested_array):
