@@ -264,6 +264,7 @@ frame_id = 0
 
 for dataframe in dataframes:
     """Interaction Miner"""
+    start = time.time()
     T = dataframe.T; N = dataframe.N
     record_count_list.append(T)
     selected_variables = list(range(N))
@@ -345,13 +346,19 @@ for dataframe in dataframes:
                 print("##\n## MCI for frame {} finished. Consumed time: {} mins\n##".format(frame_id, (mci_end - mci_start) * 1.0 / 60))
     # 2. Bayesian Fitting Process
     if COMM.rank == 0:
+        print("Skeleton construction complete. Consumed time: {} seconds.".format(time.time() - start)*1.0/60)
+        print("********** Initiate Bayesian Fitting. **********")
+        start = time.time()
         interaction_graph = pc_result_dict[frame_id] if stable_only ==1 else mci_result_dict[frame_id]
         print(interaction_graph)
         bayesian_fitter = BayesianFitter(dataframe, tau_max, interaction_graph)
         bayesian_fitter.construct_bayesian_model()
+        print("Bayesian fitting complete. Consumed time: {} seconds.".format(time.time() - start)*1.0/60)
 
     """Security Guard"""
     if COMM.rank == 0:
+        print("********** Initiate Security Guarding. **********")
+        start = time.time()
         detection_verbosity = 0
         security_guard = security_guard.SecurityGuard(bayesian_fitter=bayesian_fitter, verbosity=detection_verbosity, sig_level=0.95) # JC TODO: How to decide the sig_level?
         security_guard.get_score_threshold(training_frame=event_preprocessor.frame_dict[frame_id]['training-data']) # Estimate the score threshold given the training dataframe and sig_level
@@ -366,6 +373,7 @@ for dataframe in dataframes:
                     #print("Anomaly line at {}.".format(event_preprocessor.frame_dict[frame_id]['testing-start-index'] + evt_count + 1))
                     anomaly_count += 1
             evt_count += 1
+        print("Anomaly detection complete. Consumed time: {} seconds.".format(time.time() - start)*1.0/60)
         """Evaluate the accuracy of the security guard module"""
         abnormal_interactions = list(security_guard.anomalous_interaction_dict.keys())
         match_count = evaluator.candidate_interaction_matching(frame_id=frame_id, tau=tau_max, interactions_list=abnormal_interactions); miss_count = len(abnormal_interactions) - match_count
