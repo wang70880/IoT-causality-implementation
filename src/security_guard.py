@@ -177,7 +177,7 @@ class SecurityGuard():
         # Update the chain pool and the phantom state machine according to the detection result.
         n_affected_chains, detailed_anomaly_flag = self.chain_manager.update(expanded_attr_index, anomaly_flag)
         if detailed_anomaly_flag == ABNORMAL_EXO: # A type-1 anomaly is detected.
-            anomalous_interaction = (self.last_processed_event[0], event[0])
+            anomalous_interaction = (self.var_names.index(self.last_processed_event[0]), self.var_names.index(event[0])) # JC TODO: It only applies to cases when tau_max=1...
             self.anomalous_interaction_dict[anomalous_interaction] = 1 if anomalous_interaction not in self.anomalous_interaction_dict.keys()\
                     else self.anomalous_interaction_dict[anomalous_interaction] + 1
         #self.phantom_state_machine.update(event)
