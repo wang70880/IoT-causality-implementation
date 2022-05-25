@@ -128,23 +128,23 @@ class SecurityGuard():
         expanded_parent_indices = self.bayesian_fitter.get_expanded_parent_indices(expanded_attr_index)
         anomaly_flag = NORMAL; exo_flag = len(expanded_parent_indices) == 0
 
-        if self.verbosity > 0:
-            self.chain_manager.print_chains()
-            str = "\nStatus of current processing.\n"\
-                    + "  * Current event: {}\n".format(event)\
-                    + "  * Exogenous attribute: {}\n".format(exo_flag)
-            if not exo_flag:
-                parent_names = [self.expanded_var_names[i] for i in expanded_parent_indices]
-                str += "    * The parent set: {}\n".format(parent_names)
-            print(str)
+        #if self.verbosity > 0:
+        #    self.chain_manager.print_chains()
+        #    str = "Status of current processing.\n"\
+        #            + "  * Current event: {}\n".format(event)\
+        #            + "  * Exogenous attribute: {}\n".format(exo_flag)
+        #    if not exo_flag:
+        #        parent_names = [self.expanded_var_names[i] for i in expanded_parent_indices]
+        #        str += "    * The parent set: {}\n".format(parent_names)
+        #    print(str)
 
         # First initiate detections of type-1 attacks.
-        
         if (not exo_flag) and (len(self.chain_manager.match(expanded_attr_index, NORMAL)) == 0):
             anomaly_flag = ABNORMAL
-
+        
+        self.chain_manager.print_chains()
         if anomaly_flag == ABNORMAL:
-            str = "\nType-1 anomalies are detected!\n"\
+            str = "Type-1 anomalies are detected!\n"\
                     + "  * Current event: {}\n".format(event)\
                     + "  * Exogenous attribute: {}\n".format(exo_flag)\
                     + "  * The parent set: {}\n".format([self.expanded_var_names[i] for i in expanded_parent_indices])
