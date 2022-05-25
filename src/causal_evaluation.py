@@ -25,6 +25,15 @@ class Evaluator():
             'automation': self.automation_correlation_dict
         }
     
+    def candidate_interaction_matching(self, frame_id=0, tau=1, interactions_list=[]):
+        match_count = 0
+        candidate_interaction_array = self.background_generator.candidate_pair_dict[frame_id][tau]
+        for interaction in interactions_list:
+            if candidate_interaction_array[interaction[0], interaction[1]] == 1:
+                match_count += 1
+        return match_count
+
+
     def construct_user_correlation_benchmark(self):
         user_correlation_dict = {}
         for frame_id in range(self.event_processor.frame_count):

@@ -15,11 +15,14 @@ class BackgroundGenerator():
         self.spatial_pair_dict = self._spatial_pair_identification()
         self.functionality_pair_dict = self._functionality_pair_identification()
 
+        self.candidate_pair_dict = self._candidate_pair_identification()
+
         self.correlation_dict = {
             'heuristic-temporal': self.heuristic_temporal_pair_dict,
             'temporal': self.temporal_pair_dict,
             'spatial': self.spatial_pair_dict,
-            'functionality': self.functionality_pair_dict
+            'functionality': self.functionality_pair_dict,
+            'candidate': self.candidate_pair_dict
         }
     
     def _temporal_pair_identification(self):
@@ -59,11 +62,11 @@ class BackgroundGenerator():
                 heuristic_attr_array = heuristic_temporal_pair_dict[frame_id][lag]
                 for idx, x in np.ndenumerate(attr_array): # JC TODO: figure out how to set the temporal frequency threshold (Currently it is set to partition_days).
                     heuristic_attr_array[idx] = 0 if x < self.partition_config else 1 
-                    attr_array[idx] = 0 if x < 5 * self.partition_config else 1  
+                    attr_array[idx] = 0 if x < 2 * self.partition_config else 1  
 
         return temporal_pair_dict, heuristic_temporal_pair_dict
     
-    def _testbed_area_infomation(self):
+    def _testbed_area_information(self):
         area_list = []
         if self.dataset == 'hh101':
             # In the list, each element (which is also a list) represents a physical area and deployed devices in that area.
@@ -83,7 +86,7 @@ class BackgroundGenerator():
     def _spatial_pair_identification(self):
         spatial_pair_dict = {} # First index: frame_id. Second index: lag. Value: an integer array of shape num_attrs * num_attrs
         attr_names = self.event_processor.attr_names; num_attrs = len(attr_names)
-        area_list, area_connectivity_array = self._testbed_area_infomation()
+        area_list, area_connectivity_array = self._testbed_area_information()
         spatial_array_list = []
         for lag in range (1, self.tau_max + 1): # The spatial array is only concerned with the lag and the testbed_area_list
             spatial_array_for_cur_lag = np.zeros(shape=(num_attrs, num_attrs), dtype=np.int64)
@@ -119,6 +122,19 @@ class BackgroundGenerator():
                 functionality_pair_dict['physics'][i, j] = 1 if i_physics_flag and j_physics_flag else 0
         return functionality_pair_dict
 
+    def _candidate_pair_identification(self):
+        candidate_pair_dict = {}
+        merged_functionality_pair_dict = self.functionality_pair_dict['activity'] + self.functionality_pair_dict['physics']
+        merged_functionality_pair_dict[merged_functionality_pair_dict >= 1] = 1
+        for frame_id in range( len(self.event_processor.frame_dict.keys())):
+            candidate_pair_dict[frame_id] = {}
+            for lag in range (1, self.tau_max + 1):
+                candidate_pair_dict[frame_id][lag] = self.temporal_pair_dict[frame_id][lag] + self.spatial_pair_dict[frame_id][lag]\
+                                                    + merged_functionality_pair_dict 
+                candidate_pair_dict[frame_id][lag][candidate_pair_dict[frame_id][lag] == 3] = 1
+                candidate_pair_dict[frame_id][lag][candidate_pair_dict[frame_id][lag] < 3] = 0
+        return candidate_pair_dict
+
     def _print_pair_list(self, interested_array):
         attr_names = self.event_processor.attr_names; num_attrs = len(attr_names)
         pair_list = []
@@ -148,7 +164,8 @@ class BackgroundGenerator():
         # print(attr_names)
         for tau in range(1, self.tau_max + 1):
             background_array = self.correlation_dict[knowledge_type][frame_id][tau] \
-                    if knowledge_type != 'functionality' else self.correlation_dict[knowledge_type]['activity']
+                    if knowledge_type != 'functionality' else self.correlation_dict[knowledge_type]['activity'] + self.correlation_dict[knowledge_type]['physics']
+            background_array[background_array > 1] = 1 # Normalize the background array
             for worker_index, link_dict in selected_links.items():
                 # print("Job id: {}".format(worker_index))
                 for outcome, cause_list in link_dict.items():

@@ -57,7 +57,7 @@ class ChainManager():
         self.expanded_var_names = expanded_var_names; self.n_expanded_vars = len(self.expanded_var_names)
         self.expanded_causal_graph = expanded_causal_graph
     
-    def match(self, expanded_attr_index:'int', anomaly_flag):
+    def match(self, expanded_attr_index:'int', anomaly_flag=-1):
         """Identify the set of normal/abnormal chains which can accommodate the new attribute
         That is, there exists a lagged variable in the candidate chain which is the parent of the new attribute.
 
@@ -67,7 +67,13 @@ class ChainManager():
         Returns:
             matched_chain_indices: The list of indices for satisfied chains (in the chain pool)
         """
-        satisfied_chain_indices = [self.chain_pool.index(chain) for chain in self.chain_pool if chain.anomaly_flag == anomaly_flag and chain.match(expanded_attr_index)]
+        satisfied_chain_indices = []
+        if anomaly_flag == NORMAL:
+            satisfied_chain_indices = [self.chain_pool.index(chain) for chain in self.chain_pool if chain.anomaly_flag == NORMAL and chain.match(expanded_attr_index)]
+        elif anomaly_flag == ABNORMAL:
+            satisfied_chain_indices = [self.chain_pool.index(chain) for chain in self.chain_pool if chain.anomaly_flag == ABNORMAL and chain.match(expanded_attr_index)]
+        else:
+            satisfied_chain_indices = [self.chain_pool.index(chain) for chain in self.chain_pool if chain.match(expanded_attr_index)]
         return satisfied_chain_indices
     
     def update(self, expanded_attr_index:'int', anomaly_flag):
@@ -138,7 +144,6 @@ class SecurityGuard():
         attr = event[0]; expanded_attr_index = self.expanded_var_names.index(attr)
         expanded_parent_indices = self.bayesian_fitter.get_expanded_parent_indices(expanded_attr_index)
         anomaly_flag = NORMAL; exo_flag = len(expanded_parent_indices) == 0
-
         #if self.verbosity > 0:
         #    self.chain_manager.print_chains()
         #    str = "Status of current processing.\n"\
@@ -153,7 +158,9 @@ class SecurityGuard():
         if (not exo_flag) and (len(self.chain_manager.match(expanded_attr_index, NORMAL)) == 0):
             anomaly_flag = ABNORMAL
         
-        self.chain_manager.print_chains()
+        if self.verbosity > 0:
+            self.chain_manager.print_chains()
+
         if anomaly_flag == ABNORMAL:
             str = "Type-1 anomalies are detected!\n"\
                     + "  * Current event: {}\n".format(event)\

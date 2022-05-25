@@ -366,7 +366,10 @@ for dataframe in dataframes:
                     print("Anomaly line at {}.".format(event_preprocessor.frame_dict[frame_id]['testing-start-index'] + evt_count + 1))
                     anomaly_count += 1
             evt_count += 1
-        print("# of testing events, # of anomaly events, # of anomalous interactions = {}, {}, {}".format(evt_count, anomaly_count, len(security_guard.anomalous_interaction_dict.keys())))
+        abnormal_interactions = list(security_guard.anomalous_interaction_dict.keys())
+        """Evaluate the accuracy of the security guard module"""
+        match_count = evaluator.candidate_interaction_matching(frame_id=frame_id, tau=tau_max, interactions_list=abnormal_interactions); miss_count = len(abnormal_interactions) - match_count
+        print("# of testing events, # of reported anomalous interactions, # of anomalous interactions (due to wrong model) = {}, {}, {}".format(evt_count, len(abnormal_interactions), match_count))
         print(security_guard.anomalous_interaction_dict)
 
     frame_id += 1
