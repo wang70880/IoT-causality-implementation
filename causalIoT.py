@@ -381,9 +381,8 @@ for dataframe in dataframes:
         print(security_guard.anomalous_interaction_dict)
 
     frame_id += 1
-    if test_flag == 1: # JC TEST: Test for single data frame
-        if frame_id > 0:
-            break
+    if test_flag == 1 and frame_id > 0: # JC TEST: Test for single data frame
+        break
     if frame_id == len(dataframes) - 1:
         break
 
