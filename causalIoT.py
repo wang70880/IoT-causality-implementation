@@ -239,7 +239,7 @@ stable_only = 1
 cond_ind_test = CMIsymb()
 tau_max = 1; tau_min = 1
 verbosity = -1 # -1: No debugging information; 0: Debugging information in this module; 2: Debugging info in PCMCI class; 3: Debugging info in CIT implementations
-test_flag = 1
+test_flag = 1 # JC TEST: Test for single dataframe
 ## For stable-pc
 pc_alpha = 0.1
 max_conds_dim = 5
@@ -263,7 +263,7 @@ evaluator = causal_eval.Evaluator(dataset=dataset, event_processor=event_preproc
 frame_id = 0
 
 for dataframe in dataframes:
-    """Interaction Miner"""
+    """Causal Graph Skeleton Construction."""
     start = time.time()
     T = dataframe.T; N = dataframe.N
     record_count_list.append(T)
@@ -344,7 +344,8 @@ for dataframe in dataframes:
             mci_result_dict[frame_id] = sorted_links_with_name; mci_time_list.append((mci_end - mci_start) * 1.0 / 60)
             if verbosity > -1:
                 print("##\n## MCI for frame {} finished. Consumed time: {} mins\n##".format(frame_id, (mci_end - mci_start) * 1.0 / 60))
-    # 2. Bayesian Fitting Process
+    
+    """Causal Graph Parameterization."""
     if COMM.rank == 0:
         print("Skeleton construction complete. Consumed time: {} seconds.".format(time.time() - start)*1.0/60)
         print("********** Initiate Bayesian Fitting. **********")
@@ -355,7 +356,7 @@ for dataframe in dataframes:
         bayesian_fitter.construct_bayesian_model()
         print("Bayesian fitting complete. Consumed time: {} seconds.".format(time.time() - start)*1.0/60)
 
-    """Security Guard"""
+    """Security Guard."""
     if COMM.rank == 0:
         print("********** Initiate Security Guarding. **********")
         start = time.time()
@@ -381,7 +382,7 @@ for dataframe in dataframes:
         print(security_guard.anomalous_interaction_dict)
 
     frame_id += 1
-    if test_flag == 1 and frame_id > 0: # JC TEST: Test for single data frame
+    if test_flag == 1 and frame_id > 0:
         break
     if frame_id == len(dataframes) - 1:
         break
