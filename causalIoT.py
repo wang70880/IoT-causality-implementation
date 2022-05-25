@@ -347,14 +347,14 @@ for dataframe in dataframes:
     
     """Causal Graph Parameterization."""
     if COMM.rank == 0:
-        print("Skeleton construction complete. Consumed time: {} seconds.".format(time.time() - start)*1.0/60)
+        print("Skeleton construction complete. Consumed time: {} seconds.".format((time.time() - start)*1.0/60))
         print("********** Initiate Bayesian Fitting. **********")
         start = time.time()
         interaction_graph = pc_result_dict[frame_id] if stable_only ==1 else mci_result_dict[frame_id]
         print(interaction_graph)
         bayesian_fitter = BayesianFitter(dataframe, tau_max, interaction_graph)
         bayesian_fitter.construct_bayesian_model()
-        print("Bayesian fitting complete. Consumed time: {} seconds.".format(time.time() - start)*1.0/60)
+        print("Bayesian fitting complete. Consumed time: {} seconds.".format((time.time() - start)*1.0/60))
 
     """Security Guard."""
     if COMM.rank == 0:
@@ -374,7 +374,7 @@ for dataframe in dataframes:
                     #print("Anomaly line at {}.".format(event_preprocessor.frame_dict[frame_id]['testing-start-index'] + evt_count + 1))
                     anomaly_count += 1
             evt_count += 1
-        print("Anomaly detection complete. Consumed time: {} seconds.".format(time.time() - start)*1.0/60)
+        print("Anomaly detection complete. Consumed time: {} seconds.".format((time.time() - start)*1.0/60))
         """Evaluate the accuracy of the security guard module"""
         abnormal_interactions = list(security_guard.anomalous_interaction_dict.keys())
         match_count = evaluator.candidate_interaction_matching(frame_id=frame_id, tau=tau_max, interactions_list=abnormal_interactions); miss_count = len(abnormal_interactions) - match_count
