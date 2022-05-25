@@ -352,7 +352,7 @@ for dataframe in dataframes:
 
     """Security Guard"""
     if COMM.rank == 0:
-        detection_verbosity = 1
+        detection_verbosity = 0
         security_guard = security_guard.SecurityGuard(bayesian_fitter=bayesian_fitter, verbosity=detection_verbosity, sig_level=0.95) # JC TODO: How to decide the sig_level?
         security_guard.get_score_threshold(training_frame=event_preprocessor.frame_dict[frame_id]['training-data']) # Estimate the score threshold given the training dataframe and sig_level
         testing_event_list = list(zip(event_preprocessor.frame_dict[frame_id]['testing-attr-sequence'], event_preprocessor.frame_dict[frame_id]['testing-state-sequence']))
@@ -366,8 +366,8 @@ for dataframe in dataframes:
                     print("Anomaly line at {}.".format(event_preprocessor.frame_dict[frame_id]['testing-start-index'] + evt_count + 1))
                     anomaly_count += 1
             evt_count += 1
-        abnormal_interactions = list(security_guard.anomalous_interaction_dict.keys())
         """Evaluate the accuracy of the security guard module"""
+        abnormal_interactions = list(security_guard.anomalous_interaction_dict.keys())
         match_count = evaluator.candidate_interaction_matching(frame_id=frame_id, tau=tau_max, interactions_list=abnormal_interactions); miss_count = len(abnormal_interactions) - match_count
         print("# of testing events, # of reported anomalous interactions, # of anomalous interactions (due to wrong model) = {}, {}, {}".format(evt_count, len(abnormal_interactions), match_count))
         print(security_guard.anomalous_interaction_dict)

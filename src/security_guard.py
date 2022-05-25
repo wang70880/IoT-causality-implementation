@@ -144,6 +144,7 @@ class SecurityGuard():
         attr = event[0]; expanded_attr_index = self.expanded_var_names.index(attr)
         expanded_parent_indices = self.bayesian_fitter.get_expanded_parent_indices(expanded_attr_index)
         anomaly_flag = NORMAL; exo_flag = len(expanded_parent_indices) == 0
+
         #if self.verbosity > 0:
         #    self.chain_manager.print_chains()
         #    str = "Status of current processing.\n"\
@@ -160,13 +161,12 @@ class SecurityGuard():
         
         if self.verbosity > 0:
             self.chain_manager.print_chains()
-
-        if anomaly_flag == ABNORMAL:
-            str = "Type-1 anomalies are detected!\n"\
-                    + "  * Current event: {}\n".format(event)\
-                    + "  * Exogenous attribute: {}\n".format(exo_flag)\
-                    + "  * The parent set: {}\n".format([self.expanded_var_names[i] for i in expanded_parent_indices])
-            print(str)
+            if anomaly_flag == ABNORMAL:
+                str = "Type-1 anomalies are detected!\n"\
+                        + "  * Current event: {}\n".format(event)\
+                        + "  * Exogenous attribute: {}\n".format(exo_flag)\
+                        + "  * The parent set: {}\n".format([self.expanded_var_names[i] for i in expanded_parent_indices])
+                print(str)
 
         # JC TODO: Initiate detections of type-2 attacks.
         # parent_state_dict = self.phantom_state_machine.get_states(expanded_parent_list)
@@ -176,7 +176,7 @@ class SecurityGuard():
 
         # Update the chain pool and the phantom state machine according to the detection result.
         n_affected_chains, detailed_anomaly_flag = self.chain_manager.update(expanded_attr_index, anomaly_flag)
-        if detailed_anomaly_flag == ABNORMAL_EXO:
+        if detailed_anomaly_flag == ABNORMAL_EXO: # A type-1 anomaly is detected.
             anomalous_interaction = (self.last_processed_event[0], event[0])
             self.anomalous_interaction_dict[anomalous_interaction] = 1 if anomalous_interaction not in self.anomalous_interaction_dict.keys()\
                     else self.anomalous_interaction_dict[anomalous_interaction] + 1
