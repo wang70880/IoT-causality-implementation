@@ -138,7 +138,7 @@ class Evaluator():
                 if len(candidate_anomalous_attrs) == 0:
                     break
                 else:
-                    anomalous_attr = original_frame['var-name'][random.choice(candidate_anomalous_attrs)]
+                    anomalous_attr = random.choice(candidate_anomalous_attrs)
                     anomalous_sequence.append(anomalous_attr)
             anomalous_sequences.append(anomalous_sequence)
             print("Created {}-st anomalous chain: {}.".format(anomalous_sequence))
