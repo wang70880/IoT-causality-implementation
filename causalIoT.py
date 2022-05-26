@@ -235,15 +235,17 @@ class BayesianFitter:
         stop_attr_list = [var_name for (var_name, count) in outcoming_degree_dict.items() if count == 0]
         isolated_attr_list = [var_name for var_name in self.var_names if var_name in exogenous_attr_list\
                                         and var_name in stop_attr_list]
+        
+        outcoming_degree_list = list(outcoming_degree_dict.values()); incomming_degree_list = list(incoming_degree_dict.values())
 
         str = " * isolated attrs, #: {}, {}\n".format(isolated_attr_list, len(isolated_attr_list))\
             + " * stop attrs, #: {}, {}\n".format(stop_attr_list, len(stop_attr_list))\
             + " * exogenous attrs, #: {}, {}\n".format(exogenous_attr_list, len(exogenous_attr_list))\
             + " * # edges: {}\n".format(np.sum(self.expanded_causal_graph))\
-            + " * (max, mean, min) for outcoming degrees: ({}, {}, {})\n".format(max(list(outcoming_degree_dict.values())),\
-                        sum(list(outcoming_degree_dict.values()))*1.0/(self.n_vars - len(isolated_attr_list)), min(list(outcoming_degree_dict.values())))\
-            + " * (max, mean, min) for incoming degrees: ({}, {}, {})\n".format(max(list(incoming_degree_dict.values())),\
-                        sum(list(incoming_degree_dict.values()))*1.0/(self.n_expanded_vars - len(isolated_attr_list)), min(list(incoming_degree_dict.values())))
+            + " * (max, mean, min) for outcoming degrees: ({}, {}, {})\n".format(max(outcoming_degree_list),\
+                        sum(outcoming_degree_list)*1.0/(self.n_vars - len(isolated_attr_list)), min(outcoming_degree_list))\
+            + " * (max, mean, min) for incoming degrees: ({}, {}, {})\n".format(max(incomming_degree_list),\
+                        sum(incomming_degree_list)*1.0/(self.n_vars - len(isolated_attr_list)), min(incomming_degree_list))
         print(str)
 
 """Parameter Settings"""
