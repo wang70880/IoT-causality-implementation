@@ -144,10 +144,11 @@ class Evaluator():
             print(" * Created anomalous chain: {}.".format(anomalous_sequence))
             count += 1
         # JC TEST: Check the correctness of the anomalous sequences
-        split_positions = [0] + split_positions
-        for i in range(0, n_anomalies+1):
-            testing_event_sequence += benign_testing_event_sequence[split_positions[i]: split_positions[i+1]+1].copy()
-            testing_event_sequence += [(attr, 1) for attr in anomalous_sequences[i]] if i < n_anomalies else []
+        starting_index = 0
+        for i in range(0, n_anomalies):
+            testing_event_sequence += benign_testing_event_sequence[starting_index: split_positions[i]+1].copy()
+            testing_event_sequence += [(attr, 1) for attr in anomalous_sequences[i]]
+            starting_index = split_positions[i]+1
         # JC TEST: Check the correctness for list concatenation 
         assert(len(testing_event_sequence) == len(benign_testing_event_sequence)\
                          + sum([len(anomaly_sequence) for anomaly_sequence in anomalous_sequences]))
