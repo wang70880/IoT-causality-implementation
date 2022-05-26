@@ -31,7 +31,7 @@ class Evaluator():
             'automation': self.automation_correlation_dict
         }
     
-    def evaluate_detection_accuracy(golden_standard:'list[int]', result:'list[int]'):
+    def evaluate_detection_accuracy(self, golden_standard:'list[int]', result:'list[int]'):
         print("Golden standard: {}".format(golden_standard))
         print("Your result: {}".format(result))
         tp = len([x for x in result if x in golden_standard])
