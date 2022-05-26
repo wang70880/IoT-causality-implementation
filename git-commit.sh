@@ -1,5 +1,5 @@
 #!/bin/sh
-com="[Implementation] Implement the InteractionChain class and the Chain Manager module for detections of type-1 attacks; [Test] Test the accuracy of the detections."
+com="[Implementation] Prepare to implement the InteractionChain class and the Chain Manager module for detections of type-2 attacks; [Test] Test why bayesian fitting is slow."
 git add -A
 git commit -m "$com"
 git push

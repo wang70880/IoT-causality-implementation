@@ -348,10 +348,10 @@ for dataframe in dataframes:
     """Causal Graph Parameterization."""
     if COMM.rank == 0:
         print("Skeleton construction complete. Consumed time: {} seconds.".format((time.time() - start)*1.0/60))
-        print(interaction_graph)
-        print("\n********** Initiate Bayesian Fitting. **********")
         start = time.time()
         interaction_graph = pc_result_dict[frame_id] if stable_only == 1 else mci_result_dict[frame_id]
+        print(interaction_graph)
+        print("\n********** Initiate Bayesian Fitting. **********")
         bayesian_fitter = BayesianFitter(dataframe, tau_max, interaction_graph)
         bayesian_fitter.construct_bayesian_model()
         print("Bayesian fitting complete. Consumed time: {} seconds.".format((time.time() - start)*1.0/60))
