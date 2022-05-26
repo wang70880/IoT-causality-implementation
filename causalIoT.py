@@ -393,7 +393,7 @@ for frame_id in range(event_preprocessor.frame_count):
         print("\n********** Initiate Security Guarding. **********")
         start = time.time()
         detection_verbosity = 0
-        security_guard = security_guard.SecurityGuard(bayesian_fitter=bayesian_fitter, verbosity=detection_verbosity, sig_level=0.95) # JC TODO: How to decide the sig_level?
+        security_guard = security_guard.SecurityGuard(bayesian_fitter=bayesian_fitter, verbosity=detection_verbosity)
         security_guard.get_score_threshold(training_frame=event_preprocessor.frame_dict[frame_id]['training-data']) # Estimate the score threshold given the training dataframe and sig_level
         testing_event_list = list(zip(event_preprocessor.frame_dict[frame_id]['testing-attr-sequence'], event_preprocessor.frame_dict[frame_id]['testing-state-sequence']))
         evt_count = 0; anomaly_count = 0
@@ -401,17 +401,15 @@ for frame_id in range(event_preprocessor.frame_count):
             if evt_count <= tau_max: # use the first tau_max events for warm start
                 security_guard.initialize(evt, event_preprocessor.frame_dict[frame_id]['testing-data'].values[evt_count])
             else: # Start the anomaly detection
-                anomaly_flag = security_guard.anomaly_detection(event=evt)
-                if anomaly_flag == ABNORMAL:
-                    #print("Anomaly line at {}.".format(event_preprocessor.frame_dict[frame_id]['testing-start-index'] + evt_count + 1))
-                    anomaly_count += 1
+                security_guard.anomaly_detection(event=evt)
             evt_count += 1
         print("Anomaly detection complete. Consumed time: {} seconds.".format((time.time() - start)*1.0/60))
 
         """Evaluate the accuracy of the security guard module"""
-        abnormal_interactions = list(security_guard.anomalous_interaction_dict.keys())
-        match_count = evaluator.candidate_interaction_matching(frame_id=frame_id, tau=tau_max, interactions_list=abnormal_interactions); miss_count = len(abnormal_interactions) - match_count
-        print("# of testing events, # of reported anomalous interactions, # of anomalous interactions (due to wrong model) = {}, {}, {}".format(evt_count, len(abnormal_interactions), match_count))
+        abnormal_interaction_list = list(security_guard.anomalous_interaction_dict.keys())
+        n_abnormal_interactions = sum(list(security_guard.anomalous_interaction_dict.values()))
+        match_count = evaluator.candidate_interaction_matching(frame_id=frame_id, tau=tau_max, interactions_list=abnormal_interaction_list); miss_count = len(abnormal_interaction_list) - match_count
+        print("# of testing events, # of reported anomalous events, # of reported anomalous interactions, # of anomalous interactions (due to wrong model) = {}, {}, {}, {}".format(evt_count, n_abnormal_interactions, len(abnormal_interaction_list), match_count))
         print(security_guard.anomalous_interaction_dict)
 
     frame_id += 1

@@ -56,6 +56,7 @@ class ChainManager():
         self.var_names = var_names; self.n_vars = len(self.var_names)
         self.expanded_var_names = expanded_var_names; self.n_expanded_vars = len(self.expanded_var_names)
         self.expanded_causal_graph = expanded_causal_graph
+        self.anomalous_interaction_dict = {}
     
     def match(self, expanded_attr_index:'int', anomaly_flag=-1):
         """Identify the set of normal/abnormal chains which can accommodate the new attribute
@@ -108,13 +109,12 @@ class ChainManager():
 
 class SecurityGuard():
 
-    def __init__(self, bayesian_fitter, verbosity, sig_level) -> None:
+    def __init__(self, bayesian_fitter, verbosity) -> None:
         self.verbosity = verbosity
         self.var_names: 'list[str]' = bayesian_fitter.var_names
         self.expanded_var_names: 'list[str]' = bayesian_fitter.expanded_var_names
         self.last_processed_event = ()
         # The score threshold
-        self.sig_level = sig_level
         self.score_threshold = 0.0
         # The parameterized causal graph
         self.bayesian_fitter = bayesian_fitter
@@ -144,17 +144,6 @@ class SecurityGuard():
         attr = event[0]; expanded_attr_index = self.expanded_var_names.index(attr)
         expanded_parent_indices = self.bayesian_fitter.get_expanded_parent_indices(expanded_attr_index)
         anomaly_flag = NORMAL; exo_flag = len(expanded_parent_indices) == 0
-
-        #if self.verbosity > 0:
-        #    self.chain_manager.print_chains()
-        #    str = "Status of current processing.\n"\
-        #            + "  * Current event: {}\n".format(event)\
-        #            + "  * Exogenous attribute: {}\n".format(exo_flag)
-        #    if not exo_flag:
-        #        parent_names = [self.expanded_var_names[i] for i in expanded_parent_indices]
-        #        str += "    * The parent set: {}\n".format(parent_names)
-        #    print(str)
-
         # First initiate detections of type-1 attacks.
         if (not exo_flag) and (len(self.chain_manager.match(expanded_attr_index, NORMAL)) == 0):
             anomaly_flag = ABNORMAL
@@ -167,7 +156,6 @@ class SecurityGuard():
                         + "  * Exogenous attribute: {}\n".format(exo_flag)\
                         + "  * The parent set: {}\n".format([self.expanded_var_names[i] for i in expanded_parent_indices])
                 print(str)
-
         # JC TODO: Initiate detections of type-2 attacks.
         # parent_state_dict = self.phantom_state_machine.get_states(expanded_parent_list)
         # predicted_state =  self.bayesian_fitter.predict_attr_state(attr, parent_state_dict)
@@ -177,9 +165,9 @@ class SecurityGuard():
         # Update the chain pool and the phantom state machine according to the detection result.
         n_affected_chains, detailed_anomaly_flag = self.chain_manager.update(expanded_attr_index, anomaly_flag)
         if detailed_anomaly_flag == ABNORMAL_EXO: # A type-1 anomaly is detected.
-            anomalous_interaction = (self.var_names.index(self.last_processed_event[0]), self.var_names.index(event[0])) # JC TODO: It only applies to cases when tau_max=1...
+            anomalous_interaction = (self.var_names.index(self.last_processed_event[0]), self.var_names.index(event[0]))
             self.anomalous_interaction_dict[anomalous_interaction] = 1 if anomalous_interaction not in self.anomalous_interaction_dict.keys()\
                     else self.anomalous_interaction_dict[anomalous_interaction] + 1
         #self.phantom_state_machine.update(event)
         self.last_processed_event = event
-        return anomaly_flag
+        return detailed_anomaly_flag
