@@ -172,15 +172,17 @@ class BayesianFitter:
         Returns:
             model: A pgmpy.model object
         """
+        start_time = time.time()
         edge_list = [(self.expanded_var_names[i], self.expanded_var_names[j])\
                         for (i, j), x in np.ndenumerate(self.expanded_causal_graph) if x == 1]
         print("[Bayesian Fitting] Prepare to construct the bayesian network. Edge list: {}".format(edge_list))
+        in_degrees = [sum(self.expanded_causal_graph[:, i]) for i in range(0, self.n_expanded_vars)]; max_degree = max(in_degrees); corrs_attr = self.expanded_var_names[in_degrees.index(max_degree)]
+        print("The variable {} owns the maximum in-degree {}.".format(corrs_attr, max_degree))
         self.model = BayesianNetwork(edge_list)
         df = pd.DataFrame(data=self.expanded_data_array, columns=self.expanded_var_names)
         print("[Bayesian Fitting] Prepare to fit. The model: {}".format(self.model))
-        start_time = time.time()
-        cpd_LS001 = MaximumLikelihoodEstimator(self.model, df).estimate_cpd('LS001') #JC TEST: The bayesian fitting consumes much time. Let's test the exact consumed time here..
-        print(cpd_LS001)
+        cpd = MaximumLikelihoodEstimator(self.model, df).estimate_cpd(corrs_attr) #JC TEST: The bayesian fitting consumes much time. Let's test the exact consumed time here..
+        print(cpd)
         #self.model.fit(df, estimator= MaximumLikelihoodEstimator) 
         print("[Bayesian fitting] Complete. Consumed time: {} seconds.".format((time.time() - start_time)*1.0/60))
     
@@ -384,7 +386,7 @@ for frame_id in range(event_preprocessor.frame_count):
             if evt_count <= tau_max: # use the first tau_max events for warm start
                 security_guard.initialize(evt, event_preprocessor.frame_dict[frame_id]['testing-data'].values[evt_count])
             else: # Start the anomaly detection
-                anomaly_flag = security_guard.anomaly_detection(event=evt, threshold=1.0)
+                anomaly_flag = security_guard.anomaly_detection(event=evt)
                 if anomaly_flag == ABNORMAL:
                     #print("Anomaly line at {}.".format(event_preprocessor.frame_dict[frame_id]['testing-start-index'] + evt_count + 1))
                     anomaly_count += 1

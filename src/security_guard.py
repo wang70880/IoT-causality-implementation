@@ -140,7 +140,7 @@ class SecurityGuard():
         # See paper "A Unifying Framework for Detecting Outliers and Change Points from Time Series"
         return 1.0 * (state - predicted_state) ** 2
     
-    def anomaly_detection(self, event, threshold):
+    def anomaly_detection(self, event):
         attr = event[0]; expanded_attr_index = self.expanded_var_names.index(attr)
         expanded_parent_indices = self.bayesian_fitter.get_expanded_parent_indices(expanded_attr_index)
         anomaly_flag = NORMAL; exo_flag = len(expanded_parent_indices) == 0
