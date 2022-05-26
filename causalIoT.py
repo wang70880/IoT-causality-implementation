@@ -42,6 +42,10 @@ import src.security_guard as security_guard
 COMM = MPI.COMM_WORLD
 NORMAL = 0
 ABNORMAL = 1
+NORMAL_EXO = 2
+NORMAL_ENO = 3
+ABNORMAL_EXO = 4
+ABNORMAL_ENO = 5
 
 def _split(container, count):
     """
@@ -393,25 +397,23 @@ for frame_id in range(event_preprocessor.frame_count):
         print("\n********** Initiate Security Guarding. **********")
         security_guard = security_guard.SecurityGuard(bayesian_fitter=bayesian_fitter)
         # 1. Inject device anomalies
-        testing_event_sequences, anomaly_positions = evaluator.inject_type1_anomalies(frame_id=frame_id, n_anomalies=10, maximum_length=3)
-        exit()
+        testing_event_sequences, true_anomaly_positions = evaluator.inject_type1_anomalies(frame_id=frame_id, n_anomalies=10, maximum_length=3)
+
         # 2. Initiate anomaly detections
         start = time.time()
-        evt_count = 0
+        evt_count = 0; anomaly_flag = NORMAL
         for evt in testing_event_sequences:
             if evt_count <= tau_max: # use the first tau_max events for warm start
                 security_guard.initialize(evt, event_preprocessor.frame_dict[frame_id]['testing-data'].values[evt_count])
             else: # Start the anomaly detection
-                security_guard.anomaly_detection(event=evt)
+                security_guard.anomaly_detection(event_id=evt_count, event=evt)
             evt_count += 1
-        print("Anomaly detection complete. Consumed time: {} seconds.".format((time.time() - start)*1.0/60))
+        print("[Security guarding] Anomaly detection completes for {} runtime events. Consumed time: {} seconds.".format(evt_count, (time.time() - start)*1.0/60))
+
         # 3. Evaluate the detection accuracy.:w
-        """Generate device anomalies, initiate anomaly detections, and evaluate the detection accuracy."""
-        abnormal_interaction_list = list(security_guard.anomalous_interaction_dict.keys())
-        n_abnormal_event = sum(list(security_guard.anomalous_interaction_dict.values()))
-        match_count = evaluator.candidate_interaction_matching(frame_id=frame_id, tau=tau_max, interactions_list=abnormal_interaction_list); miss_count = len(abnormal_interaction_list) - match_count
-        print("# of testing events, # of reported anomalous events, # of reported anomalous interactions, # of anomalous interactions (due to wrong model) = {}, {}, {}, {}".format(evt_count, n_abnormal_event, len(abnormal_interaction_list), match_count))
-        print(security_guard.anomalous_interaction_dict)
+        print("[Security guarding] Evaluating the detection accuracy for type-1 anomalies")
+        detected_type1_anomaly_event_ids = list(security_guard.type1_anomaly_dict.keys())
+        evaluator.evaluate_detection_accuracy(true_anomaly_positions, detected_type1_anomaly_event_ids)
 
     frame_id += 1
     if single_frame_test_flag == 1 and frame_id > 0:

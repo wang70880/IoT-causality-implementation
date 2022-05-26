@@ -87,18 +87,20 @@ class ChainManager():
         Returns:
             int: The number of updated chains
         """
-        n_affected_chains = 0; detailed_anomaly_flag = 0
+        detailed_anomaly_flag = 0; affected_chain_ids = []
         matched_chain_indices = self.match(expanded_attr_index, anomaly_flag)
         if len(matched_chain_indices) > 0:
-            n_affected_chains = len(matched_chain_indices); detailed_anomaly_flag = anomaly_flag_dict[anomaly_flag][1]
+            detailed_anomaly_flag = anomaly_flag_dict[anomaly_flag][1]
             for chain_index in matched_chain_indices:
+                affected_chain_ids.append(chain_index)
                 self.chain_pool[chain_index].update(expanded_attr_index)
         else:
-            n_affected_chains = 1; detailed_anomaly_flag = anomaly_flag_dict[anomaly_flag][0]
+            detailed_anomaly_flag = anomaly_flag_dict[anomaly_flag][0]
             lagged_attr_index = expanded_attr_index - self.n_vars
             self.chain_pool.append(InteractionChain(self.n_vars, self.expanded_var_names, self.expanded_causal_graph, anomaly_flag, lagged_attr_index))
+            affected_chain_ids.append(len(self.chain_pool) - 1)
          
-        return n_affected_chains, detailed_anomaly_flag
+        return detailed_anomaly_flag, affected_chain_ids
 
     def print_chains(self):
         normal_chains = [chain for chain in self.chain_pool if chain.anomaly_flag == NORMAL]
@@ -123,7 +125,7 @@ class SecurityGuard():
         # Chain manager
         self.chain_manager = ChainManager(bayesian_fitter.var_names, bayesian_fitter.expanded_var_names, bayesian_fitter.expanded_causal_graph)
         # Anomaly analyzer
-        self.anomalous_interaction_dict = {}
+        self.type1_anomaly_dict = {}
     
     def initialize(self, event, state_vector):
         self.phantom_state_machine.set_state(state_vector) # Initialize the phantom state machine
@@ -136,7 +138,7 @@ class SecurityGuard():
         # See paper "A Unifying Framework for Detecting Outliers and Change Points from Time Series"
         return 1.0 * (state - predicted_state) ** 2
     
-    def anomaly_detection(self, event):
+    def anomaly_detection(self, event_id, event):
         attr = event[0]; expanded_attr_index = self.expanded_var_names.index(attr)
         expanded_parent_indices = self.bayesian_fitter.get_expanded_parent_indices(expanded_attr_index)
         anomaly_flag = NORMAL; exo_flag = len(expanded_parent_indices) == 0
@@ -152,6 +154,7 @@ class SecurityGuard():
                         + "  * Exogenous attribute: {}\n".format(exo_flag)\
                         + "  * The parent set: {}\n".format([self.expanded_var_names[i] for i in expanded_parent_indices])
                 print(str)
+
         # JC TODO: Initiate detections of type-2 attacks.
         # parent_state_dict = self.phantom_state_machine.get_states(expanded_parent_list)
         # predicted_state =  self.bayesian_fitter.predict_attr_state(attr, parent_state_dict)
@@ -159,11 +162,11 @@ class SecurityGuard():
         # anomaly_flag = anomaly_score > threshold
 
         # Update the chain pool and the phantom state machine according to the detection result.
-        n_affected_chains, detailed_anomaly_flag = self.chain_manager.update(expanded_attr_index, anomaly_flag)
+        detailed_anomaly_flag, affected_chain_ids = self.chain_manager.update(expanded_attr_index, anomaly_flag)
         if detailed_anomaly_flag == ABNORMAL_EXO: # A type-1 anomaly is detected.
-            anomalous_interaction = (self.var_names.index(self.last_processed_event[0]), self.var_names.index(event[0]))
-            self.anomalous_interaction_dict[anomalous_interaction] = 1 if anomalous_interaction not in self.anomalous_interaction_dict.keys()\
-                    else self.anomalous_interaction_dict[anomalous_interaction] + 1
+            self.type1_anomaly_dict[event_id] = {}
+            self.type1_anomaly_dict[event_id]['anomalous_interaction'] = (self.var_names.index(self.last_processed_event[0]), self.var_names.index(event[0]))
+            self.type1_anomaly_dict[event_id]['chain-id'] = affected_chain_ids[0]
         #self.phantom_state_machine.update(event)
         self.last_processed_event = event
         return detailed_anomaly_flag

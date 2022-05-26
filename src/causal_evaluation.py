@@ -31,6 +31,16 @@ class Evaluator():
             'automation': self.automation_correlation_dict
         }
     
+    def evaluate_detection_accuracy(golden_standard:'list[int]', result:'list[int]'):
+        print("Golden standard: {}".format(golden_standard))
+        print("Your result: {}".format(result))
+        tp = len([x for x in result if x in golden_standard])
+        fp = len([x for x in result if x not in golden_standard])
+        fn = len([x for x in golden_standard if x not in result])
+        precision = tp * 1.0 / (tp + fp)
+        recall = tp * 1.0 / (tp + fn)
+        print("Precision, recall = {:.2f}, {:.2f}".format(precision, recall))
+
     def candidate_interaction_matching(self, frame_id=0, tau=1, interactions_list=[]):
         match_count = 0
         candidate_interaction_array = self.background_generator.candidate_pair_dict[frame_id][tau]
@@ -152,7 +162,5 @@ class Evaluator():
         # JC TEST: Check the correctness for list concatenation 
         assert(len(testing_event_sequence) == len(benign_testing_event_sequence)\
                          + sum([len(anomaly_sequence) for anomaly_sequence in anomalous_sequences]))
-        
-        print(anomaly_positions)
 
         return testing_event_sequence, anomaly_positions
