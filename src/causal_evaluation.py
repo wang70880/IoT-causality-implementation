@@ -152,5 +152,7 @@ class Evaluator():
         # JC TEST: Check the correctness for list concatenation 
         assert(len(testing_event_sequence) == len(benign_testing_event_sequence)\
                          + sum([len(anomaly_sequence) for anomaly_sequence in anomalous_sequences]))
+        
+        print(anomaly_positions)
 
-        return testing_event_sequence
+        return testing_event_sequence, anomaly_positions
