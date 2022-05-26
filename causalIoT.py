@@ -231,10 +231,9 @@ class BayesianFitter:
                 outcoming_degree += sum(self.expanded_causal_graph[self.expanded_var_names.index(_lag_name(var_name, tau))])
             outcoming_degree_dict[var_name] = outcoming_degree
         
-        exogenous_attr_list = [var_name for (var_name, count) in incoming_degree_dict.items() if count == 0]
-        stop_attr_list = [var_name for (var_name, count) in outcoming_degree_dict.items() if count == 0]
-        isolated_attr_list = [var_name for var_name in self.var_names if var_name in exogenous_attr_list\
-                                        and var_name in stop_attr_list]
+        isolated_attr_list = [var_name for var_name in self.var_names if incoming_degree_dict[var_name] + outcoming_degree_dict[var_name] == 0]
+        exogenous_attr_list = [var_name for (var_name, count) in incoming_degree_dict.items() if count == 0 and var_name not in isolated_attr_list]
+        stop_attr_list = [var_name for (var_name, count) in outcoming_degree_dict.items() if count == 0 and var_name not in isolated_attr_list]
         
         outcoming_degree_list = list(outcoming_degree_dict.values()); incomming_degree_list = list(incoming_degree_dict.values())
 
