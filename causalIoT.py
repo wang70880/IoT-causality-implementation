@@ -131,15 +131,16 @@ def _lag_name(attr:'str', lag:'int'):
 
 class BayesianFitter:
 
-    def __init__(self, dataframe, tau_max, link_dict) -> None:
+    def __init__(self, frame, tau_max, link_dict) -> None:
+        self.frame = frame
         self.tau_max = tau_max
-        self.var_names = dataframe.var_names; self.n_vars = len(self.var_names)
+        self.dataframe = self.frame['training-data']; self.var_names = self.dataframe.var_names; self.n_vars = len(self.var_names)
         self.expanded_var_names, self.expanded_causal_graph, self.expanded_data_array =\
-                     self._transform_materials(dataframe, tau_max, link_dict)
+                     self._transform_materials(tau_max, link_dict)
         self.n_expanded_vars = len(self.expanded_var_names)
         self.model = None
     
-    def _transform_materials(self, dataframe, tau_max, link_dict):
+    def _transform_materials(self, tau_max, link_dict):
         """
         This function transforms the original N variables into N(tau_max + 1) variables
         As a result,
@@ -152,7 +153,7 @@ class BayesianFitter:
             link_dict (_type_): Results returned by pc-stable algorithm, which is a dict recording the edges
         Returns:
             expanded_var_names (list[str]): Record the name of expanded variables (starting from t-tau_max to t)
-        """
+        """ 
         expanded_var_names = []; expanded_causal_graph = None; expanded_data_array = None
         for tau in range(0, tau_max + 1): # Construct expanded_var_names
             expanded_var_names = [*[_lag_name(x, tau) for x in self.var_names], *expanded_var_names]
@@ -160,9 +161,9 @@ class BayesianFitter:
         for outcome, cause_list in link_dict.items(): # Construct expanded causal graph (a binary array)
             for (cause, lag) in cause_list:
                 expanded_causal_graph[expanded_var_names.index(_lag_name(cause, abs(lag))), expanded_var_names.index(outcome)] = 1
-        expanded_data_array = np.zeros(shape=(dataframe.T - tau_max, len(expanded_var_names)), dtype=np.uint8)
-        for i in range(0, dataframe.T - tau_max): # Construct expanded data array
-            expanded_data_array[i] = np.concatenate([dataframe.values[i+tau] for tau in range(0, tau_max+1)])
+        expanded_data_array = np.zeros(shape=(self.dataframe.T - tau_max, len(expanded_var_names)), dtype=np.uint8)
+        for i in range(0, self.dataframe.T - tau_max): # Construct expanded data array
+            expanded_data_array[i] = np.concatenate([self.dataframe.values[i+tau] for tau in range(0, tau_max+1)])
         return expanded_var_names, expanded_causal_graph, expanded_data_array
 
     def construct_bayesian_model(self):
@@ -173,13 +174,12 @@ class BayesianFitter:
         """
         edge_list = [(self.expanded_var_names[i], self.expanded_var_names[j])\
                         for (i, j), x in np.ndenumerate(self.expanded_causal_graph) if x == 1]
-        print("[Bayesian Fitting] Prepare to construct the bayesian network. Edge list: {}".format(edge_list))
-        model = BayesianNetwork(edge_list)
+        # print("[Bayesian Fitting] Prepare to construct the bayesian network. Edge list: {}".format(edge_list))
+        self.model = BayesianNetwork(edge_list)
         df = pd.DataFrame(data=self.expanded_data_array, columns=self.expanded_var_names)
-        print("[Bayesian Fitting] Prepare to fit. The model: {}".format(model))
-        model.fit(df, estimator= MaximumLikelihoodEstimator) #JC NOTE: Here we use MLE, what if we try Bayesian parameter estimation?
+        # print("[Bayesian Fitting] Prepare to fit. The model: {}".format(model))
+        self.model.fit(df, estimator= MaximumLikelihoodEstimator, n_jobs=10) #JC NOTE: Here we use MLE, what if we try Bayesian parameter estimation?
         print("[Bayesian Fitting] Fitting finished.")
-        self.model = model
     
     def exo_check(self, attr:'str'):
         """Check if the current attribute is an exogenous attribute.
@@ -214,6 +214,9 @@ class BayesianFitter:
     def get_expanded_parent_indices(self, expanded_attr_index: 'int'):
         return list(np.where(self.expanded_causal_graph[:,expanded_attr_index] == 1)[0])
         #return {index: self.expanded_var_names[i] for index in par_indices}
+
+    def derive_anomaly_score_threshold(self):
+        pass
 
     def analyze_discovery_statistics(self):
         print("[BayesianPredictor] Analyzing discovery statistics.")
@@ -260,10 +263,10 @@ attr_names, dataframes = event_preprocessor.initiate_data_preprocessing(partitio
 """Background Generator"""
 background_generator = bk_generator.BackgroundGenerator(dataset, event_preprocessor, partition_config, tau_max)
 evaluator = causal_eval.Evaluator(dataset=dataset, event_processor=event_preprocessor, background_generator=background_generator, tau_max=tau_max)
-frame_id = 0
 
-for dataframe in dataframes:
-    """\nCausal Graph Skeleton Construction."""
+for frame_id in range(event_preprocessor.frame_count):
+    frame = event_preprocessor.frame_dict[frame_id]; dataframe = frame['training-data']
+    """Causal Graph Skeleton Construction."""
     start = time.time()
     T = dataframe.T; N = dataframe.N
     record_count_list.append(T)
@@ -352,13 +355,16 @@ for dataframe in dataframes:
         interaction_graph = pc_result_dict[frame_id] if stable_only == 1 else mci_result_dict[frame_id]
         print(interaction_graph)
         print("\n********** Initiate Bayesian Fitting. **********")
-        bayesian_fitter = BayesianFitter(dataframe, tau_max, interaction_graph)
+        bayesian_fitter = BayesianFitter(frame, tau_max, interaction_graph)
         bayesian_fitter.construct_bayesian_model()
         print("Bayesian fitting complete. Consumed time: {} seconds.".format((time.time() - start)*1.0/60))
+    
+    """Anomaly score cutoff estimation."""
+    if COMM.rank == 0:
+        score_threshold = bayesian_fitter
 
     """Security Guard."""
     if COMM.rank == 0:
-
         print("\n********** Initiate Security Guarding. **********")
         start = time.time()
         detection_verbosity = 0
@@ -386,7 +392,7 @@ for dataframe in dataframes:
     frame_id += 1
     if test_flag == 1 and frame_id > 0:
         break
-    if frame_id == len(dataframes) - 1:
+    if frame_id == event_preprocessor.frame_count - 1:
         break
 
 """Evaluate discovery accuracy and compare with ARM."""
