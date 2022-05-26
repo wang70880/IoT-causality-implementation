@@ -117,7 +117,7 @@ class Evaluator():
         return statistics.mean(truth_count_list), statistics.mean(precision_list), statistics.mean(recall_list)
     
     def inject_type1_anomalies(self, frame_id, n_anomalies, maximum_length):
-        testing_event_sequence = []
+        testing_event_sequence = []; anomaly_positions = []
         original_frame = self.event_processor.frame_dict[frame_id]
         benign_testing_event_sequence = list(zip(original_frame['testing-attr-sequence'], original_frame['testing-state-sequence']))
         n_benign_events = len(benign_testing_event_sequence)
@@ -128,7 +128,6 @@ class Evaluator():
         for split_position in split_positions:
             anomalous_sequence = []
             preceding_attr = benign_testing_event_sequence[split_position][0]; preceding_attr_index = original_frame['var-name'].index(preceding_attr)
-            print("Prepare to create the {}-st anomalous chain with preceding attribute {}.".format(count, preceding_attr))
             candidate_anomalous_attrs = [original_frame['var-name'][i] for i in list(np.where(self.background_generator.candidate_pair_dict[frame_id][anomaly_lag][preceding_attr_index] == 0)[0])]
             anomalous_attr = random.choice(candidate_anomalous_attrs)
             anomalous_sequence.append(anomalous_attr)
@@ -141,12 +140,12 @@ class Evaluator():
                     anomalous_attr = random.choice(candidate_anomalous_attrs)
                     anomalous_sequence.append(anomalous_attr)
             anomalous_sequences.append(anomalous_sequence)
-            print(" * Created anomalous chain: {}.".format(anomalous_sequence))
             count += 1
         # JC TEST: Check the correctness of the anomalous sequences
         starting_index = 0
         for i in range(0, n_anomalies):
             testing_event_sequence += benign_testing_event_sequence[starting_index: split_positions[i]+1].copy()
+            anomaly_positions.append(len(testing_event_sequence))
             testing_event_sequence += [(attr, 1) for attr in anomalous_sequences[i]]
             starting_index = split_positions[i]+1
         testing_event_sequence += benign_testing_event_sequence[starting_index:].copy()
