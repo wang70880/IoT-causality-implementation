@@ -171,14 +171,14 @@ class BayesianFitter:
         Returns:
             model: A pgmpy.model object
         """
-        start = time.time()
         edge_list = [(self.expanded_var_names[i], self.expanded_var_names[j])\
                         for (i, j), x in np.ndenumerate(self.expanded_causal_graph) if x == 1]
+        print("[Bayesian Fitting] Prepare to construct the bayesian network. Edge list: {}".format(edge_list))
         model = BayesianNetwork(edge_list)
         df = pd.DataFrame(data=self.expanded_data_array, columns=self.expanded_var_names)
+        print("[Bayesian Fitting] Prepare to fit. The model: {}".format(model))
         model.fit(df, estimator= MaximumLikelihoodEstimator) #JC NOTE: Here we use MLE, what if we try Bayesian parameter estimation?
-        end = time.time()
-        # print("Consumption time for MLE: {} seconds".format((end-start) * 1.0 / 60))
+        print("[Bayesian Fitting] Fitting finished.")
         self.model = model
     
     def exo_check(self, attr:'str'):
@@ -263,7 +263,7 @@ evaluator = causal_eval.Evaluator(dataset=dataset, event_processor=event_preproc
 frame_id = 0
 
 for dataframe in dataframes:
-    """Causal Graph Skeleton Construction."""
+    """\nCausal Graph Skeleton Construction."""
     start = time.time()
     T = dataframe.T; N = dataframe.N
     record_count_list.append(T)
@@ -348,17 +348,18 @@ for dataframe in dataframes:
     """Causal Graph Parameterization."""
     if COMM.rank == 0:
         print("Skeleton construction complete. Consumed time: {} seconds.".format((time.time() - start)*1.0/60))
-        print("********** Initiate Bayesian Fitting. **********")
-        start = time.time()
-        interaction_graph = pc_result_dict[frame_id] if stable_only ==1 else mci_result_dict[frame_id]
         print(interaction_graph)
+        print("\n********** Initiate Bayesian Fitting. **********")
+        start = time.time()
+        interaction_graph = pc_result_dict[frame_id] if stable_only == 1 else mci_result_dict[frame_id]
         bayesian_fitter = BayesianFitter(dataframe, tau_max, interaction_graph)
         bayesian_fitter.construct_bayesian_model()
         print("Bayesian fitting complete. Consumed time: {} seconds.".format((time.time() - start)*1.0/60))
 
     """Security Guard."""
     if COMM.rank == 0:
-        print("********** Initiate Security Guarding. **********")
+
+        print("\n********** Initiate Security Guarding. **********")
         start = time.time()
         detection_verbosity = 0
         security_guard = security_guard.SecurityGuard(bayesian_fitter=bayesian_fitter, verbosity=detection_verbosity, sig_level=0.95) # JC TODO: How to decide the sig_level?
@@ -375,6 +376,7 @@ for dataframe in dataframes:
                     anomaly_count += 1
             evt_count += 1
         print("Anomaly detection complete. Consumed time: {} seconds.".format((time.time() - start)*1.0/60))
+
         """Evaluate the accuracy of the security guard module"""
         abnormal_interactions = list(security_guard.anomalous_interaction_dict.keys())
         match_count = evaluator.candidate_interaction_matching(frame_id=frame_id, tau=tau_max, interactions_list=abnormal_interactions); miss_count = len(abnormal_interactions) - match_count
