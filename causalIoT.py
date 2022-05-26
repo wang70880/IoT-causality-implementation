@@ -270,9 +270,9 @@ evaluator = causal_eval.Evaluator(dataset=dataset, event_processor=event_preproc
 
 for frame_id in range(event_preprocessor.frame_count):
     frame = event_preprocessor.frame_dict[frame_id]; dataframe = frame['training-data']
+
     """Causal Graph Skeleton Construction."""
     if not skip_skeleton_estimation_flag:
-        start = time.time()
         T = dataframe.T; N = dataframe.N
         record_count_list.append(T)
         selected_variables = list(range(N))
@@ -358,7 +358,7 @@ for frame_id in range(event_preprocessor.frame_count):
 
     """Causal Graph Parameterization."""
     if COMM.rank == 0:
-        print("Skeleton construction complete. Consumed time: {} seconds.".format((time.time() - start)*1.0/60))
+        #print("Skeleton construction complete. Consumed time: {} seconds.".format(pc_time_list[frame_id]))
         start = time.time()
         interaction_graph = pc_result_dict[frame_id] if stable_only == 1 else mci_result_dict[frame_id]
         print(interaction_graph)
@@ -385,7 +385,7 @@ for frame_id in range(event_preprocessor.frame_count):
                 security_guard.initialize(evt, event_preprocessor.frame_dict[frame_id]['testing-data'].values[evt_count])
             else: # Start the anomaly detection
                 anomaly_flag = security_guard.anomaly_detection(event=evt, threshold=1.0)
-                if anomaly_flag == ABNORMAL: # JC TEST: Stop the detection if any false positive for type-1 attack is generated.
+                if anomaly_flag == ABNORMAL:
                     #print("Anomaly line at {}.".format(event_preprocessor.frame_dict[frame_id]['testing-start-index'] + evt_count + 1))
                     anomaly_count += 1
             evt_count += 1
