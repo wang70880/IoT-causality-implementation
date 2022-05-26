@@ -141,7 +141,7 @@ class Evaluator():
                     anomalous_attr = random.choice(candidate_anomalous_attrs)
                     anomalous_sequence.append(anomalous_attr)
             anomalous_sequences.append(anomalous_sequence)
-            print("Created {}-st anomalous chain: {}.".format(anomalous_sequence))
+            print(" * Created anomalous chain: {}.".format(anomalous_sequence))
             count += 1
         # JC TEST: Check the correctness of the anomalous sequences
         split_positions = [0] + split_positions
