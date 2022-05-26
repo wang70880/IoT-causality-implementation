@@ -109,7 +109,7 @@ class ChainManager():
 
 class SecurityGuard():
 
-    def __init__(self, bayesian_fitter, verbosity) -> None:
+    def __init__(self, bayesian_fitter=None, verbosity=0) -> None:
         self.verbosity = verbosity
         self.var_names: 'list[str]' = bayesian_fitter.var_names
         self.expanded_var_names: 'list[str]' = bayesian_fitter.expanded_var_names
@@ -124,10 +124,6 @@ class SecurityGuard():
         self.chain_manager = ChainManager(bayesian_fitter.var_names, bayesian_fitter.expanded_var_names, bayesian_fitter.expanded_causal_graph)
         # Anomaly analyzer
         self.anomalous_interaction_dict = {}
-    
-    def get_score_threshold(self, training_frame):
-        # JC TODO: Estimate the score threshold given the significance level (self.sig_level)
-        pass
     
     def initialize(self, event, state_vector):
         self.phantom_state_machine.set_state(state_vector) # Initialize the phantom state machine

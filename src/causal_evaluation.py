@@ -3,9 +3,15 @@ from src.event_processing import Hprocessor
 import collections
 import itertools
 import numpy as np
+import random
 import src.event_processing as evt_proc
 import src.background_generator as bk_generator
 import statistics
+
+def _lag_name(attr:'str', lag:'int'):
+    assert(lag >= 0)
+    new_name = '{}({})'.format(attr, -1 * lag) if lag > 0 else '{}'.format(attr)
+    return new_name
 
 class Evaluator():
 
@@ -110,5 +116,38 @@ class Evaluator():
             truth_count_list.append(truth_count); precision_list.append(precision); recall_list.append(recall)
         return statistics.mean(truth_count_list), statistics.mean(precision_list), statistics.mean(recall_list)
     
-    def inject_type1_anomalies(self, ):
-        pass
+    def inject_type1_anomalies(self, frame_id, n_anomalies, maximum_length):
+        testing_event_sequence = []
+        original_frame = self.event_processor.frame_dict[frame_id]
+        benign_testing_event_sequence = list(zip(original_frame['testing-attr-sequence'], original_frame['testing-state-sequence']))
+        n_benign_events = len(benign_testing_event_sequence)
+        split_positions = sorted(random.sample(range(self.tau_max+1, n_benign_events-1), n_anomalies))
+        anomalous_sequences = []
+        anomaly_lag = 1 # Injecting lag-1 anomalies
+        count = 1
+        for split_position in split_positions:
+            anomalous_sequence = []
+            preceding_attr = benign_testing_event_sequence[split_position][0]; preceding_attr_index = original_frame['var-name'].index(preceding_attr)
+            print("Prepare to create the {}-st anomalous chain with preceding attribute {}.".format(count, preceding_attr))
+            candidate_anomalous_attrs = [original_frame['var-name'][i] for i in list(np.where(self.background_generator.candidate_pair_dict[frame_id][anomaly_lag][preceding_attr_index] == 0)[0])]
+            anomalous_attr = random.choice(candidate_anomalous_attrs)
+            anomalous_sequence.append(anomalous_attr)
+            for i in range(maximum_length - 1): # Propogate the anomaly chain (given pre-selected anomalous attr)
+                preceding_attr_index = original_frame['var-name'].index(anomalous_attr)
+                candidate_anomalous_attrs = [original_frame['var-name'][i] for i in list(np.where(self.background_generator.candidate_pair_dict[frame_id][anomaly_lag][preceding_attr_index] == 1)[0])]
+                if len(candidate_anomalous_attrs) == 0:
+                    break
+                else:
+                    anomalous_attr = original_frame['var-name'][random.choice(candidate_anomalous_attrs)]
+                    anomalous_sequence.append(anomalous_attr)
+            anomalous_sequences.append(anomalous_sequence)
+            print("Created {}-st anomalous chain: {}.".format(anomalous_sequence))
+            count += 1
+        # JC TEST: Check the correctness of the anomalous sequences
+        split_positions = [0] + split_positions
+        for i in range(0, n_anomalies+1):
+            testing_event_sequence += benign_testing_event_sequence[split_positions[i], split_positions[i+1]].copy()
+            testing_event_sequence += [(attr, 1) for attr in anomalous_sequences[i]] if i < n_anomalies else []
+        # JC TEST: Check the correctness for list concatenation 
+
+        return testing_event_sequence

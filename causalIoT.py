@@ -216,6 +216,7 @@ class BayesianFitter:
     def get_expanded_parent_indices(self, expanded_attr_index: 'int'):
         return list(np.where(self.expanded_causal_graph[:,expanded_attr_index] == 1)[0])
         #return {index: self.expanded_var_names[i] for index in par_indices}
+    
 
     def derive_anomaly_score_threshold(self):
         pass
@@ -260,7 +261,7 @@ if PARAM_SETTING:
     tau_max = 1; tau_min = 1
     verbosity = -1 # -1: No debugging information; 0: Debugging information in this module; 2: Debugging info in PCMCI class; 3: Debugging info in CIT implementations
     single_frame_test_flag = 1 # JC TEST: Test for single dataframe
-    skip_skeleton_estimation_flag = 0 # JC TEST: Test for single dataframe
+    skip_skeleton_estimation_flag = 1 # JC TEST: Test for single dataframe
     ## For stable-pc
     pc_alpha = 0.1
     max_conds_dim = 5
@@ -391,20 +392,21 @@ for frame_id in range(event_preprocessor.frame_count):
     """Security Guard."""
     if COMM.rank == 0:
         print("\n********** Initiate Security Guarding. **********")
+        security_guard = security_guard.SecurityGuard(bayesian_fitter=bayesian_fitter)
+        # 1. Inject device anomalies
+        testing_event_sequences = evaluator.inject_type1_anomalies(original_frame=frame, n_anomalies=10, maximum_length=3)
+        exit()
+        # 2. Initiate anomaly detections
         start = time.time()
-        detection_verbosity = 0
-        security_guard = security_guard.SecurityGuard(bayesian_fitter=bayesian_fitter, verbosity=detection_verbosity)
-        security_guard.get_score_threshold(training_frame=event_preprocessor.frame_dict[frame_id]['training-data']) # Estimate the score threshold given the training dataframe and sig_level
-        testing_event_list = list(zip(event_preprocessor.frame_dict[frame_id]['testing-attr-sequence'], event_preprocessor.frame_dict[frame_id]['testing-state-sequence']))
-        evt_count = 0; anomaly_count = 0
-        for evt in testing_event_list:
+        evt_count = 0
+        for evt in testing_event_sequences:
             if evt_count <= tau_max: # use the first tau_max events for warm start
                 security_guard.initialize(evt, event_preprocessor.frame_dict[frame_id]['testing-data'].values[evt_count])
             else: # Start the anomaly detection
                 security_guard.anomaly_detection(event=evt)
             evt_count += 1
         print("Anomaly detection complete. Consumed time: {} seconds.".format((time.time() - start)*1.0/60))
-
+        # 3. Evaluate the detection accuracy.:w
         """Generate device anomalies, initiate anomaly detections, and evaluate the detection accuracy."""
         abnormal_interaction_list = list(security_guard.anomalous_interaction_dict.keys())
         n_abnormal_event = sum(list(security_guard.anomalous_interaction_dict.values()))

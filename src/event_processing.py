@@ -433,6 +433,7 @@ class Hprocessor(Processor):
 			dataframe = pp.DataFrame(data=training_data, var_names=attr_names); testing_dataframe = pp.DataFrame(data=testing_data, var_names=attr_names)
 			dataframes.append(dataframe); testing_dataframes.append(testing_dataframe)
 			frame_dict[frame_count] = {}
+			frame_dict[frame_count]['var-name'] = attr_names
 			frame_dict[frame_count]['number'] = seg_point - last_point
 			frame_dict[frame_count]['day-interval'] = day_criteria
 			frame_dict[frame_count]['training-data'] = dataframe; frame_dict[frame_count]['testing-data'] = testing_dataframe 
@@ -497,23 +498,3 @@ class Hprocessor(Processor):
 		os.system('mv {} {}'.format(self.datafile + '-temp', self.datafile))
 		self.get_device_statistics()
 	
-	def deprecated_partition_training_testing_data(self, testing_piece_index):
-		"""
-		[Deprecated function]
-		"""
-		fin = open(self.datafile, 'r')
-		fout_training = open(self.datafile + '-training', 'w+')
-		fout_testing = open(self.datafile + '-testing', 'w+')
-		len_rows = len(fin.readlines())
-		testing_range = [(testing_piece_index * 1.0 / CROSS_VALIDATION_PIECE ) * len_rows, ((testing_piece_index + 1) * 1.0 / CROSS_VALIDATION_PIECE ) * len_rows]
-		line_no = 0
-		fin.seek(0)
-		for line in fin.readlines():
-			if line_no >= testing_range[0] and line_no < testing_range[1]:
-				fout_testing.write(line)
-			else:
-				fout_training.write(line)
-			line_no += 1
-		fin.close()
-		fout_training.close()
-		fout_testing.close()
