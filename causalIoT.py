@@ -405,11 +405,11 @@ for frame_id in range(event_preprocessor.frame_count):
             evt_count += 1
         print("Anomaly detection complete. Consumed time: {} seconds.".format((time.time() - start)*1.0/60))
 
-        """Evaluate the accuracy of the security guard module"""
+        """Generate device anomalies, initiate anomaly detections, and evaluate the detection accuracy."""
         abnormal_interaction_list = list(security_guard.anomalous_interaction_dict.keys())
-        n_abnormal_interactions = sum(list(security_guard.anomalous_interaction_dict.values()))
+        n_abnormal_event = sum(list(security_guard.anomalous_interaction_dict.values()))
         match_count = evaluator.candidate_interaction_matching(frame_id=frame_id, tau=tau_max, interactions_list=abnormal_interaction_list); miss_count = len(abnormal_interaction_list) - match_count
-        print("# of testing events, # of reported anomalous events, # of reported anomalous interactions, # of anomalous interactions (due to wrong model) = {}, {}, {}, {}".format(evt_count, n_abnormal_interactions, len(abnormal_interaction_list), match_count))
+        print("# of testing events, # of reported anomalous events, # of reported anomalous interactions, # of anomalous interactions (due to wrong model) = {}, {}, {}, {}".format(evt_count, n_abnormal_event, len(abnormal_interaction_list), match_count))
         print(security_guard.anomalous_interaction_dict)
 
     frame_id += 1

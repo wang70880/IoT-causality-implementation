@@ -33,7 +33,6 @@ class Evaluator():
                 match_count += 1
         return match_count
 
-
     def construct_user_correlation_benchmark(self):
         user_correlation_dict = {}
         for frame_id in range(self.event_processor.frame_count):
@@ -110,3 +109,6 @@ class Evaluator():
             truth_count, precision, recall = self.estimate_single_discovery_accuracy(frame_id, tau, result)
             truth_count_list.append(truth_count); precision_list.append(precision); recall_list.append(recall)
         return statistics.mean(truth_count_list), statistics.mean(precision_list), statistics.mean(recall_list)
+    
+    def inject_type1_anomalies(self, ):
+        pass
