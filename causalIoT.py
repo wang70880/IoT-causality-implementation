@@ -175,13 +175,11 @@ class BayesianFitter:
         start_time = time.time()
         edge_list = [(self.expanded_var_names[i], self.expanded_var_names[j])\
                         for (i, j), x in np.ndenumerate(self.expanded_causal_graph) if x == 1]
-        print("[Bayesian Fitting] Prepare to construct the bayesian network. Edge list: {}".format(edge_list))
         in_degrees = [sum(self.expanded_causal_graph[:, i]) for i in range(0, self.n_expanded_vars)]; max_degree = max(in_degrees); corrs_attr = self.expanded_var_names[in_degrees.index(max_degree)]
-        print("The variable {} owns the maximum in-degree {}.".format(corrs_attr, max_degree))
+        print("[Bayesian Fitting] The variable {} owns the maximum in-degree {}.".format(corrs_attr, max_degree))
         self.model = BayesianNetwork(edge_list)
         df = pd.DataFrame(data=self.expanded_data_array, columns=self.expanded_var_names)
-        print("[Bayesian Fitting] Prepare to fit. The model: {}".format(self.model))
-        cpd = MaximumLikelihoodEstimator(self.model, df).estimate_cpd(corrs_attr) #JC TEST: The bayesian fitting consumes much time. Let's test the exact consumed time here..
+        cpd = MaximumLikelihoodEstimator(self.model, df).estimate_cpd(corrs_attr) # JC TEST: The bayesian fitting consumes much time. Let's test the exact consumed time here..
         print(cpd)
         #self.model.fit(df, estimator= MaximumLikelihoodEstimator) 
         print("[Bayesian fitting] Complete. Consumed time: {} seconds.".format((time.time() - start_time)*1.0/60))
@@ -248,9 +246,9 @@ cond_ind_test = CMIsymb()
 tau_max = 1; tau_min = 1
 verbosity = -1 # -1: No debugging information; 0: Debugging information in this module; 2: Debugging info in PCMCI class; 3: Debugging info in CIT implementations
 single_frame_test_flag = 1 # JC TEST: Test for single dataframe
-skip_skeleton_estimation_flag = 1 # JC TEST: Test for single dataframe
+skip_skeleton_estimation_flag = 0 # JC TEST: Test for single dataframe
 ## For stable-pc
-pc_alpha = 0.1
+pc_alpha = 0.01
 max_conds_dim = 5
 maximum_comb = 1
 ## For MCI
