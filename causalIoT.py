@@ -245,7 +245,7 @@ cond_ind_test = CMIsymb()
 tau_max = 1; tau_min = 1
 verbosity = -1 # -1: No debugging information; 0: Debugging information in this module; 2: Debugging info in PCMCI class; 3: Debugging info in CIT implementations
 single_frame_test_flag = 1 # JC TEST: Test for single dataframe
-skip_skeleton_estimation_flag = 1 # JC TEST: Test for single dataframe
+skip_skeleton_estimation_flag = 0 # JC TEST: Test for single dataframe
 ## For stable-pc
 pc_alpha = 0.1
 max_conds_dim = 5
