@@ -174,12 +174,15 @@ class BayesianFitter:
         """
         edge_list = [(self.expanded_var_names[i], self.expanded_var_names[j])\
                         for (i, j), x in np.ndenumerate(self.expanded_causal_graph) if x == 1]
-        # print("[Bayesian Fitting] Prepare to construct the bayesian network. Edge list: {}".format(edge_list))
+        print("[Bayesian Fitting] Prepare to construct the bayesian network. Edge list: {}".format(edge_list))
         self.model = BayesianNetwork(edge_list)
         df = pd.DataFrame(data=self.expanded_data_array, columns=self.expanded_var_names)
-        # print("[Bayesian Fitting] Prepare to fit. The model: {}".format(model))
-        self.model.fit(df, estimator= MaximumLikelihoodEstimator, n_jobs=10) #JC NOTE: Here we use MLE, what if we try Bayesian parameter estimation?
-        print("[Bayesian Fitting] Fitting finished.")
+        print("[Bayesian Fitting] Prepare to fit. The model: {}".format(self.model))
+        start_time = time.time()
+        cpd_LS001 = MaximumLikelihoodEstimator(self.model, df).estimate_cpd('LS001') #JC TEST: The bayesian fitting consumes much time. Let's test the exact consumed time here..
+        print(cpd_LS001)
+        #self.model.fit(df, estimator= MaximumLikelihoodEstimator) 
+        print("[Bayesian fitting] Complete. Consumed time: {} seconds.".format((time.time() - start_time)*1.0/60))
     
     def exo_check(self, attr:'str'):
         """Check if the current attribute is an exogenous attribute.
@@ -242,7 +245,8 @@ stable_only = 1
 cond_ind_test = CMIsymb()
 tau_max = 1; tau_min = 1
 verbosity = -1 # -1: No debugging information; 0: Debugging information in this module; 2: Debugging info in PCMCI class; 3: Debugging info in CIT implementations
-test_flag = 1 # JC TEST: Test for single dataframe
+single_frame_test_flag = 1 # JC TEST: Test for single dataframe
+skip_skeleton_estimation_flag = 1 # JC TEST: Test for single dataframe
 ## For stable-pc
 pc_alpha = 0.1
 max_conds_dim = 5
@@ -267,87 +271,91 @@ evaluator = causal_eval.Evaluator(dataset=dataset, event_processor=event_preproc
 for frame_id in range(event_preprocessor.frame_count):
     frame = event_preprocessor.frame_dict[frame_id]; dataframe = frame['training-data']
     """Causal Graph Skeleton Construction."""
-    start = time.time()
-    T = dataframe.T; N = dataframe.N
-    record_count_list.append(T)
-    selected_variables = list(range(N))
-    splitted_jobs = None
-    results = []
-    selected_links = background_generator.generate_candidate_interactions(apply_bk, frame_id, N) # Get candidate interactions
-    # 1. Paralleled Discovery Engine
-    if COMM.rank == 0: # Assign selected_variables into whatever cores are available.
-        splitted_jobs = _split(selected_variables, COMM.size)
-    scattered_jobs = COMM.scatter(splitted_jobs, root=0)
-    pc_start = time.time()
-    for j in scattered_jobs: # Each process calls stable-pc algorithm to infer the edges
-        (j, pcmci_of_j, parents_of_j) = _run_pc_stable_parallel(j=j, dataframe=dataframe, cond_ind_test=cond_ind_test, selected_links=selected_links,\
-                                                            tau_min=tau_min, tau_max=tau_max, pc_alpha=pc_alpha,\
-                                                            max_conds_dim=max_conds_dim, verbosity=verbosity, maximum_comb=maximum_comb)
-        results.append((j, pcmci_of_j, parents_of_j))
-    results = MPI.COMM_WORLD.gather(results, root=0)
-    pc_end = time.time()
-    if COMM.rank == 0: # The root node gathers the result and generate the interaction graph.
-        all_parents = {}
-        pcmci_objects = {}
-        for res in results:
-            for (j, pcmci_of_j, parents_of_j) in res:
-                all_parents[j] = parents_of_j[j]
-                pcmci_objects[j] = pcmci_of_j
-        all_parents_with_name = {}
-        for outcome_id, cause_list in all_parents.items():
-            all_parents_with_name[attr_names[outcome_id]] = [(attr_names[cause_id],lag) for (cause_id, lag) in cause_list]
-        pc_result_dict[frame_id] = all_parents_with_name; pc_time_list.append((pc_end - pc_start) * 1.0 / 60)
-        if verbosity > -1:
-            print("##\n## PC-stable discovery for frame {} finished. Consumed time: {} mins\n##".format(frame_id, (pc_end - pc_start) * 1.0 / 60))
-    if stable_only == 0: # Each process further calls the MCI procedure (if needed)
-        if COMM.rank == 0: # First distribute the gathered pc results to each process
-            for i in range(1, COMM.size):
-                COMM.send((all_parents, pcmci_objects), dest=i)
-        else:
-            (all_parents, pcmci_objects) = COMM.recv(source=0)
-        scattered_jobs = COMM.scatter(splitted_jobs, root=0)
+    if not skip_skeleton_estimation_flag:
+        start = time.time()
+        T = dataframe.T; N = dataframe.N
+        record_count_list.append(T)
+        selected_variables = list(range(N))
+        splitted_jobs = None
         results = []
-        mci_start = time.time()
-        """Each process calls MCI algorithm."""
-        for j in scattered_jobs:
-            (j, results_in_j) = _run_mci_parallel(j, pcmci_objects[j], all_parents, selected_links=selected_links,\
-                                            tau_min=tau_min, tau_max=tau_max, alpha_level=alpha_level,\
-                                            max_conds_px = max_conds_px, max_conds_py=max_conds_py)
-            results.append((j, results_in_j))
-        # The root node merge the result and generate final results
+        selected_links = background_generator.generate_candidate_interactions(apply_bk, frame_id, N) # Get candidate interactions
+        # 1. Paralleled Discovery Engine
+        if COMM.rank == 0: # Assign selected_variables into whatever cores are available.
+            splitted_jobs = _split(selected_variables, COMM.size)
+        scattered_jobs = COMM.scatter(splitted_jobs, root=0)
+        pc_start = time.time()
+        for j in scattered_jobs: # Each process calls stable-pc algorithm to infer the edges
+            (j, pcmci_of_j, parents_of_j) = _run_pc_stable_parallel(j=j, dataframe=dataframe, cond_ind_test=cond_ind_test, selected_links=selected_links,\
+                                                                tau_min=tau_min, tau_max=tau_max, pc_alpha=pc_alpha,\
+                                                                max_conds_dim=max_conds_dim, verbosity=verbosity, maximum_comb=maximum_comb)
+            results.append((j, pcmci_of_j, parents_of_j))
         results = MPI.COMM_WORLD.gather(results, root=0)
-        if COMM.rank == 0:
-            all_results = {}
+        pc_end = time.time()
+        if COMM.rank == 0: # The root node gathers the result and generate the interaction graph.
+            all_parents = {}
+            pcmci_objects = {}
             for res in results:
-                for (j, results_in_j) in res:
-                    for key in results_in_j.keys():
-                        if results_in_j[key] is None:  
-                            all_results[key] = None
-                        else:
-                            if key not in all_results.keys():
-                                if key == 'p_matrix':
-                                    all_results[key] = np.ones(results_in_j[key].shape)
-                                else:
-                                    all_results[key] = np.zeros(results_in_j[key].shape, dtype=results_in_j[key].dtype)
-                            all_results[key][:, j, :] = results_in_j[key][:, j, :]
-            p_matrix = all_results['p_matrix']
-            val_matrix = all_results['val_matrix']
-            conf_matrix = all_results['conf_matrix']
- 
-            sig_links = (p_matrix <= alpha_level)
-            sorted_links_with_name = {}
-            for j in selected_variables:
-                links = dict([((p[0], -p[1]), np.abs(val_matrix[p[0], j, abs(p[1])]))
-                            for p in zip(*np.where(sig_links[:, j, :]))])
-                sorted_links = sorted(links, key=links.get, reverse=True)
-                sorted_links_with_name[attr_names[j]] = []
-                for p in sorted_links:
-                    sorted_links_with_name[attr_names[j]].append((attr_names[p[0]], p[1]))
-            mci_end = time.time()
-            mci_result_dict[frame_id] = sorted_links_with_name; mci_time_list.append((mci_end - mci_start) * 1.0 / 60)
+                for (j, pcmci_of_j, parents_of_j) in res:
+                    all_parents[j] = parents_of_j[j]
+                    pcmci_objects[j] = pcmci_of_j
+            all_parents_with_name = {}
+            for outcome_id, cause_list in all_parents.items():
+                all_parents_with_name[attr_names[outcome_id]] = [(attr_names[cause_id],lag) for (cause_id, lag) in cause_list]
+            pc_result_dict[frame_id] = all_parents_with_name; pc_time_list.append((pc_end - pc_start) * 1.0 / 60)
             if verbosity > -1:
-                print("##\n## MCI for frame {} finished. Consumed time: {} mins\n##".format(frame_id, (mci_end - mci_start) * 1.0 / 60))
-    
+                print("##\n## PC-stable discovery for frame {} finished. Consumed time: {} mins\n##".format(frame_id, (pc_end - pc_start) * 1.0 / 60))
+        if stable_only == 0: # Each process further calls the MCI procedure (if needed)
+            if COMM.rank == 0: # First distribute the gathered pc results to each process
+                for i in range(1, COMM.size):
+                    COMM.send((all_parents, pcmci_objects), dest=i)
+            else:
+                (all_parents, pcmci_objects) = COMM.recv(source=0)
+            scattered_jobs = COMM.scatter(splitted_jobs, root=0)
+            results = []
+            mci_start = time.time()
+            """Each process calls MCI algorithm."""
+            for j in scattered_jobs:
+                (j, results_in_j) = _run_mci_parallel(j, pcmci_objects[j], all_parents, selected_links=selected_links,\
+                                                tau_min=tau_min, tau_max=tau_max, alpha_level=alpha_level,\
+                                                max_conds_px = max_conds_px, max_conds_py=max_conds_py)
+                results.append((j, results_in_j))
+            # The root node merge the result and generate final results
+            results = MPI.COMM_WORLD.gather(results, root=0)
+            if COMM.rank == 0:
+                all_results = {}
+                for res in results:
+                    for (j, results_in_j) in res:
+                        for key in results_in_j.keys():
+                            if results_in_j[key] is None:  
+                                all_results[key] = None
+                            else:
+                                if key not in all_results.keys():
+                                    if key == 'p_matrix':
+                                        all_results[key] = np.ones(results_in_j[key].shape)
+                                    else:
+                                        all_results[key] = np.zeros(results_in_j[key].shape, dtype=results_in_j[key].dtype)
+                                all_results[key][:, j, :] = results_in_j[key][:, j, :]
+                p_matrix = all_results['p_matrix']
+                val_matrix = all_results['val_matrix']
+                conf_matrix = all_results['conf_matrix']
+ 
+                sig_links = (p_matrix <= alpha_level)
+                sorted_links_with_name = {}
+                for j in selected_variables:
+                    links = dict([((p[0], -p[1]), np.abs(val_matrix[p[0], j, abs(p[1])]))
+                                for p in zip(*np.where(sig_links[:, j, :]))])
+                    sorted_links = sorted(links, key=links.get, reverse=True)
+                    sorted_links_with_name[attr_names[j]] = []
+                    for p in sorted_links:
+                        sorted_links_with_name[attr_names[j]].append((attr_names[p[0]], p[1]))
+                mci_end = time.time()
+                mci_result_dict[frame_id] = sorted_links_with_name; mci_time_list.append((mci_end - mci_start) * 1.0 / 60)
+                if verbosity > -1:
+                    print("##\n## MCI for frame {} finished. Consumed time: {} mins\n##".format(frame_id, (mci_end - mci_start) * 1.0 / 60))
+    else:
+        pc_result_dict[frame_id] = {'D001': [], 'D002': [('D002', -1), ('M001', -1)], 'LS001': [('LS001', -1), ('LS010', -1), ('D002', -1), ('M008', -1), ('M001', -1)], 'LS002': [('M003', -1), ('M008', -1), ('M002', -1)], 'LS003': [('M003', -1), ('M002', -1)], 'LS004': [('LS016', -1), ('M008', -1)], 'LS005': [('LS005', -1), ('M008', -1), ('M005', -1)], 'LS006': [('LS006', -1), ('M006', -1), ('M003', -1)], 'LS007': [('M003', -1)], 'LS008': [('LS008', -1), ('LS013', -1), ('LS011', -1), ('M008', -1)], 'LS009': [('LS009', -1), ('LS012', -1), ('LS008', -1), ('M008', -1), ('M009', -1)], 'LS010': [('LS001', -1), ('LS013', -1), ('M001', -1)], 'LS011': [('M009', -1), ('M001', -1), ('M008', -1)], 'LS012': [('LS009', -1), ('LS011', -1), ('M008', -1), ('M009', -1)], 'LS013': [('LS013', -1), ('LS010', -1), ('M008', -1)], 'LS014': [('LS014', -1), ('LS009', -1), ('M009', -1), ('M008', -1)], 'LS015': [('LS015', -1), ('M011', -1)], 'LS016': [('LS016', -1), ('LS004', -1), ('M008', -1), ('M004', -1)], 'M001': [('D002', -1), ('M001', -1), ('M010', -1), ('M005', -1), ('LS001', -1)], 'M002': [('M002', -1), ('M008', -1), ('M004', -1), ('LS016', -1), ('LS002', -1), ('M003', -1)], 'M003': [('LS006', -1), ('LS003', -1), ('M006', -1), ('M003', -1), ('M002', -1), ('M007', -1), ('M004', -1)], 'M004': [('M004', -1), ('M002', -1), ('M008', -1), ('M003', -1), ('LS016', -1)], 'M005': [('M005', -1), ('M008', -1), ('M001', -1), ('M004', -1), ('M010', -1)], 'M006': [('M006', -1), ('LS006', -1), ('M003', -1)], 'M007': [('M007', -1), ('LS007', -1), ('M003', -1)], 'M008': [('M008', -1), ('M001', -1), ('M010', -1), ('M002', -1), ('M004', -1), ('T104', -1), ('M005', -1), ('T105', -1), ('LS013', -1), ('LS005', -1), ('LS008', -1), ('LS009', -1), ('LS001', -1), ('LS010', -1), ('LS004', -1), ('M007', -1), ('LS012', -1), ('LS016', -1), ('T101', -1), ('LS002', -1), ('LS003', -1), ('LS011', -1), ('LS014', -1)], 'M009': [('M009', -1), ('T104', -1), ('M012', -1), ('LS014', -1), ('M011', -1)], 'M010': [('M010', -1), ('M001', -1), ('D002', -1), ('M008', -1), ('M005', -1)], 'M011': [('M011', -1), ('LS015', -1), ('M009', -1), ('M001', -1), ('M010', -1)], 'M012': [('M009', -1), ('M012', -1), ('LS014', -1), ('LS012', -1)], 'T101': [('T101', -1), ('M008', -1)], 'T102': [], 'T103': [], 'T104': [('T104', -1), ('T105', -1), ('M008', -1), ('M009', -1), ('M012', -1)], 'T105': [('T105', -1), ('T104', -1), ('M008', -1), ('M012', -1)]}
+        mci_result_dict[frame_id] = {'D001': [], 'D002': [('D002', -1), ('M001', -1)], 'LS001': [('LS001', -1), ('LS010', -1), ('D002', -1), ('M008', -1), ('M001', -1)], 'LS002': [('M003', -1), ('M008', -1), ('M002', -1)], 'LS003': [('M003', -1), ('M002', -1)], 'LS004': [('LS016', -1), ('M008', -1)], 'LS005': [('LS005', -1), ('M008', -1), ('M005', -1)], 'LS006': [('LS006', -1), ('M006', -1), ('M003', -1)], 'LS007': [('M003', -1)], 'LS008': [('LS008', -1), ('LS013', -1), ('LS011', -1), ('M008', -1)], 'LS009': [('LS009', -1), ('LS012', -1), ('LS008', -1), ('M008', -1), ('M009', -1)], 'LS010': [('LS001', -1), ('LS013', -1), ('M001', -1)], 'LS011': [('M009', -1), ('M001', -1), ('M008', -1)], 'LS012': [('LS009', -1), ('LS011', -1), ('M008', -1), ('M009', -1)], 'LS013': [('LS013', -1), ('LS010', -1), ('M008', -1)], 'LS014': [('LS014', -1), ('LS009', -1), ('M009', -1), ('M008', -1)], 'LS015': [('LS015', -1), ('M011', -1)], 'LS016': [('LS016', -1), ('LS004', -1), ('M008', -1), ('M004', -1)], 'M001': [('D002', -1), ('M001', -1), ('M010', -1), ('M005', -1), ('LS001', -1)], 'M002': [('M002', -1), ('M008', -1), ('M004', -1), ('LS016', -1), ('LS002', -1), ('M003', -1)], 'M003': [('LS006', -1), ('LS003', -1), ('M006', -1), ('M003', -1), ('M002', -1), ('M007', -1), ('M004', -1)], 'M004': [('M004', -1), ('M002', -1), ('M008', -1), ('M003', -1), ('LS016', -1)], 'M005': [('M005', -1), ('M008', -1), ('M001', -1), ('M004', -1), ('M010', -1)], 'M006': [('M006', -1), ('LS006', -1), ('M003', -1)], 'M007': [('M007', -1), ('LS007', -1), ('M003', -1)], 'M008': [('M008', -1), ('M001', -1), ('M010', -1), ('M002', -1), ('M004', -1), ('T104', -1), ('M005', -1), ('T105', -1), ('LS013', -1), ('LS005', -1), ('LS008', -1), ('LS009', -1), ('LS001', -1), ('LS010', -1), ('LS004', -1), ('M007', -1), ('LS012', -1), ('LS016', -1), ('T101', -1), ('LS002', -1), ('LS003', -1), ('LS011', -1), ('LS014', -1)], 'M009': [('M009', -1), ('T104', -1), ('M012', -1), ('LS014', -1), ('M011', -1)], 'M010': [('M010', -1), ('M001', -1), ('D002', -1), ('M008', -1), ('M005', -1)], 'M011': [('M011', -1), ('LS015', -1), ('M009', -1), ('M001', -1), ('M010', -1)], 'M012': [('M009', -1), ('M012', -1), ('LS014', -1), ('LS012', -1)], 'T101': [('T101', -1), ('M008', -1)], 'T102': [], 'T103': [], 'T104': [('T104', -1), ('T105', -1), ('M008', -1), ('M009', -1), ('M012', -1)], 'T105': [('T105', -1), ('T104', -1), ('M008', -1), ('M012', -1)]}
+
     """Causal Graph Parameterization."""
     if COMM.rank == 0:
         print("Skeleton construction complete. Consumed time: {} seconds.".format((time.time() - start)*1.0/60))
@@ -390,7 +398,7 @@ for frame_id in range(event_preprocessor.frame_count):
         print(security_guard.anomalous_interaction_dict)
 
     frame_id += 1
-    if test_flag == 1 and frame_id > 0:
+    if single_frame_test_flag == 1 and frame_id > 0:
         break
     if frame_id == event_preprocessor.frame_count - 1:
         break
