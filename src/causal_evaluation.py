@@ -149,6 +149,7 @@ class Evaluator():
             testing_event_sequence += benign_testing_event_sequence[starting_index: split_positions[i]+1].copy()
             testing_event_sequence += [(attr, 1) for attr in anomalous_sequences[i]]
             starting_index = split_positions[i]+1
+        testing_event_sequence += benign_testing_event_sequence[starting_index:].copy()
         # JC TEST: Check the correctness for list concatenation 
         assert(len(testing_event_sequence) == len(benign_testing_event_sequence)\
                          + sum([len(anomaly_sequence) for anomaly_sequence in anomalous_sequences]))
