@@ -221,7 +221,7 @@ class BayesianFitter:
         pass
 
     def analyze_discovery_statistics(self):
-        print("[BayesianPredictor] Analyzing discovery statistics.")
+        print("[Bayesian Fitting] Analyzing discovery statistics.")
         outcoming_degree_list = [sum(self.expanded_causal_graph[i]) for i in range(self.n_expanded_vars)]
         incoming_degree_list = [sum(self.expanded_causal_graph[:,i]) for i in range(self.n_expanded_vars)]
         isolated_attr_list = [self.expanded_var_names[i] for i in range(self.n_expanded_vars)\
@@ -229,6 +229,7 @@ class BayesianFitter:
         str = " * # isolated attrs: {}\n".format(len(isolated_attr_list))\
             + " * # no-out attrs: {}\n".format(outcoming_degree_list.count(0) - len(isolated_attr_list))\
             + " * # no-incoming attrs: {}\n".format(incoming_degree_list.count(0) - len(isolated_attr_list))\
+            + " * # edges: {}\n".format(np.sum(self.expanded_causal_graph))\
             + " * (max, mean, min) for outcoming degrees: ({}, {}, {})\n".format(max(outcoming_degree_list),\
                         sum(outcoming_degree_list)*1.0/(self.n_expanded_vars - len(isolated_attr_list)), min(outcoming_degree_list))\
             + " * (max, mean, min) for incoming degrees: ({}, {}, {})\n".format(max(incoming_degree_list),\
@@ -363,6 +364,7 @@ for frame_id in range(event_preprocessor.frame_count):
         print(interaction_graph)
         print("\n********** Initiate Bayesian Fitting. **********")
         bayesian_fitter = BayesianFitter(frame, tau_max, interaction_graph)
+        bayesian_fitter.analyze_discovery_statistics()
         bayesian_fitter.construct_bayesian_model()
         print("Bayesian fitting complete. Consumed time: {} seconds.".format((time.time() - start)*1.0/60))
     
