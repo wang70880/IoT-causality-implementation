@@ -176,7 +176,7 @@ class BayesianFitter:
                         for (i, j), x in np.ndenumerate(self.expanded_causal_graph) if x == 1]
         in_degrees = [sum(self.expanded_causal_graph[:, i]) for i in range(0, self.n_expanded_vars)]; max_degree = max(in_degrees); corrs_attr = self.expanded_var_names[in_degrees.index(max_degree)]
         if max_degree > 10:
-            print("[Bayesian Fitting] ALERT! The variable {} owns the maximum in-degree {} (larger than 10). This variable may slow down the fitting process!")
+            print("[Bayesian Fitting] ALERT! The variable {} owns the maximum in-degree {} (larger than 10). This variable may slow down the fitting process!".format(corrs_attr, max_degree))
         self.model = BayesianNetwork(edge_list)
         df = pd.DataFrame(data=self.expanded_data_array, columns=self.expanded_var_names)
         #cpd = MaximumLikelihoodEstimator(self.model, df).estimate_cpd(corrs_attr) # JC TEST: The bayesian fitting consumes much time. Let's test the exact consumed time here..
@@ -237,40 +237,45 @@ class BayesianFitter:
         print(str)
 
 """Parameter Settings"""
+PARAM_SETTING = True
+DATA_PREPROCESSING = True
+BACKGROUND_GENERATION = True
 partition_config = int(sys.argv[1])
 apply_bk = int(sys.argv[2])
-
-dataset = 'hh101'
-stable_only = 1
-cond_ind_test = CMIsymb()
-tau_max = 1; tau_min = 1
-verbosity = -1 # -1: No debugging information; 0: Debugging information in this module; 2: Debugging info in PCMCI class; 3: Debugging info in CIT implementations
-single_frame_test_flag = 1 # JC TEST: Test for single dataframe
-skip_skeleton_estimation_flag = 0 # JC TEST: Test for single dataframe
-## For stable-pc
-pc_alpha = 0.1
-max_conds_dim = 5
-maximum_comb = 1
-## For MCI
-alpha_level = 0.01
-max_conds_px = 5; max_conds_py= 5
-## Resulting dict
-pc_result_dict = {}; mci_result_dict = {}
-# For evaluations
-record_count_list =[]
-pc_time_list = []; mci_time_list = []
+if PARAM_SETTING:
+    dataset = 'hh101'
+    stable_only = 1
+    cond_ind_test = CMIsymb()
+    tau_max = 1; tau_min = 1
+    verbosity = -1 # -1: No debugging information; 0: Debugging information in this module; 2: Debugging info in PCMCI class; 3: Debugging info in CIT implementations
+    single_frame_test_flag = 1 # JC TEST: Test for single dataframe
+    skip_skeleton_estimation_flag = 0 # JC TEST: Test for single dataframe
+    ## For stable-pc
+    pc_alpha = 0.1
+    max_conds_dim = 5
+    maximum_comb = 1
+    ## For MCI
+    alpha_level = 0.01
+    max_conds_px = 5; max_conds_py= 5
+    ## Resulting dict
+    pc_result_dict = {}; mci_result_dict = {}
+    # For evaluations
+    record_count_list =[]
+    pc_time_list = []; mci_time_list = []
 
 """Event preprocessing"""
-event_preprocessor = evt_proc.Hprocessor(dataset)
-attr_names, dataframes = event_preprocessor.initiate_data_preprocessing(partition_config=partition_config, training_ratio=0.8)
+if DATA_PREPROCESSING:
+    event_preprocessor = evt_proc.Hprocessor(dataset)
+    attr_names, dataframes = event_preprocessor.initiate_data_preprocessing(partition_config=partition_config, training_ratio=0.8)
 
 """Background Generator"""
-background_generator = bk_generator.BackgroundGenerator(dataset, event_preprocessor, partition_config, tau_max)
-evaluator = causal_eval.Evaluator(dataset=dataset, event_processor=event_preprocessor, background_generator=background_generator, tau_max=tau_max)
+if BACKGROUND_GENERATION:
+    background_generator = bk_generator.BackgroundGenerator(dataset, event_preprocessor, partition_config, tau_max)
+    evaluator = causal_eval.Evaluator(dataset=dataset, event_processor=event_preprocessor, background_generator=background_generator, tau_max=tau_max)
 
+"""Interaction Miner and Runtime Security Monitor"""
 for frame_id in range(event_preprocessor.frame_count):
     frame = event_preprocessor.frame_dict[frame_id]; dataframe = frame['training-data']
-
     """Causal Graph Skeleton Construction."""
     if not skip_skeleton_estimation_flag:
         T = dataframe.T; N = dataframe.N
