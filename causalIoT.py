@@ -397,7 +397,7 @@ for frame_id in range(event_preprocessor.frame_count):
         print("\n********** Initiate Security Guarding. **********")
         security_guard = security_guard.SecurityGuard(bayesian_fitter=bayesian_fitter)
         # 1. Inject device anomalies
-        testing_event_sequences, true_anomaly_positions = evaluator.inject_type1_anomalies(frame_id=frame_id, n_anomalies=10, maximum_length=3)
+        testing_event_sequences, true_anomaly_positions = evaluator.inject_type1_anomalies(frame_id=frame_id, n_anomalies=500, maximum_length=3)
 
         # 2. Initiate anomaly detections
         start = time.time()
