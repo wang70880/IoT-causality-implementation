@@ -126,6 +126,7 @@ class SecurityGuard():
         self.chain_manager = ChainManager(bayesian_fitter.var_names, bayesian_fitter.expanded_var_names, bayesian_fitter.expanded_causal_graph)
         # Anomaly analyzer
         self.type1_anomaly_dict = {}
+        self.type1_debugging_dict = {}
     
     def initialize(self, event, state_vector):
         self.phantom_state_machine.set_state(state_vector) # Initialize the phantom state machine
@@ -171,4 +172,6 @@ class SecurityGuard():
             self.type1_anomaly_dict[event_id]['chain-id'] = affected_chain_ids[0]
         #self.phantom_state_machine.update(event)
         self.last_processed_event = event
+        if len(debugging_list) > 0 and event_id in debugging_list:
+            self.type1_debugging_dict[event_id] = detailed_anomaly_flag
         return detailed_anomaly_flag

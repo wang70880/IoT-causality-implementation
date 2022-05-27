@@ -412,6 +412,7 @@ for frame_id in range(event_preprocessor.frame_count):
 
         # 3. Evaluate the detection accuracy.:w
         print("[Security guarding] Evaluating the detection accuracy for type-1 anomalies")
+        print("Detection results for true anomalies: {}".format(security_guard.type1_debugging_dict))
         detected_type1_anomaly_event_ids = list(security_guard.type1_anomaly_dict.keys())
         evaluator.evaluate_detection_accuracy(true_anomaly_positions, detected_type1_anomaly_event_ids)
 
