@@ -32,8 +32,8 @@ class Evaluator():
         }
     
     def evaluate_detection_accuracy(self, golden_standard:'list[int]', result:'list[int]'):
-        print("Golden standard: {}".format(golden_standard))
-        print("Your result: {}".format(result))
+        print("Golden standard with number {}: {}".format(len(golden_standard), golden_standard))
+        print("Your result with number {}: {}".format(len(result), result))
         tp = len([x for x in result if x in golden_standard])
         fp = len([x for x in result if x not in golden_standard])
         fn = len([x for x in golden_standard if x not in result])
