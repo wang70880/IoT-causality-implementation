@@ -30,10 +30,9 @@ class PhantomStateMachine():
 
 class InteractionChain():
 
-    def __init__(self, n_vars, expanded_var_names, expanded_causal_graph, anomaly_flag, expanded_attr_index) -> None:
+    def __init__(self, n_vars, expanded_var_names, expanded_causal_graph, expanded_attr_index) -> None:
         self.n_vars = n_vars; self.expanded_var_names = expanded_var_names; self.expanded_causal_graph = expanded_causal_graph
-        self.anomaly_flag = anomaly_flag
-        self.attr_index_chain = [expanded_attr_index]
+        self.attr_index_chain = [expanded_attr_index - n_vars] # Adjust to the lagged attribute
         self.header_attr_index = self.attr_index_chain[-1]
     
     def match(self, expanded_attr_index:'int'):
@@ -46,66 +45,35 @@ class InteractionChain():
         self.header_attr_index = self.attr_index_chain[-1]
     
     def __str__(self):
-        return "anomaly_flag = {}, header_attr = {}, len(chains) = {}\n"\
-              .format(self.anomaly_flag, self.expanded_var_names[self.header_attr_index], len(self.attr_index_chain))
+        return "header_attr = {}, len(chains) = {}\n"\
+              .format(self.expanded_var_names[self.header_attr_index], len(self.attr_index_chain))
 
 class ChainManager():
     
     def __init__(self, var_names, expanded_var_names, expanded_causal_graph) -> None:
-        self.chain_pool:'list[InteractionChain]' = []
+        self.chain_pool = {}; self.n_chains = 0
+        self.current_chain:'InteractionChain' = None
         self.var_names = var_names; self.n_vars = len(self.var_names)
         self.expanded_var_names = expanded_var_names; self.n_expanded_vars = len(self.expanded_var_names)
         self.expanded_causal_graph = expanded_causal_graph
         self.anomalous_interaction_dict = {}
     
-    def match(self, expanded_attr_index:'int', anomaly_flag=-1):
-        """Identify the set of normal/abnormal chains which can accommodate the new attribute
-        That is, there exists a lagged variable in the candidate chain which is the parent of the new attribute.
-
-        Args:
-            expanded_attr_index (int): The new attribute
-
-        Returns:
-            matched_chain_indices: The list of indices for satisfied chains (in the chain pool)
-        """
-        satisfied_chain_indices = []
-        if anomaly_flag == NORMAL:
-            satisfied_chain_indices = [self.chain_pool.index(chain) for chain in self.chain_pool if chain.anomaly_flag == NORMAL and chain.match(expanded_attr_index)]
-        elif anomaly_flag == ABNORMAL:
-            satisfied_chain_indices = [self.chain_pool.index(chain) for chain in self.chain_pool if chain.anomaly_flag == ABNORMAL and chain.match(expanded_attr_index)]
-        else:
-            satisfied_chain_indices = [self.chain_pool.index(chain) for chain in self.chain_pool if chain.match(expanded_attr_index)]
-        return satisfied_chain_indices
+    def match(self, expanded_attr_index:'int'):
+        return self.current_chain is not None and self.current_chain.match(expanded_attr_index)
     
-    def update(self, expanded_attr_index:'int', anomaly_flag):
-        """Update the existing chains (or create a new chain) given the new arrived attribute event and the anomaly flag.
-
-        Args:
-            expanded_attr_index (int): The new attribute
-            n_parents (_type_): Number of the new attributes' parents
-
-        Returns:
-            int: The number of updated chains
-        """
-        detailed_anomaly_flag = 0; affected_chain_ids = []
-        matched_chain_indices = self.match(expanded_attr_index, anomaly_flag)
-        if len(matched_chain_indices) > 0:
-            detailed_anomaly_flag = anomaly_flag_dict[anomaly_flag][1]
-            for chain_index in matched_chain_indices:
-                affected_chain_ids.append(chain_index)
-                self.chain_pool[chain_index].update(expanded_attr_index)
-        else:
-            detailed_anomaly_flag = anomaly_flag_dict[anomaly_flag][0]
-            lagged_attr_index = expanded_attr_index - self.n_vars
-            self.chain_pool.append(InteractionChain(self.n_vars, self.expanded_var_names, self.expanded_causal_graph, anomaly_flag, lagged_attr_index))
-            affected_chain_ids.append(len(self.chain_pool) - 1)
-         
-        return detailed_anomaly_flag, affected_chain_ids
+    def update(self, expanded_attr_index:'int'):
+        self.current_chain.update(expanded_attr_index)
+    
+    def create(self, evt_id:'int', expanded_attr_index:'int'):
+        chain_id = evt_id
+        self.chain_pool[chain_id] = InteractionChain(self.n_vars, self.expanded_var_names,\
+                                    self.expanded_causal_graph, expanded_attr_index)
+        self.n_chains += 1
+        self.current_chain = self.chain_pool[chain_id]
+        return chain_id
 
     def print_chains(self):
-        normal_chains = [chain for chain in self.chain_pool if chain.anomaly_flag == NORMAL]
-        abnormal_chains = [chain for chain in self.chain_pool if chain.anomaly_flag == ABNORMAL]
-        print("Current chain stack with {} normal chains and {} abnormal chains".format(len(normal_chains), len(abnormal_chains)))
+        print("Current chain stack with {} chains.".format(len(self.chain_pool.keys())))
         for index, chain in enumerate(self.chain_pool):
             print(" * Chain {}: {}".format(index, chain))
 
@@ -125,23 +93,40 @@ class SecurityGuard():
         # Chain manager
         self.chain_manager = ChainManager(bayesian_fitter.var_names, bayesian_fitter.expanded_var_names, bayesian_fitter.expanded_causal_graph)
         # Anomaly analyzer
+        self.breakpoint_dict = {}
         self.type1_anomaly_dict = {}
         self.type1_debugging_dict = {}
     
-    def initialize(self, event, state_vector):
+    def initialize(self, event_id, event, state_vector):
         self.phantom_state_machine.set_state(state_vector) # Initialize the phantom state machine
         attr = event[0]; expanded_attr_index = self.expanded_var_names.index(attr)
-        self.chain_manager.update(expanded_attr_index, NORMAL) # Initialize the chain manager
+        if self.chain_manager.match(expanded_attr_index):
+            self.chain_manager.update(expanded_attr_index)
+        else:
+            self.chain_manager.create(event_id, expanded_attr_index)
         self.last_processed_event = event
-    
+
+    def detect_type1_anomaly(self, event_id=0, event=(), debugging_list=[]):
+        attr = event[0]; expanded_attr_index = self.expanded_var_names.index(attr)
+        if self.chain_manager.match(expanded_attr_index):
+            self.chain_manager.update(expanded_attr_index)
+        else: # A breakpoint is detected
+            chain_id = self.chain_manager.create(event_id, expanded_attr_index)
+            # Save information about the breakpoint
+            self.breakpoint_dict[event_id] = {}
+            self.breakpoint_dict[event_id]['attr'] = attr
+            self.breakpoint_dict[event_id]['anomalous_interaction'] = \
+                (self.var_names.index(self.last_processed_event[0]), self.var_names.index(event[0]))
+            self.breakpoint_dict[event_id]['chain_id'] = chain_id
+            # Create a new chain in ChainManager
+        self.last_processed_event = event
+
     def _compute_anomaly_score(self, state, predicted_state):
         # Here we take the quadratic loss as the anomaly score.
         # See paper "A Unifying Framework for Detecting Outliers and Change Points from Time Series"
         return 1.0 * (state - predicted_state) ** 2
     
     def anomaly_detection(self, event_id=0, event=(), debugging_list=[]):
-        if event_id in debugging_list:
-            print("Anomalies at position {}: {}".format(event_id, event))
         attr = event[0]; expanded_attr_index = self.expanded_var_names.index(attr)
         expanded_parent_indices = self.bayesian_fitter.get_expanded_parent_indices(expanded_attr_index)
         anomaly_flag = NORMAL; exo_flag = len(expanded_parent_indices) == 0

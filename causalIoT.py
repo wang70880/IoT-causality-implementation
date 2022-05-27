@@ -401,19 +401,18 @@ for frame_id in range(event_preprocessor.frame_count):
 
         # 2. Initiate anomaly detections
         start = time.time()
-        evt_count = 0; anomaly_flag = NORMAL
+        event_id = 0; anomaly_flag = NORMAL
         for evt in testing_event_sequences:
-            if evt_count <= tau_max: # use the first tau_max events for warm start
-                security_guard.initialize(evt, event_preprocessor.frame_dict[frame_id]['testing-data'].values[evt_count])
+            if event_id <= tau_max: # use the first tau_max events for warm start
+                security_guard.initialize(event_id, evt, event_preprocessor.frame_dict[frame_id]['testing-data'].values[event_id])
             else: # Start the anomaly detection
-                security_guard.anomaly_detection(event_id=evt_count, event=evt, debugging_list=true_anomaly_positions)
-            evt_count += 1
-        print("[Security guarding] Anomaly detection completes for {} runtime events. Consumed time: {} seconds.".format(evt_count, (time.time() - start)*1.0/60))
+                security_guard.detect_type1_anomaly(event_id=event_id, event=evt, debugging_list=true_anomaly_positions)
+            event_id += 1
+        print("[Security guarding] Type-1 anomaly detection completes for {} runtime events. Consumed time: {} seconds.".format(event_id, (time.time() - start)*1.0/60))
 
         # 3. Evaluate the detection accuracy.:w
         print("[Security guarding] Evaluating the detection accuracy for type-1 anomalies")
-        print("Detection results for true anomalies: {}".format(security_guard.type1_debugging_dict))
-        detected_type1_anomaly_event_ids = list(security_guard.type1_anomaly_dict.keys())
+        detected_type1_anomaly_event_ids = list(security_guard.breakpoint_dict.keys())
         evaluator.evaluate_detection_accuracy(true_anomaly_positions, detected_type1_anomaly_event_ids)
 
     frame_id += 1
