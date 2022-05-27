@@ -253,19 +253,24 @@ class BayesianFitter:
         print(str)
 
 """Parameter Settings"""
+TEST_PARAM_SETTING = True
 PARAM_SETTING = True
 DATA_PREPROCESSING = True
 BACKGROUND_GENERATION = True
 partition_config = int(sys.argv[1])
 apply_bk = int(sys.argv[2])
+
+if TEST_PARAM_SETTING:
+    single_frame_test_flag = 1 # JC TEST: Test for single dataframe
+    skip_skeleton_estimation_flag = 1 # JC TEST: Test for single dataframe
+    skip_bayesian_fitting_flag = 1
+
 if PARAM_SETTING:
     dataset = 'hh101'
     stable_only = 1
     cond_ind_test = CMIsymb()
     tau_max = 1; tau_min = 1
     verbosity = -1 # -1: No debugging information; 0: Debugging information in this module; 2: Debugging info in PCMCI class; 3: Debugging info in CIT implementations
-    single_frame_test_flag = 1 # JC TEST: Test for single dataframe
-    skip_skeleton_estimation_flag = 0 # JC TEST: Test for single dataframe
     ## For stable-pc
     pc_alpha = 0.1
     max_conds_dim = 5
@@ -374,7 +379,7 @@ for frame_id in range(event_preprocessor.frame_count):
                 if verbosity > -1:
                     print("##\n## MCI for frame {} finished. Consumed time: {} mins\n##".format(frame_id, (mci_end - mci_start) * 1.0 / 60))
     else:
-        pc_result_dict[frame_id] =  {'D002': [('D002', -1), ('M001', -1)]}
+        pc_result_dict[frame_id] = {'D001': [], 'D002': [('D002', -1), ('M001', -1)], 'LS001': [('LS001', -1), ('D002', -1), ('M008', -1), ('M001', -1)], 'LS002': [('M008', -1), ('M002', -1)], 'LS003': [('M008', -1)], 'LS004':             [('LS016', -1), ('M008', -1)], 'LS005': [('M008', -1)], 'LS006': [('LS006', -1), ('M006', -1), ('M003', -1)], 'LS007': [], 'LS008': [('LS013', -1)], 'LS009': [('M008', -1)], 'LS010': [('LS001', -1),      ('M001', -1)], 'LS011': [('M001', -1), ('M008', -1)], 'LS012': [('M008', -1)], 'LS013': [('LS013', -1), ('M008', -1)], 'LS014': [('LS014', -1), ('LS009', -1), ('M009', -1), ('M008', -1)], 'LS015':        [('M011', -1)], 'LS016': [('M002', -1), ('M008', -1)], 'M001': [('D002', -1), ('M001', -1), ('M010', -1), ('M005', -1), ('LS001', -1)], 'M002': [('M002', -1), ('M004', -1), ('LS016', -1), ('LS002', -1),  ('M003', -1)], 'M003': [('LS006', -1), ('LS003', -1), ('M006', -1), ('M003', -1), ('M002', -1), ('M007', -1), ('M004', -1)], 'M004': [('M004', -1), ('M002', -1), ('M008', -1), ('M003', -1), ('LS016', -   1)], 'M005': [('M005', -1), ('M008', -1), ('M001', -1), ('M004', -1), ('M010', -1)], 'M006': [('M006', -1), ('LS006', -1), ('M003', -1)], 'M007': [('M007', -1), ('M003', -1)], 'M008': [('M008', -1),      ('M004', -1), ('T104', -1), ('M005', -1), ('LS013', -1), ('LS008', -1), ('LS005', -1), ('LS012', -1), ('LS010', -1), ('LS004', -1), ('LS001', -1), ('LS002', -1), ('LS016', -1), ('LS003', -1), ('LS011', - 1), ('LS014', -1)], 'M009': [('M009', -1), ('M012', -1), ('LS014', -1), ('LS009', -1)], 'M010': [('M010', -1), ('M001', -1), ('D002', -1), ('M005', -1)], 'M011': [('M011', -1), ('LS015', -1), ('M009', -  1), ('M001', -1)], 'M012': [('M009', -1), ('M012', -1), ('LS014', -1)], 'T101': [('T101', -1)], 'T102': [], 'T103': [], 'T104': [('T104', -1), ('M008', -1)], 'T105': [('T105', -1), ('M008', -1)]}
 
     """Causal Graph Parameterization."""
     if COMM.rank == 0:
@@ -385,7 +390,8 @@ for frame_id in range(event_preprocessor.frame_count):
         print("\n********** Initiate Bayesian Fitting. **********")
         bayesian_fitter = BayesianFitter(frame, tau_max, interaction_graph)
         bayesian_fitter.analyze_discovery_statistics()
-        bayesian_fitter.construct_bayesian_model()
+        if not skip_bayesian_fitting_flag:
+            bayesian_fitter.construct_bayesian_model()
         print("Bayesian fitting complete. Consumed time: {} seconds.".format((time.time() - start)*1.0/60))
     
     """Anomaly score cutoff estimation."""
@@ -398,7 +404,6 @@ for frame_id in range(event_preprocessor.frame_count):
         security_guard = security_guard.SecurityGuard(bayesian_fitter=bayesian_fitter)
         # 1. Inject device anomalies
         testing_event_sequences, true_anomaly_positions = evaluator.inject_type1_anomalies(frame_id=frame_id, n_anomalies=10, maximum_length=3)
-
         # 2. Initiate anomaly detections
         start = time.time()
         event_id = 0; anomaly_flag = NORMAL
