@@ -397,7 +397,7 @@ for frame_id in range(event_preprocessor.frame_count):
         print("\n********** Initiate Security Guarding. **********")
         security_guard = security_guard.SecurityGuard(bayesian_fitter=bayesian_fitter)
         # 1. Inject device anomalies
-        testing_event_sequences, true_anomaly_positions = evaluator.inject_type1_anomalies(frame_id=frame_id, n_anomalies=500, maximum_length=3)
+        testing_event_sequences, true_anomaly_positions = evaluator.inject_type1_anomalies(frame_id=frame_id, n_anomalies=10, maximum_length=3)
 
         # 2. Initiate anomaly detections
         start = time.time()
@@ -406,7 +406,7 @@ for frame_id in range(event_preprocessor.frame_count):
             if evt_count <= tau_max: # use the first tau_max events for warm start
                 security_guard.initialize(evt, event_preprocessor.frame_dict[frame_id]['testing-data'].values[evt_count])
             else: # Start the anomaly detection
-                security_guard.anomaly_detection(event_id=evt_count, event=evt)
+                security_guard.anomaly_detection(event_id=evt_count, event=evt, debugging_list=true_anomaly_positions)
             evt_count += 1
         print("[Security guarding] Anomaly detection completes for {} runtime events. Consumed time: {} seconds.".format(evt_count, (time.time() - start)*1.0/60))
 
