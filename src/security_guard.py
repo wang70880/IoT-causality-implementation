@@ -1,3 +1,4 @@
+from itertools import chain
 import numpy as np
 
 NORMAL = 0
@@ -116,9 +117,11 @@ class SecurityGuard():
             self.breakpoint_dict[event_id] = {}
             self.breakpoint_dict[event_id]['attr'] = attr
             self.breakpoint_dict[event_id]['anomalous_interaction'] = \
-                (self.var_names.index(self.last_processed_event[0]), self.var_names.index(event[0]))
+                (self.var_names.index(self.last_processed_event[0]), self.var_names.index(attr))
             self.breakpoint_dict[event_id]['chain_id'] = chain_id
             # Create a new chain in ChainManager
+            print("Anomalous interactions in chain {}: {}".format(self.breakpoint_dict[event_id]['chain_id'],\
+                                        self.breakpoint_dict[event_id]['anomalous_interaction']))
         self.last_processed_event = event
 
     def _compute_anomaly_score(self, state, predicted_state):
