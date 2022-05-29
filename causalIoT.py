@@ -419,6 +419,12 @@ for frame_id in range(event_preprocessor.frame_count):
         # 3. Evaluate the detection accuracy.:w
         print("[Security guarding] Evaluating the detection accuracy for type-1 anomalies")
         detected_type1_anomaly_event_ids = list(security_guard.breakpoint_dict.keys())
+        fre_count = 0
+        for breakpoint_event_id in detected_type1_anomaly_event_ids:
+            detected_interaction = security_guard.breakpoint_dict[breakpoint_event_id]['anomalous_interaction']
+            if detected_interaction[0].startswith(('T', 'LS')) or detected_interaction[1].startswith(('T', 'LS')):
+                fre_count += 1
+        print("Anomalous interactions casued by perodic events, missing edeges = {}, {}", fre_count, len(detected_type1_anomaly_event_ids) - fre_count)
         evaluator.evaluate_detection_accuracy(true_anomaly_positions, detected_type1_anomaly_event_ids)
 
     frame_id += 1
