@@ -37,8 +37,8 @@ class Evaluator():
         tp = len([x for x in result if x in golden_standard])
         fp = len([x for x in result if x not in golden_standard])
         fn = len([x for x in golden_standard if x not in result])
-        precision = tp * 1.0 / (tp + fp)
-        recall = tp * 1.0 / (tp + fn)
+        precision = tp * 1.0 / (tp + fp) if tp + fp > 0 else 0
+        recall = tp * 1.0 / (tp + fn) if tp + fn > 0 else 0
         print("Precision, recall = {:.2f}, {:.2f}".format(precision, recall))
 
     def candidate_interaction_matching(self, frame_id=0, tau=1, interactions_list=[]):
