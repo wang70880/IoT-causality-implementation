@@ -317,9 +317,6 @@ class Hprocessor(Processor):
 				if len(last_parsed_event) != 0 and \
 				(last_parsed_event[0], last_parsed_event[2], last_parsed_event[3], last_parsed_event[4]) == (last_parsed_event[0], parsed_event[2], parsed_event[3], parsed_event[4]) :
 					continue
-				# 3. Remove ghost device logs (These devices do not exist in the home layout)
-				if parsed_event[2] in ['T104']:
-					continue
 				qualified_events.append(parsed_event)
 				last_parsed_event = parsed_event.copy()
 		return qualified_events
