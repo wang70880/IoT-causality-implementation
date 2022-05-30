@@ -384,7 +384,7 @@ for frame_id in range(event_preprocessor.frame_count):
         security_guard = security_guard.SecurityGuard(frame=frame, bayesian_fitter=bayesian_fitter)
         # 1. Inject device anomalies
         testing_event_sequences = list(zip(frame['testing-attr-sequence'], frame['testing-state-sequence'])); true_anomaly_positions = []
-        testing_event_sequences, true_anomaly_positions = evaluator.inject_type1_anomalies(frame_id=frame_id, n_anomalies=10, maximum_length=3)
+        # testing_event_sequences, true_anomaly_positions = evaluator.inject_type1_anomalies(frame_id=frame_id, n_anomalies=10, maximum_length=3)
         # 2. Initiate anomaly detection
         start = time.time()
         event_id = 0; anomaly_flag = NORMAL
@@ -395,7 +395,7 @@ for frame_id in range(event_preprocessor.frame_count):
                 # 2.1 Initiate the breakpoint detection
                 breakpoint_flag = security_guard.breakpoint_detection(event_id=event_id, event=evt, debugging_list=true_anomaly_positions)
                 # 3. Initiate the anomaly score checking
-                anomalous_score_flag = security_guard.state_validation(event_id=event_id, event=evt, debugging_list=true_anomaly_positions)
+                anomalous_score_flag = security_guard.state_validation(event_id=event_id, event=evt)
             event_id += 1
         print("[Security guarding] Type-1 anomaly detection completes for {} runtime events. Consumed time: {} seconds.".format(event_id, (time.time() - start)*1.0/60))
         # 3. Evaluate the detection accuracy.
