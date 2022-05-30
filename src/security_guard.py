@@ -138,7 +138,7 @@ class SecurityGuard():
         training_frame = self.frame['training-data'] # A pp.dataframe object
         assert(len(training_events) == training_frame.T)
         for i in range(training_frame.T):
-            cur_event = training_events[i]; cur_state_vector = training_frame.values()[i]
+            cur_event = training_events[i]; cur_state_vector = training_frame.values[i]
             training_phantom_machine.set_state(cur_state_vector)
             if i > self.tau_max:
                 anomaly_score = self.compute_event_anomaly_score(cur_event, training_phantom_machine)
