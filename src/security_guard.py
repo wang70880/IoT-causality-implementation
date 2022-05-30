@@ -125,11 +125,14 @@ class SecurityGuard():
         return breakpoint_flag
 
     def compute_event_anomaly_score(self, event, phantom_state_machine):
+        anomaly_score = 0
         attr = event[0]; observed_state = event[1]; expanded_attr_index = self.expanded_var_names.index(attr)
         expanded_parent_indices = self.bayesian_fitter.get_expanded_parent_indices(expanded_attr_index)
         parent_state_dict = phantom_state_machine.get_states(expanded_parent_indices, 1)
-        estimated_state = self.bayesian_fitter.predict_attr_state(attr, parent_state_dict)
-        return 1.0 * (estimated_state - observed_state)**2
+        if len(parent_state_dict.keys()) > 0:
+            estimated_state = self.bayesian_fitter.predict_attr_state(attr, parent_state_dict)
+            anomaly_score = 1.0 * (estimated_state - observed_state)**2
+        return anomaly_score
 
     def _compute_anomaly_score_cutoff(self, sig_level = 0.9):
         computed_anomaly_scores = []

@@ -399,9 +399,12 @@ for frame_id in range(event_preprocessor.frame_count):
             event_id += 1
         print("[Security guarding] Type-1 anomaly detection completes for {} runtime events. Consumed time: {} seconds.".format(event_id, (time.time() - start)*1.0/60))
         # 3. Evaluate the detection accuracy.
-        print("[Security guarding] Evaluating the detection accuracy for type-1 anomalies")
-        detected_type1_anomaly_event_ids = list(security_guard.breakpoint_dict.keys())
-        evaluator.evaluate_detection_accuracy(true_anomaly_positions, detected_type1_anomaly_event_ids)
+        print("[Security guarding] Evaluating the detection accuracy for breakpoint detections")
+        breakpoint_event_ids = list(security_guard.breakpoint_dict.keys())
+        evaluator.evaluate_detection_accuracy(true_anomaly_positions, breakpoint_event_ids)
+        print("[Security guarding] Evaluating the detection accuracy for state transition violations")
+        violation_event_ids = list(security_guard.violation_dict.keys())
+        evaluator.evaluate_detection_accuracy(true_anomaly_positions, violation_event_ids)
 
     frame_id += 1
 
