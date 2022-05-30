@@ -3,11 +3,6 @@ import numpy as np
 
 NORMAL = 0
 ABNORMAL = 1
-NORMAL_EXO = 2
-NORMAL_ENO = 3
-ABNORMAL_EXO = 4
-ABNORMAL_ENO = 5
-anomaly_flag_dict = {NORMAL: [NORMAL_EXO, NORMAL_ENO], ABNORMAL: [ABNORMAL_EXO, ABNORMAL_ENO]}
 
 class PhantomStateMachine():
 
@@ -26,8 +21,11 @@ class PhantomStateMachine():
         current_state_vector[self.var_names.index(attr)] = state
         self.set_state(current_state_vector)
 
-    def get_states(self, attr_list):
-        return {attr: self.phantom_states[self.expanded_var_names.index(attr)] for attr in attr_list}
+    def get_states(self, expanded_attr_indices, name_flag = 0):
+        result_dict = {index: self.phantom_states[index] for index in expanded_attr_indices}\
+                        if name_flag == 0 else\
+                        {self.expanded_var_names[index]: self.phantom_states[index] for index in expanded_attr_indices}
+        return result_dict
 
 class InteractionChain():
 
@@ -80,22 +78,23 @@ class ChainManager():
 
 class SecurityGuard():
 
-    def __init__(self, bayesian_fitter=None, verbosity=0) -> None:
+    def __init__(self, frame=None, bayesian_fitter=None, verbosity=0, sig_level = 0.9) -> None:
+        self.frame = frame
         self.verbosity = verbosity
-        self.var_names: 'list[str]' = bayesian_fitter.var_names
-        self.expanded_var_names: 'list[str]' = bayesian_fitter.expanded_var_names
+        self.var_names: 'list[str]' = bayesian_fitter.var_names; self.expanded_var_names: 'list[str]' = bayesian_fitter.expanded_var_names
+        self.tau_max = bayesian_fitter.tau_max
         self.last_processed_event = ()
-        # The score threshold
-        self.score_threshold = 0.0
         # The parameterized causal graph
         self.bayesian_fitter = bayesian_fitter
         # Phantom state machine
         self.phantom_state_machine = PhantomStateMachine(bayesian_fitter.var_names, bayesian_fitter.expanded_var_names)
         # Chain manager
         self.chain_manager = ChainManager(bayesian_fitter.var_names, bayesian_fitter.expanded_var_names, bayesian_fitter.expanded_causal_graph)
+        # The score threshold
+        self.score_threshold = self._compute_anomaly_score_cutoff(sig_level=sig_level)
         # Anomaly analyzer
         self.breakpoint_dict = {}
-        self.type1_anomaly_dict = {}
+        self.violation_dict = {}
         self.type1_debugging_dict = {}
     
     def initialize(self, event_id, event, state_vector):
@@ -107,11 +106,13 @@ class SecurityGuard():
             self.chain_manager.create(event_id, expanded_attr_index)
         self.last_processed_event = event
 
-    def detect_type1_anomaly(self, event_id=0, event=(), debugging_list=[]):
+    def breakpoint_detection(self, event_id=-1, event=(), debugging_list=[]):
         attr = event[0]; expanded_attr_index = self.expanded_var_names.index(attr)
+        breakpoint_flag = NORMAL
         if self.chain_manager.match(expanded_attr_index):
             self.chain_manager.update(expanded_attr_index)
         else: # A breakpoint is detected
+            breakpoint_flag = ABNORMAL
             chain_id = self.chain_manager.create(event_id, expanded_attr_index)
             # Save information about the breakpoint
             self.breakpoint_dict[event_id] = {}
@@ -121,43 +122,37 @@ class SecurityGuard():
             self.breakpoint_dict[event_id]['chain_id'] = chain_id
             # Create a new chain in ChainManager
         self.last_processed_event = event
+        return breakpoint_flag
 
-    def _compute_anomaly_score(self, state, predicted_state):
-        # Here we take the quadratic loss as the anomaly score.
-        # See paper "A Unifying Framework for Detecting Outliers and Change Points from Time Series"
-        return 1.0 * (state - predicted_state) ** 2
-    
-    def anomaly_detection(self, event_id=0, event=(), debugging_list=[]):
-        attr = event[0]; expanded_attr_index = self.expanded_var_names.index(attr)
+    def compute_event_anomaly_score(self, event, phantom_state_machine):
+        attr = event[0]; observed_state = event[1]; expanded_attr_index = self.expanded_var_names.index(attr)
         expanded_parent_indices = self.bayesian_fitter.get_expanded_parent_indices(expanded_attr_index)
-        anomaly_flag = NORMAL; exo_flag = len(expanded_parent_indices) == 0
-        # First initiate detections of type-1 attacks.
-        if (not exo_flag) and (len(self.chain_manager.match(expanded_attr_index, NORMAL)) == 0):
-            anomaly_flag = ABNORMAL
-        
-        if self.verbosity > 0:
-            self.chain_manager.print_chains()
-            if anomaly_flag == ABNORMAL:
-                str = "Type-1 anomalies are detected!\n"\
-                        + "  * Current event: {}\n".format(event)\
-                        + "  * Exogenous attribute: {}\n".format(exo_flag)\
-                        + "  * The parent set: {}\n".format([self.expanded_var_names[i] for i in expanded_parent_indices])
-                print(str)
+        parent_state_dict = phantom_state_machine.get_states(expanded_parent_indices, 1)
+        estimated_state = self.bayesian_fitter.predict_attr_state(attr, parent_state_dict)
+        return 1.0 * (estimated_state - observed_state)**2
 
-        # JC TODO: Initiate detections of type-2 attacks.
-        # parent_state_dict = self.phantom_state_machine.get_states(expanded_parent_list)
-        # predicted_state =  self.bayesian_fitter.predict_attr_state(attr, parent_state_dict)
-        # anomaly_score = self._compute_anomaly_score(state, predicted_state)
-        # anomaly_flag = anomaly_score > threshold
+    def _compute_anomaly_score_cutoff(self, sig_level = 0.9):
+        computed_anomaly_scores = []
+        training_phantom_machine = PhantomStateMachine(self.var_names, self.expanded_var_names)
+        training_events = list(zip(self.frame['attr-sequence'], self.frame['state-sequence']))
+        training_frame = self.frame['training-data'] # A pp.dataframe object
+        assert(len(training_events) == training_frame.T)
+        for i in range(training_frame.T):
+            cur_event = training_events[i]; cur_state_vector = training_frame.values()[i]
+            training_phantom_machine.set_state(cur_state_vector)
+            if i > self.tau_max:
+                anomaly_score = self.compute_event_anomaly_score(cur_event, training_phantom_machine)
+                computed_anomaly_scores.append(anomaly_score)
+        self.score_threshold = np.percentile(np.array(computed_anomaly_scores), sig_level * 100)
+        print("The computed score threshold is {}".format(self.score_threshold))
+        return self.score_threshold
 
-        # Update the chain pool and the phantom state machine according to the detection result.
-        detailed_anomaly_flag, affected_chain_ids = self.chain_manager.update(expanded_attr_index, anomaly_flag)
-        if detailed_anomaly_flag == ABNORMAL_EXO: # A type-1 anomaly is detected.
-            self.type1_anomaly_dict[event_id] = {}
-            self.type1_anomaly_dict[event_id]['anomalous_interaction'] = (self.var_names.index(self.last_processed_event[0]), self.var_names.index(event[0]))
-            self.type1_anomaly_dict[event_id]['chain-id'] = affected_chain_ids[0]
-        #self.phantom_state_machine.update(event)
-        self.last_processed_event = event
-        if len(debugging_list) > 0 and event_id in debugging_list:
-            self.type1_debugging_dict[event_id] = detailed_anomaly_flag
-        return detailed_anomaly_flag
+    def state_validation(self, event_id=-1, event=()):
+        violation_flag = NORMAL
+        anomaly_score = self.compute_event_anomaly_score(event, self.phantom_state_machine)
+        if anomaly_score > self.score_threshold:
+            violation_flag = ABNORMAL
+            self.violation_dict[event_id] = {}
+            self.violation_dict[event_id]['attr'] = event[0]
+            self.violation_dict[event_id]['anomaly-score'] = anomaly_score
+        return violation_flag

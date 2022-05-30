@@ -42,10 +42,6 @@ import src.security_guard as security_guard
 COMM = MPI.COMM_WORLD
 NORMAL = 0
 ABNORMAL = 1
-NORMAL_EXO = 2
-NORMAL_ENO = 3
-ABNORMAL_EXO = 4
-ABNORMAL_ENO = 5
 
 def _split(container, count):
     """
@@ -187,18 +183,6 @@ class BayesianFitter:
         #print(cpd)
         self.model.fit(df, estimator= MaximumLikelihoodEstimator) 
     
-    def exo_check(self, attr:'str'):
-        """Check if the current attribute is an exogenous attribute.
-
-        Args:
-            attr (str): Name of the attribute
-
-        Returns:
-            n_parents: The number of parents
-        """
-        attr_expanded_index = self.expanded_var_names.index(attr)
-        return sum(self.expanded_causal_graph[:,attr_expanded_index]) == 0
-    
     def predict_attr_state(self, attr, parent_state_dict):
         """ Predict the value of the target attribute given its parent states, i.e., E[attr|par(attr)]
 
@@ -220,10 +204,6 @@ class BayesianFitter:
     def get_expanded_parent_indices(self, expanded_attr_index: 'int'):
         return list(np.where(self.expanded_causal_graph[:,expanded_attr_index] == 1)[0])
         #return {index: self.expanded_var_names[i] for index in par_indices}
-    
-
-    def derive_anomaly_score_threshold(self):
-        pass
 
     def analyze_discovery_statistics(self):
         print("[Bayesian Fitting] Analyzing discovery statistics.")
@@ -263,7 +243,7 @@ apply_bk = int(sys.argv[2])
 if TEST_PARAM_SETTING:
     single_frame_test_flag = 1 # JC TEST: Test for single dataframe
     skip_skeleton_estimation_flag = 1 # JC TEST: Test for single dataframe
-    skip_bayesian_fitting_flag = 1
+    skip_bayesian_fitting_flag = 0
 
 if PARAM_SETTING:
     dataset = 'hh101'
@@ -401,33 +381,30 @@ for frame_id in range(event_preprocessor.frame_count):
     """Security Guard."""
     if COMM.rank == 0:
         print("\n********** Initiate Security Guarding. **********")
-        security_guard = security_guard.SecurityGuard(bayesian_fitter=bayesian_fitter)
+        security_guard = security_guard.SecurityGuard(frame=frame, bayesian_fitter=bayesian_fitter)
         # 1. Inject device anomalies
         testing_event_sequences = list(zip(frame['testing-attr-sequence'], frame['testing-state-sequence'])); true_anomaly_positions = []
         testing_event_sequences, true_anomaly_positions = evaluator.inject_type1_anomalies(frame_id=frame_id, n_anomalies=10, maximum_length=3)
-        # 2. Initiate anomaly detections
+        # 2. Initiate anomaly detection
         start = time.time()
         event_id = 0; anomaly_flag = NORMAL
         for evt in testing_event_sequences:
-            if event_id <= tau_max: # use the first tau_max events for warm start
+            if event_id <= tau_max: # Initialize the anomaly detection system
                 security_guard.initialize(event_id, evt, event_preprocessor.frame_dict[frame_id]['testing-data'].values[event_id])
             else: # Start the anomaly detection
-                security_guard.detect_type1_anomaly(event_id=event_id, event=evt, debugging_list=true_anomaly_positions)
+                # 2.1 Initiate the breakpoint detection
+                breakpoint_flag = security_guard.breakpoint_detection(event_id=event_id, event=evt, debugging_list=true_anomaly_positions)
+                # 3. Initiate the anomaly score checking
+                anomalous_score_flag = security_guard.state_validation(event_id=event_id, event=evt, debugging_list=true_anomaly_positions)
             event_id += 1
         print("[Security guarding] Type-1 anomaly detection completes for {} runtime events. Consumed time: {} seconds.".format(event_id, (time.time() - start)*1.0/60))
-
-        # 3. Evaluate the detection accuracy.:w
+        # 3. Evaluate the detection accuracy.
         print("[Security guarding] Evaluating the detection accuracy for type-1 anomalies")
         detected_type1_anomaly_event_ids = list(security_guard.breakpoint_dict.keys())
-        fre_count = 0
-        for breakpoint_event_id in detected_type1_anomaly_event_ids:
-            detected_interaction = security_guard.breakpoint_dict[breakpoint_event_id]['anomalous_interaction']
-            if detected_interaction[0].startswith(('T', 'LS')) or detected_interaction[1].startswith(('T', 'LS')):
-                fre_count += 1
-        print("Anomalous interactions casued by perodic events, missing edeges = {}, {}", fre_count, len(detected_type1_anomaly_event_ids) - fre_count)
         evaluator.evaluate_detection_accuracy(true_anomaly_positions, detected_type1_anomaly_event_ids)
 
     frame_id += 1
+
     if single_frame_test_flag == 1:
         break
     if frame_id == event_preprocessor.frame_count - 1:
