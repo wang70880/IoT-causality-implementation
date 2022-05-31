@@ -142,6 +142,7 @@ class Evaluator():
         testing_event_sequence = []; anomaly_positions = []; benign_position_dict = {}
         original_frame = self.event_processor.frame_dict[frame_id]
         benign_testing_event_sequence = list(zip(original_frame['testing-attr-sequence'], original_frame['testing-state-sequence'])); n_benign_events = len(benign_testing_event_sequence)
+        anomalous_sequences = []; anomaly_lag = 1 # Injecting lag-1 anomalies
         if n_anomalies == 0:
             testing_event_sequence = benign_testing_event_sequence.copy()
             anomaly_positions = []
@@ -149,7 +150,6 @@ class Evaluator():
         else:
             # First determine the injection positions in the original event sequence, and generate the propagated anomaly sequence
             split_positions = sorted(random.sample(range(self.tau_max+1, n_benign_events-1, self.tau_max + maximum_length), n_anomalies))
-            anomalous_sequences = []; anomaly_lag = 1 # Injecting lag-1 anomalies
             for split_position in split_positions:
                 anomalous_sequence = []
                 preceding_attr = benign_testing_event_sequence[split_position][0]; preceding_attr_index = original_frame['var-name'].index(preceding_attr)
