@@ -115,7 +115,7 @@ class SecurityGuard():
         if self.chain_manager.match(expanded_attr_index):
             self.chain_manager.update(expanded_attr_index)
         else:
-            self.chain_manager.create(NORMAL, event_id, expanded_attr_index)
+            self.chain_manager.create(event_id, expanded_attr_index, NORMAL)
         self.last_processed_event = event
 
     def _proceed(self, event):
@@ -150,8 +150,6 @@ class SecurityGuard():
             if breakpoint_flag or self.chain_manager.current_chain_length() >= maximum_length: # The propagation of abnormal chains ends.
                 report_to_user = True # Finish tracking the current anomaly chain: Report to users
             else: 
-                print("The current breakpoint_flag is {}".format(breakpoint_flag))
-                print("The current chain is {}".format(self.chain_manager.current_chain))
                 self.chain_manager.update(expanded_attr_index) # The current chain is still propagating.
         self.last_processed_event = event
         return report_to_user
