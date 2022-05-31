@@ -140,12 +140,12 @@ class SecurityGuard():
                     self.breakpoint_dict[event_id]['attr'] = attr
                     self.breakpoint_dict[event_id]['anomalous_interaction'] = \
                         (self.last_processed_event[0], attr)
-                    self.chain_manager.create(TYPE1_ANOMALY, event_id, expanded_attr_index)
+                    self.chain_manager.create(event_id, expanded_attr_index, TYPE1_ANOMALY)
                 else: # Type 2 anomaly
                     self.violation_dict[event_id] = {}
                     self.violation_dict[event_id]['attr'] = attr
                     self.violation_dict[event_id]['anomaly-score'] = anomaly_score
-                    self.chain_manager.create(TYPE2_ANOMALY, event_id, expanded_attr_index)
+                    self.chain_manager.create(event_id, expanded_attr_index, TYPE2_ANOMALY)
         else:
             if breakpoint_flag or self.chain_manager.current_chain_length() >= maximum_length: # The propagation of abnormal chains ends.
                 report_to_user = True # Finish tracking the current anomaly chain: Report to users
