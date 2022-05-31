@@ -380,17 +380,19 @@ for frame_id in range(event_preprocessor.frame_count):
         security_guard = security_guard.SecurityGuard(frame=frame, bayesian_fitter=bayesian_fitter)
         # 1. Inject device anomalies
         #testing_event_sequences = list(zip(frame['testing-attr-sequence'], frame['testing-state-sequence'])); true_anomaly_positions = []
+        print("[Security guarding] Start injecting anomalies.")
         testing_event_sequences, anomaly_starting_positions, benign_position_dict = evaluator.inject_type1_anomalies(frame_id=frame_id, n_anomalies=0, maximum_length=3)
+        print("[Security guarding] Finish injecting anomalies.")
         # 2. Initiate anomaly detection
         start = time.time()
         event_id = 0
         while event_id < len(testing_event_sequences):
             event = testing_event_sequences[event_id]
             if event_id <= tau_max: # Initialize the anomaly detection system
-                security_guard.initialize(event_id, event, event_preprocessor.frame_dict[frame_id]['testing-data'].values[event_id])
+                security_guard.initialize(event_id, event, frame['testing-data'].values[event_id])
             elif security_guard.anomaly_detection(event_id=event_id, event=event, maximum_length=3): # There is anomaly report: # Start the anomaly detection
                 event_id = min(x for x in benign_position_dict.keys() if x >= event_id) # Automatically jump to the next normal event
-                security_guard.calibrate(benign_position_dict[event_id], event_id) # Simulate user behavior and calibrate the current state machine and chain
+                security_guard.calibrate(benign_position_dict[event_id], event_id, testing_event_sequences[event_id]) # Simulate user behavior and calibrate the current state machine and chain
             event_id += 1
         print("[Security guarding] Type-1 anomaly detection completes for {} runtime events. Consumed time: {} seconds.".format(event_id, (time.time() - start)*1.0/60))
         # 3. Evaluate the detection accuracy.

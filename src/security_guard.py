@@ -131,7 +131,7 @@ class SecurityGuard():
         if self.is_tracking_normal_chain():
             if not anomalous_score_flag: # A normal event
                 self.phantom_state_machine.update(event)
-                if not breakpoint_flag:
+                if not breakpoint_flag: # A normal propagation event
                     self.chain_manager.update(expanded_attr_index)
             else: # An abnormal event
                 if breakpoint_flag: # Type 1 anomaly
@@ -147,19 +147,19 @@ class SecurityGuard():
                     self.chain_manager.create(TYPE2_ANOMALY, event_id, expanded_attr_index)
         else:
             if breakpoint_flag or self.chain_manager.current_chain_length() >= maximum_length: # The propagation of abnormal chains ends.
-                # Report to users, and restore the guarding system to a latest normal event.
-                report_to_user = True
-            else: # The propagation of abnormal chain.
-                self.chain_manager.update(expanded_attr_index)
+                report_to_user = True # Finish tracking the current anomaly chain: Report to users
+            else: 
+                self.chain_manager.update(expanded_attr_index) # The current chain is still propagating.
         self.last_processed_event = event
         return report_to_user
     
-    def calibrate(self, benign_event_id, testing_event_id):
+    def calibrate(self, benign_event_id, testing_event_id, selected_event):
         """Find the latest normal event, then
             1. Create a new normal chain starting with the normal event.
             2. Set the state machine to the normal propagations.
         """
         event = (self.frame['testing-attr-sequence'][benign_event_id], self.frame['testing-state-sequence'][benign_event_id])
+        assert(event == selected_event)
         attr = event[0]; expanded_attr_index = self.expanded_var_names.index(attr)
         i = self.tau_max
         while i >= 0:

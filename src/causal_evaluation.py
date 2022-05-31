@@ -145,7 +145,7 @@ class Evaluator():
         if n_anomalies == 0:
             testing_event_sequence = benign_testing_event_sequence.copy()
             anomaly_positions = []
-            benign_position_dict = {x: x for x in n_benign_events}
+            benign_position_dict = {x: x for x in range(n_benign_events)}
         else:
             # First determine the injection positions in the original event sequence, and generate the propagated anomaly sequence
             split_positions = sorted(random.sample(range(self.tau_max+1, n_benign_events-1, self.tau_max + maximum_length), n_anomalies))
