@@ -197,7 +197,7 @@ class SecurityGuard():
 
     def breakpoint_detection(self, event=()):
         attr = event[0]; expanded_attr_index = self.expanded_var_names.index(attr)
-        return self.chain_manager.match(expanded_attr_index)
+        return not self.chain_manager.match(expanded_attr_index)
 
     def state_validation(self, event_id=-1, event=()):
         violation_flag = False

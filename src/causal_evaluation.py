@@ -185,7 +185,7 @@ class Evaluator():
         assert(len(testing_event_sequence) == len(benign_testing_event_sequence)\
                          + sum([len(anomaly_sequence) for anomaly_sequence in anomalous_sequences]))
         
-        print("Injected positions: {}, anomalies: {}".format(anomaly_positions, anomalous_sequences))
-        print("Benign positions: {}".format(benign_position_dict.keys()))
+        #print("Injected positions: {}, anomalies: {}".format(anomaly_positions, anomalous_sequences))
+        #print("Benign positions: {}".format(benign_position_dict.keys()))
 
         return testing_event_sequence, anomaly_positions, benign_position_dict 
