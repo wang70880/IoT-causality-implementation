@@ -66,6 +66,7 @@ class ChainManager():
         return self.current_chain is not None and self.current_chain.match(expanded_attr_index)
     
     def update(self, expanded_attr_index:'int'):
+        assert(self.match(expanded_attr_index))
         self.current_chain.update(expanded_attr_index)
     
     def create(self, evt_id:'int', expanded_attr_index:'int', anomaly_flag):
@@ -81,7 +82,7 @@ class ChainManager():
         for index, chain in enumerate(self.chain_pool):
             print(" * Chain {}: {}".format(index, chain))
 
-    def is_normal_chain(self):
+    def is_tracking_normal_chain(self):
         return self.current_chain.anomaly_flag == NORMAL
 
     def current_chain_length(self):
@@ -128,7 +129,7 @@ class SecurityGuard():
         attr = event[0]; expanded_attr_index = self.expanded_var_names.index(attr)
         breakpoint_flag = self.breakpoint_detection(event)
         anomalous_score_flag, anomaly_score = self.state_validation(event_id=event_id, event=event)
-        if self.is_tracking_normal_chain():
+        if self.chain_manager.is_tracking_normal_chain():
             if not anomalous_score_flag: # A normal event
                 self.phantom_state_machine.update(event)
                 if not breakpoint_flag: # A normal propagation event
@@ -149,6 +150,8 @@ class SecurityGuard():
             if breakpoint_flag or self.chain_manager.current_chain_length() >= maximum_length: # The propagation of abnormal chains ends.
                 report_to_user = True # Finish tracking the current anomaly chain: Report to users
             else: 
+                print("The current breakpoint_flag is {}".format(breakpoint_flag))
+                print("The current chain is {}".format(self.chain_manager.current_chain))
                 self.chain_manager.update(expanded_attr_index) # The current chain is still propagating.
         self.last_processed_event = event
         return report_to_user
@@ -197,9 +200,6 @@ class SecurityGuard():
     def breakpoint_detection(self, event=()):
         attr = event[0]; expanded_attr_index = self.expanded_var_names.index(attr)
         return self.chain_manager.match(expanded_attr_index)
-
-    def is_tracking_normal_chain(self):
-        return self.chain_manager.is_normal_chain()
 
     def state_validation(self, event_id=-1, event=()):
         violation_flag = False
