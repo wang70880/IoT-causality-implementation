@@ -142,50 +142,50 @@ class Evaluator():
         testing_event_sequence = []; anomaly_positions = []; benign_position_dict = {}
         original_frame = self.event_processor.frame_dict[frame_id]
         benign_testing_event_sequence = list(zip(original_frame['testing-attr-sequence'], original_frame['testing-state-sequence'])); n_benign_events = len(benign_testing_event_sequence)
-        split_positions = sorted(random.sample(range(self.tau_max+1, n_benign_events-1, self.tau_max + maximum_length), n_anomalies))
-        anomalous_sequences = []
-        anomaly_lag = 1 # Injecting lag-1 anomalies
-        for split_position in split_positions:
-            anomalous_sequence = []
-            preceding_attr = benign_testing_event_sequence[split_position][0]; preceding_attr_index = original_frame['var-name'].index(preceding_attr)
-            candidate_anomalous_attrs = [original_frame['var-name'][i] for i in list(np.where(self.background_generator.candidate_pair_dict[frame_id][anomaly_lag][preceding_attr_index] == 0)[0])]
-            anomalous_attr = random.choice(candidate_anomalous_attrs)
-            anomalous_sequence.append(anomalous_attr)
-            for i in range(maximum_length - 1): # Propagate the anomaly chain (given pre-selected anomalous attr)
-                preceding_attr_index = original_frame['var-name'].index(anomalous_attr)
-                candidate_anomalous_attrs = [original_frame['var-name'][i] for i in list(np.where(self.background_generator.candidate_pair_dict[frame_id][anomaly_lag][preceding_attr_index] == 1)[0])]
-                if len(candidate_anomalous_attrs) == 0:
-                    break
-                else:
-                    anomalous_attr = random.choice(candidate_anomalous_attrs)
-                    anomalous_sequence.append(anomalous_attr)
-            anomalous_sequences.append(anomalous_sequence)
-        # JC TEST: Check the correctness of the anomalous sequences
         if n_anomalies == 0:
             testing_event_sequence = benign_testing_event_sequence.copy()
             anomaly_positions = []
             benign_position_dict = {x: x for x in n_benign_events}
         else:
+            # First determine the injection positions in the original event sequence, and generate the propagated anomaly sequence
+            split_positions = sorted(random.sample(range(self.tau_max+1, n_benign_events-1, self.tau_max + maximum_length), n_anomalies))
+            anomalous_sequences = []; anomaly_lag = 1 # Injecting lag-1 anomalies
+            for split_position in split_positions:
+                anomalous_sequence = []
+                preceding_attr = benign_testing_event_sequence[split_position][0]; preceding_attr_index = original_frame['var-name'].index(preceding_attr)
+                candidate_anomalous_attrs = [original_frame['var-name'][i] for i in list(np.where(self.background_generator.candidate_pair_dict[frame_id][anomaly_lag][preceding_attr_index] == 0)[0])]
+                anomalous_attr = random.choice(candidate_anomalous_attrs)
+                anomalous_sequence.append(anomalous_attr)
+                for i in range(maximum_length - 1): # Propagate the anomaly chain (given pre-selected anomalous attr)
+                    preceding_attr_index = original_frame['var-name'].index(anomalous_attr)
+                    candidate_anomalous_attrs = [original_frame['var-name'][i] for i in list(np.where(self.background_generator.candidate_pair_dict[frame_id][anomaly_lag][preceding_attr_index] == 1)[0])]
+                    if len(candidate_anomalous_attrs) == 0:
+                        break
+                    else:
+                        anomalous_attr = random.choice(candidate_anomalous_attrs)
+                        anomalous_sequence.append(anomalous_attr)
+                anomalous_sequences.append(anomalous_sequence)
+            
+            # Then generate the testing sequence by combining original sequence with generated anomaly sequences
             starting_index = 0
             for i in range(0, n_anomalies):
                 benign_starting_index = len(testing_event_sequence)
                 testing_event_sequence += benign_testing_event_sequence[starting_index: split_positions[i]+1].copy()
-                benign_end_index = len(testing_event_sequence) - 1
-                for (x, y) in list(zip([n for n in range(benign_starting_index, benign_end_index + 1)], [m for m in range(starting_index, split_positions[i]+1)])):
+                anomaly_start_index = len(testing_event_sequence)
+                for (x, y) in list(zip([n for n in range(benign_starting_index, anomaly_start_index)], [m for m in range(starting_index, split_positions[i]+1)])):
                     benign_position_dict[x] = y
-                anomaly_positions.append(len(testing_event_sequence))
+                anomaly_positions.append(anomaly_start_index)
                 testing_event_sequence += [(attr, 1) for attr in anomalous_sequences[i]]
                 starting_index = split_positions[i]+1
             benign_starting_index = len(testing_event_sequence)
             testing_event_sequence += benign_testing_event_sequence[starting_index:].copy()
-            benign_end_index = len(testing_event_sequence) - 1
-            for (x, y) in list(zip([n for n in range(benign_starting_index, benign_end_index + 1)], [m for m in range(starting_index, n_benign_events)])):
+            for (x, y) in list(zip([n for n in range(benign_starting_index, len(testing_event_sequence))], [m for m in range(starting_index, n_benign_events)])):
                 benign_position_dict[x] = y
-        # JC TEST: Check the correctness for list concatenation 
         assert(all([x not in list(benign_position_dict.keys()) for x in anomaly_positions]))
         assert(len(testing_event_sequence) == len(benign_testing_event_sequence)\
                          + sum([len(anomaly_sequence) for anomaly_sequence in anomalous_sequences]))
         
         print("Injected positions: {}, anomalies: {}".format(anomaly_positions, anomalous_sequences))
+        print("Benign positions: {}".format(benign_position_dict.keys()))
 
         return testing_event_sequence, anomaly_positions, benign_position_dict 
