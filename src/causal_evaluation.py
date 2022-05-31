@@ -127,21 +127,31 @@ class Evaluator():
         return statistics.mean(truth_count_list), statistics.mean(precision_list), statistics.mean(recall_list)
     
     def inject_type1_anomalies(self, frame_id, n_anomalies, maximum_length):
-        testing_event_sequence = []; anomaly_positions = []
+        """_summary_
+
+        Args:
+            frame_id (_type_): _description_
+            n_anomalies (_type_): _description_
+            maximum_length (_type_): _description_
+
+        Returns:
+            testing_event_sequence: The list of testing events (with injected anomalies)
+            anomaly_positions: The list of injection positions
+            benign_position_dict: The index-in-testing-sequence:index-in-original-sequence dict
+        """
+        testing_event_sequence = []; anomaly_positions = []; benign_position_dict = {}
         original_frame = self.event_processor.frame_dict[frame_id]
-        benign_testing_event_sequence = list(zip(original_frame['testing-attr-sequence'], original_frame['testing-state-sequence']))
-        n_benign_events = len(benign_testing_event_sequence)
-        split_positions = sorted(random.sample(range(self.tau_max+1, n_benign_events-1), n_anomalies))
+        benign_testing_event_sequence = list(zip(original_frame['testing-attr-sequence'], original_frame['testing-state-sequence'])); n_benign_events = len(benign_testing_event_sequence)
+        split_positions = sorted(random.sample(range(self.tau_max+1, n_benign_events-1, self.tau_max + maximum_length), n_anomalies))
         anomalous_sequences = []
         anomaly_lag = 1 # Injecting lag-1 anomalies
-        count = 1
         for split_position in split_positions:
             anomalous_sequence = []
             preceding_attr = benign_testing_event_sequence[split_position][0]; preceding_attr_index = original_frame['var-name'].index(preceding_attr)
             candidate_anomalous_attrs = [original_frame['var-name'][i] for i in list(np.where(self.background_generator.candidate_pair_dict[frame_id][anomaly_lag][preceding_attr_index] == 0)[0])]
             anomalous_attr = random.choice(candidate_anomalous_attrs)
             anomalous_sequence.append(anomalous_attr)
-            for i in range(maximum_length - 1): # Propogate the anomaly chain (given pre-selected anomalous attr)
+            for i in range(maximum_length - 1): # Propagate the anomaly chain (given pre-selected anomalous attr)
                 preceding_attr_index = original_frame['var-name'].index(anomalous_attr)
                 candidate_anomalous_attrs = [original_frame['var-name'][i] for i in list(np.where(self.background_generator.candidate_pair_dict[frame_id][anomaly_lag][preceding_attr_index] == 1)[0])]
                 if len(candidate_anomalous_attrs) == 0:
@@ -150,19 +160,32 @@ class Evaluator():
                     anomalous_attr = random.choice(candidate_anomalous_attrs)
                     anomalous_sequence.append(anomalous_attr)
             anomalous_sequences.append(anomalous_sequence)
-            count += 1
         # JC TEST: Check the correctness of the anomalous sequences
-        starting_index = 0
-        for i in range(0, n_anomalies):
-            testing_event_sequence += benign_testing_event_sequence[starting_index: split_positions[i]+1].copy()
-            anomaly_positions.append(len(testing_event_sequence))
-            testing_event_sequence += [(attr, 1) for attr in anomalous_sequences[i]]
-            starting_index = split_positions[i]+1
-        testing_event_sequence += benign_testing_event_sequence[starting_index:].copy()
+        if n_anomalies == 0:
+            testing_event_sequence = benign_testing_event_sequence.copy()
+            anomaly_positions = []
+            benign_position_dict = {x: x for x in n_benign_events}
+        else:
+            starting_index = 0
+            for i in range(0, n_anomalies):
+                benign_starting_index = len(testing_event_sequence)
+                testing_event_sequence += benign_testing_event_sequence[starting_index: split_positions[i]+1].copy()
+                benign_end_index = len(testing_event_sequence) - 1
+                for (x, y) in list(zip([n for n in range(benign_starting_index, benign_end_index + 1)], [m for m in range(starting_index, split_positions[i]+1)])):
+                    benign_position_dict[x] = y
+                anomaly_positions.append(len(testing_event_sequence))
+                testing_event_sequence += [(attr, 1) for attr in anomalous_sequences[i]]
+                starting_index = split_positions[i]+1
+            benign_starting_index = len(testing_event_sequence)
+            testing_event_sequence += benign_testing_event_sequence[starting_index:].copy()
+            benign_end_index = len(testing_event_sequence) - 1
+            for (x, y) in list(zip([n for n in range(benign_starting_index, benign_end_index + 1)], [m for m in range(starting_index, n_benign_events)])):
+                benign_position_dict[x] = y
         # JC TEST: Check the correctness for list concatenation 
+        assert(all([x not in list(benign_position_dict.keys()) for x in anomaly_positions]))
         assert(len(testing_event_sequence) == len(benign_testing_event_sequence)\
                          + sum([len(anomaly_sequence) for anomaly_sequence in anomalous_sequences]))
         
         print("Injected positions: {}, anomalies: {}".format(anomaly_positions, anomalous_sequences))
 
-        return testing_event_sequence, anomaly_positions
+        return testing_event_sequence, anomaly_positions, benign_position_dict 

@@ -2,7 +2,8 @@ from itertools import chain
 import numpy as np
 
 NORMAL = 0
-ABNORMAL = 1
+TYPE1_ANOMALY = 1
+TYPE2_ANOMALY = 2
 
 class PhantomStateMachine():
 
@@ -29,7 +30,8 @@ class PhantomStateMachine():
 
 class InteractionChain():
 
-    def __init__(self, n_vars, expanded_var_names, expanded_causal_graph, expanded_attr_index) -> None:
+    def __init__(self, anomaly_flag, n_vars, expanded_var_names, expanded_causal_graph, expanded_attr_index) -> None:
+        self.anomaly_flag = anomaly_flag
         self.n_vars = n_vars; self.expanded_var_names = expanded_var_names; self.expanded_causal_graph = expanded_causal_graph
         self.attr_index_chain = [expanded_attr_index - n_vars] # Adjust to the lagged attribute
         self.header_attr_index = self.attr_index_chain[-1]
@@ -43,9 +45,12 @@ class InteractionChain():
         self.attr_index_chain = [x - self.n_vars for x in self.attr_index_chain]
         self.header_attr_index = self.attr_index_chain[-1]
     
+    def get_length(self):
+        return len(self.attr_index_chain)
+
     def __str__(self):
-        return "header_attr = {}, len(chains) = {}\n"\
-              .format(self.expanded_var_names[self.header_attr_index], len(self.attr_index_chain))
+        return "header_attr = {}, anomaly_flag = {}, len(chains) = {}\n"\
+              .format(self.expanded_var_names[self.header_attr_index], self.anomaly_flag, len(self.attr_index_chain))
 
 class ChainManager():
     
@@ -63,9 +68,9 @@ class ChainManager():
     def update(self, expanded_attr_index:'int'):
         self.current_chain.update(expanded_attr_index)
     
-    def create(self, evt_id:'int', expanded_attr_index:'int'):
+    def create(self, evt_id:'int', expanded_attr_index:'int', anomaly_flag):
         chain_id = evt_id
-        self.chain_pool[chain_id] = InteractionChain(self.n_vars, self.expanded_var_names,\
+        self.chain_pool[chain_id] = InteractionChain(anomaly_flag, self.n_vars, self.expanded_var_names,\
                                     self.expanded_causal_graph, expanded_attr_index)
         self.n_chains += 1
         self.current_chain = self.chain_pool[chain_id]
@@ -75,6 +80,12 @@ class ChainManager():
         print("Current chain stack with {} chains.".format(len(self.chain_pool.keys())))
         for index, chain in enumerate(self.chain_pool):
             print(" * Chain {}: {}".format(index, chain))
+
+    def is_normal_chain(self):
+        return self.current_chain.anomaly_flag == NORMAL
+
+    def current_chain_length(self):
+        return self.current_chain.get_length()
 
 class SecurityGuard():
 
@@ -103,26 +114,59 @@ class SecurityGuard():
         if self.chain_manager.match(expanded_attr_index):
             self.chain_manager.update(expanded_attr_index)
         else:
-            self.chain_manager.create(event_id, expanded_attr_index)
+            self.chain_manager.create(NORMAL, event_id, expanded_attr_index)
         self.last_processed_event = event
 
-    def breakpoint_detection(self, event_id=-1, event=(), debugging_list=[]):
+    def _proceed(self, event):
         attr = event[0]; expanded_attr_index = self.expanded_var_names.index(attr)
-        breakpoint_flag = NORMAL
-        if self.chain_manager.match(expanded_attr_index):
+        if self.chain_manager.match(expanded_attr_index): # Maintain the currently tracked chain
             self.chain_manager.update(expanded_attr_index)
-        else: # A breakpoint is detected
-            breakpoint_flag = ABNORMAL
-            chain_id = self.chain_manager.create(event_id, expanded_attr_index)
-            # Save information about the breakpoint
-            self.breakpoint_dict[event_id] = {}
-            self.breakpoint_dict[event_id]['attr'] = attr
-            self.breakpoint_dict[event_id]['anomalous_interaction'] = \
-                (self.last_processed_event[0], attr)
-            self.breakpoint_dict[event_id]['chain_id'] = chain_id
-            # Create a new chain in ChainManager
+        self.phantom_state_machine.update(event) # Update the phantom state machine
+
+    def anomaly_detection(self, event_id, event, maximum_length):
+        report_to_user = False
+        attr = event[0]; expanded_attr_index = self.expanded_var_names.index(attr)
+        breakpoint_flag = self.breakpoint_detection(event)
+        anomalous_score_flag, anomaly_score = self.state_validation(event_id=event_id, event=event)
+        if self.is_tracking_normal_chain():
+            if not anomalous_score_flag: # A normal event
+                self.phantom_state_machine.update(event)
+                if not breakpoint_flag:
+                    self.chain_manager.update(expanded_attr_index)
+            else: # An abnormal event
+                if breakpoint_flag: # Type 1 anomaly
+                    self.breakpoint_dict[event_id] = {}
+                    self.breakpoint_dict[event_id]['attr'] = attr
+                    self.breakpoint_dict[event_id]['anomalous_interaction'] = \
+                        (self.last_processed_event[0], attr)
+                    self.chain_manager.create(TYPE1_ANOMALY, event_id, expanded_attr_index)
+                else: # Type 2 anomaly
+                    self.violation_dict[event_id] = {}
+                    self.violation_dict[event_id]['attr'] = attr
+                    self.violation_dict[event_id]['anomaly-score'] = anomaly_score
+                    self.chain_manager.create(TYPE2_ANOMALY, event_id, expanded_attr_index)
+        else:
+            if breakpoint_flag or self.chain_manager.current_chain_length() >= maximum_length: # The propagation of abnormal chains ends.
+                # Report to users, and restore the guarding system to a latest normal event.
+                report_to_user = True
+            else: # The propagation of abnormal chain.
+                self.chain_manager.update(expanded_attr_index)
         self.last_processed_event = event
-        return breakpoint_flag
+        return report_to_user
+    
+    def calibrate(self, benign_event_id, testing_event_id):
+        """Find the latest normal event, then
+            1. Create a new normal chain starting with the normal event.
+            2. Set the state machine to the normal propagations.
+        """
+        event = (self.frame['testing-attr-sequence'][benign_event_id], self.frame['testing-state-sequence'][benign_event_id])
+        attr = event[0]; expanded_attr_index = self.expanded_var_names.index(attr)
+        i = self.tau_max
+        while i >= 0:
+            lagged_benign_state_vector = self.frame['testing-data'].values[benign_event_id - i]
+            self.phantom_state_machine.set_state(lagged_benign_state_vector)
+            i -= 1
+        self.chain_manager.create(testing_event_id, expanded_attr_index, NORMAL)
 
     def compute_event_anomaly_score(self, event, phantom_state_machine):
         anomaly_score = 0
@@ -150,12 +194,16 @@ class SecurityGuard():
         print("The computed score threshold is {}".format(self.score_threshold))
         return self.score_threshold
 
+    def breakpoint_detection(self, event=()):
+        attr = event[0]; expanded_attr_index = self.expanded_var_names.index(attr)
+        return self.chain_manager.match(expanded_attr_index)
+
+    def is_tracking_normal_chain(self):
+        return self.chain_manager.is_normal_chain()
+
     def state_validation(self, event_id=-1, event=()):
-        violation_flag = NORMAL
+        violation_flag = False
         anomaly_score = self.compute_event_anomaly_score(event, self.phantom_state_machine)
         if anomaly_score > self.score_threshold:
-            violation_flag = ABNORMAL
-            self.violation_dict[event_id] = {}
-            self.violation_dict[event_id]['attr'] = event[0]
-            self.violation_dict[event_id]['anomaly-score'] = anomaly_score
-        return violation_flag
+            violation_flag = True
+        return violation_flag, anomaly_score

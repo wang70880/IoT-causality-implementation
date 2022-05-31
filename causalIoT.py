@@ -374,37 +374,32 @@ for frame_id in range(event_preprocessor.frame_count):
             bayesian_fitter.construct_bayesian_model()
         print("Bayesian fitting complete. Consumed time: {} seconds.".format((time.time() - start)*1.0/60))
     
-    """Anomaly score cutoff estimation."""
-    if COMM.rank == 0:
-        score_threshold = bayesian_fitter
-
     """Security Guard."""
     if COMM.rank == 0:
         print("\n********** Initiate Security Guarding. **********")
         security_guard = security_guard.SecurityGuard(frame=frame, bayesian_fitter=bayesian_fitter)
         # 1. Inject device anomalies
-        testing_event_sequences = list(zip(frame['testing-attr-sequence'], frame['testing-state-sequence'])); true_anomaly_positions = []
-        # testing_event_sequences, true_anomaly_positions = evaluator.inject_type1_anomalies(frame_id=frame_id, n_anomalies=10, maximum_length=3)
+        #testing_event_sequences = list(zip(frame['testing-attr-sequence'], frame['testing-state-sequence'])); true_anomaly_positions = []
+        testing_event_sequences, anomaly_starting_positions, benign_position_dict = evaluator.inject_type1_anomalies(frame_id=frame_id, n_anomalies=0, maximum_length=3)
         # 2. Initiate anomaly detection
         start = time.time()
-        event_id = 0; anomaly_flag = NORMAL
-        for evt in testing_event_sequences:
+        event_id = 0
+        while event_id < len(testing_event_sequences):
+            event = testing_event_sequences[event_id]
             if event_id <= tau_max: # Initialize the anomaly detection system
-                security_guard.initialize(event_id, evt, event_preprocessor.frame_dict[frame_id]['testing-data'].values[event_id])
-            else: # Start the anomaly detection
-                # 2.1 Initiate the breakpoint detection
-                breakpoint_flag = security_guard.breakpoint_detection(event_id=event_id, event=evt, debugging_list=true_anomaly_positions)
-                # 3. Initiate the anomaly score checking
-                anomalous_score_flag = security_guard.state_validation(event_id=event_id, event=evt)
+                security_guard.initialize(event_id, event, event_preprocessor.frame_dict[frame_id]['testing-data'].values[event_id])
+            elif security_guard.anomaly_detection(event_id=event_id, event=event, maximum_length=3): # There is anomaly report: # Start the anomaly detection
+                event_id = min(x for x in benign_position_dict.keys() if x >= event_id) # Automatically jump to the next normal event
+                security_guard.calibrate(benign_position_dict[event_id], event_id) # Simulate user behavior and calibrate the current state machine and chain
             event_id += 1
         print("[Security guarding] Type-1 anomaly detection completes for {} runtime events. Consumed time: {} seconds.".format(event_id, (time.time() - start)*1.0/60))
         # 3. Evaluate the detection accuracy.
         print("[Security guarding] Evaluating the detection accuracy for breakpoint detections")
         breakpoint_event_ids = list(security_guard.breakpoint_dict.keys())
-        evaluator.evaluate_detection_accuracy(true_anomaly_positions, breakpoint_event_ids)
+        evaluator.evaluate_detection_accuracy(anomaly_starting_positions, breakpoint_event_ids)
         print("[Security guarding] Evaluating the detection accuracy for state transition violations")
         violation_event_ids = list(security_guard.violation_dict.keys())
-        evaluator.evaluate_detection_accuracy(true_anomaly_positions, violation_event_ids)
+        evaluator.evaluate_detection_accuracy(anomaly_starting_positions, violation_event_ids)
 
     frame_id += 1
 
