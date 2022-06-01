@@ -162,13 +162,12 @@ class SecurityGuard():
         self.last_processed_event = event
         return report_to_user
     
-    def calibrate(self, benign_event_id, testing_event_id, selected_event):
+    def calibrate(self, benign_event_id, testing_event_id):
         """Find the latest normal event, then
             1. Create a new normal chain starting with the normal event.
             2. Set the state machine to the normal propagations.
         """
         event = (self.frame['testing-attr-sequence'][benign_event_id], self.frame['testing-state-sequence'][benign_event_id])
-        assert(event == selected_event)
         attr = event[0]; expanded_attr_index = self.expanded_var_names.index(attr)
         i = self.tau_max
         while i >= 0:
