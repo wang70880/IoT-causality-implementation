@@ -397,7 +397,10 @@ for frame_id in range(event_preprocessor.frame_count):
         print("[Security guarding] Evaluating the detection accuracy for breakpoint detections")
         breakpoint_event_ids = list(security_guard.breakpoint_dict.keys())
         for break_event_id, breakpoint in security_guard.breakpoint_dict.items():
-            print(" * Breakpoint event id {} with anomalies {}".format(break_event_id, breakpoint['interaction']))
+            print(" * Breakpoint event id {}\
+                        with anomalies {}\
+                        breakpoint-flag {}\
+                        score-flag {}".format(break_event_id, breakpoint['interaction'], breakpoint['breakpoint-flag'], breakpoint['score-flag']))
         evaluator.evaluate_detection_accuracy(anomaly_starting_positions, breakpoint_event_ids)
         print("[Security guarding] Evaluating the detection accuracy for state transition violations")
         violation_event_ids = list(security_guard.violation_dict.keys())
