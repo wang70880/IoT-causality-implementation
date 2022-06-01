@@ -128,7 +128,7 @@ class SecurityGuard():
         report_to_user = False
         attr = event[0]; expanded_attr_index = self.expanded_var_names.index(attr)
         breakpoint_flag = self.breakpoint_detection(event)
-        anomalous_score_flag, anomaly_score = self.state_validation(event_id=event_id, event=event)
+        anomalous_score_flag, anomaly_score = self.state_validation(event=event)
         if self.chain_manager.is_tracking_normal_chain():
             if not anomalous_score_flag: # A normal event
                 self.phantom_state_machine.update(event)
@@ -199,7 +199,7 @@ class SecurityGuard():
         attr = event[0]; expanded_attr_index = self.expanded_var_names.index(attr)
         return not self.chain_manager.match(expanded_attr_index)
 
-    def state_validation(self, event_id=-1, event=()):
+    def state_validation(self, event=()):
         violation_flag = False
         anomaly_score = self.compute_event_anomaly_score(event, self.phantom_state_machine)
         if anomaly_score > self.score_threshold:
