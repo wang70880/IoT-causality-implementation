@@ -39,6 +39,9 @@ class InteractionChain():
     def match(self, expanded_attr_index:'int'):
         return self.expanded_causal_graph[self.header_attr_index, expanded_attr_index] > 0
     
+    def get_header_attr(self):
+        return self.expanded_var_names[self.header_attr_index]
+    
     def update(self, expanded_attr_index:'int'):
         assert(self.match(expanded_attr_index))
         self.attr_index_chain.append(expanded_attr_index)
@@ -139,7 +142,7 @@ class SecurityGuard():
                     self.breakpoint_dict[event_id] = {}
                     self.breakpoint_dict[event_id]['attr'] = attr
                     self.breakpoint_dict[event_id]['interaction'] = \
-                        (self.last_processed_event[0], attr)
+                        (self.chain_manager.current_chain.get_header_attr(), attr)
                     self.chain_manager.create(event_id, expanded_attr_index, TYPE1_ANOMALY)
                 else: # Type 2 anomaly
                     self.violation_dict[event_id] = {}
