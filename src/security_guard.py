@@ -145,7 +145,7 @@ class SecurityGuard():
                         (self.chain_manager.current_chain.get_header_attr(), attr)
                     self.breakpoint_dict[event_id]['breakpoint-flag'] = breakpoint_flag
                     self.breakpoint_dict[event_id]['score-flag'] = anomalous_score_flag
-                    self.violation_dict[event_id]['anomaly-score'] = anomaly_score
+                    self.breakpoint_dict[event_id]['anomaly-score'] = anomaly_score
                     self.chain_manager.create(event_id, expanded_attr_index, TYPE1_ANOMALY)
                 else: # Type 2 anomaly
                     self.violation_dict[event_id] = {}

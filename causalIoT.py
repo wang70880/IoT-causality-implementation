@@ -389,7 +389,9 @@ for frame_id in range(event_preprocessor.frame_count):
             if event_id <= tau_max: # Initialize the anomaly detection system
                 security_guard.initialize(event_id, event, frame['testing-data'].values[event_id])
             elif security_guard.anomaly_detection(event_id=event_id, event=event, maximum_length=3): # There is anomaly report: # Start the anomaly detection
+                print("The anomaly chain is created at event_id {}".format(event_id))
                 event_id = min(x for x in benign_position_dict.keys() if x >= event_id) # Automatically jump to the next normal event
+                print("The nearest benign event id is {}".format(event_id))
                 security_guard.calibrate(benign_position_dict[event_id], event_id, testing_event_sequences[event_id]) # Simulate user behavior and calibrate the current state machine and chain
             event_id += 1
         print("[Security guarding] Anomaly detection completes for {} runtime events. Consumed time: {} seconds.".format(event_id, (time.time() - start)*1.0/60))
@@ -398,7 +400,7 @@ for frame_id in range(event_preprocessor.frame_count):
         breakpoint_interaction_dict = {}; violation_interaction_dict = {}
         breakpoint_event_ids = list(security_guard.breakpoint_dict.keys())
         for break_event_id, breakpoint in security_guard.breakpoint_dict.items():
-            print(" * Breakpoint (event id, interaction, breakpoint_flag, score_flag) = ({}, {}, {}, {})".format(break_event_id, breakpoint['interaction'], breakpoint['breakpoint-flag'], breakpoint['score-flag']))
+            print(" * Breakpoint (event id, interaction, score) = ({}, {}, {})".format(break_event_id, breakpoint['interaction'], breakpoint['anomaly-score']))
             breakpoint_interaction_dict[breakpoint['interaction']] += 1
         print(breakpoint_interaction_dict)
         evaluator.evaluate_detection_accuracy(anomaly_starting_positions, breakpoint_event_ids)
