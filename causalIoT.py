@@ -378,7 +378,8 @@ for frame_id in range(event_preprocessor.frame_count):
     """Security Guard."""
     if COMM.rank == 0:
         print("\n********** Initiate Security Guarding. **********")
-        security_guard = security_guard.SecurityGuard(frame=frame, bayesian_fitter=bayesian_fitter)
+        sig_level = 0.95
+        security_guard = security_guard.SecurityGuard(frame=frame, bayesian_fitter=bayesian_fitter, sig_level=sig_level)
         # 1. Inject device anomalies
         #testing_event_sequences = list(zip(frame['testing-attr-sequence'], frame['testing-state-sequence'])); true_anomaly_positions = []
         testing_event_sequences, anomaly_starting_positions, benign_position_dict = evaluator.inject_type1_anomalies(frame_id=frame_id, n_anomalies=0, maximum_length=3)
