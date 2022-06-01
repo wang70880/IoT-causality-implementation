@@ -138,12 +138,14 @@ class SecurityGuard():
                 if breakpoint_flag: # Type 1 anomaly
                     self.breakpoint_dict[event_id] = {}
                     self.breakpoint_dict[event_id]['attr'] = attr
-                    self.breakpoint_dict[event_id]['anomalous_interaction'] = \
+                    self.breakpoint_dict[event_id]['interaction'] = \
                         (self.last_processed_event[0], attr)
                     self.chain_manager.create(event_id, expanded_attr_index, TYPE1_ANOMALY)
                 else: # Type 2 anomaly
                     self.violation_dict[event_id] = {}
                     self.violation_dict[event_id]['attr'] = attr
+                    self.violation_dict[event_id]['interaction'] = \
+                        (self.last_processed_event[0], attr)
                     self.violation_dict[event_id]['anomaly-score'] = anomaly_score
                     self.chain_manager.create(event_id, expanded_attr_index, TYPE2_ANOMALY)
         else:

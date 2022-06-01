@@ -392,13 +392,17 @@ for frame_id in range(event_preprocessor.frame_count):
                 event_id = min(x for x in benign_position_dict.keys() if x >= event_id) # Automatically jump to the next normal event
                 security_guard.calibrate(benign_position_dict[event_id], event_id, testing_event_sequences[event_id]) # Simulate user behavior and calibrate the current state machine and chain
             event_id += 1
-        print("[Security guarding] Type-1 anomaly detection completes for {} runtime events. Consumed time: {} seconds.".format(event_id, (time.time() - start)*1.0/60))
+        print("[Security guarding] Anomaly detection completes for {} runtime events. Consumed time: {} seconds.".format(event_id, (time.time() - start)*1.0/60))
         # 3. Evaluate the detection accuracy.
         print("[Security guarding] Evaluating the detection accuracy for breakpoint detections")
         breakpoint_event_ids = list(security_guard.breakpoint_dict.keys())
+        for break_event_id, breakpoint in security_guard.breakpoint_dict.items():
+            print(" * Breakpoint event id {} with anomalies {}".format(break_event_id, breakpoint['interaction']))
         evaluator.evaluate_detection_accuracy(anomaly_starting_positions, breakpoint_event_ids)
         print("[Security guarding] Evaluating the detection accuracy for state transition violations")
         violation_event_ids = list(security_guard.violation_dict.keys())
+        for violation_event_id, violation_point in security_guard.violation_dict.items():
+            print(" * Violation event id {} with interaction and score: {}: {}".format(violation_event_id, violation_point['interaction'], violation_point['anomaly-score']))
         evaluator.evaluate_detection_accuracy(anomaly_starting_positions, violation_event_ids)
 
     frame_id += 1
