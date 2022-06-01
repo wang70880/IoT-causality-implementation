@@ -23,6 +23,7 @@ import numpy as np
 import pandas as pd
 import os, sys, pickle
 import statistics
+import pprint
 import time
 
 from pgmpy.models import BayesianNetwork 
@@ -366,7 +367,7 @@ for frame_id in range(event_preprocessor.frame_count):
         #print("Skeleton construction complete. Consumed time: {} seconds.".format(pc_time_list[frame_id]))
         start = time.time()
         interaction_graph = pc_result_dict[frame_id] if stable_only == 1 else mci_result_dict[frame_id]
-        print(interaction_graph)
+        pprint.pprint(interaction_graph)
         print("\n********** Initiate Bayesian Fitting. **********")
         bayesian_fitter = BayesianFitter(frame, tau_max, interaction_graph)
         bayesian_fitter.analyze_discovery_statistics()
@@ -402,14 +403,14 @@ for frame_id in range(event_preprocessor.frame_count):
         for break_event_id, breakpoint in security_guard.breakpoint_dict.items():
             print(" * Breakpoint (event id, interaction, score) = ({}, {}, {})".format(break_event_id, breakpoint['interaction'], breakpoint['anomaly-score']))
             breakpoint_interaction_dict[breakpoint['interaction']] += 1
-        print(breakpoint_interaction_dict)
+        pprint.pprint(breakpoint_interaction_dict)
         evaluator.evaluate_detection_accuracy(anomaly_starting_positions, breakpoint_event_ids)
         print("[Security guarding] Evaluating the detection accuracy for state transition violations")
         violation_event_ids = list(security_guard.violation_dict.keys())
         for violation_event_id, violation_point in security_guard.violation_dict.items():
             print(" * Violation (event id, interaction, score) = ({}, {}, {})".format(violation_event_id, violation_point['interaction'], violation_point['anomaly-score']))
             violation_interaction_dict[breakpoint['interaction']] += 1
-        print(violation_interaction_dict)
+        pprint.pprint(violation_interaction_dict)
         evaluator.evaluate_detection_accuracy(anomaly_starting_positions, violation_event_ids)
 
     frame_id += 1
