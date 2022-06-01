@@ -1,5 +1,6 @@
 from itertools import chain
 import numpy as np
+import pprint
 
 NORMAL = 0
 TYPE1_ANOMALY = 1

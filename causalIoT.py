@@ -408,7 +408,7 @@ for frame_id in range(event_preprocessor.frame_count):
         violation_event_ids = list(security_guard.violation_dict.keys())
         for violation_event_id, violation_point in security_guard.violation_dict.items():
             print(" * Violation (event id, interaction, score) = ({}, {}, {})".format(violation_event_id, violation_point['interaction'], violation_point['anomaly-score']))
-            violation_interaction_dict['->'.join(breakpoint['interaction'])] = 1 if '->'.join(breakpoint['interaction']) not in violation_interaction_dict.keys() else violation_interaction_dict['->'.join(breakpoint['interaction'])] + 1
+            violation_interaction_dict['->'.join(violation_point['interaction'])] = 1 if '->'.join(violation_point['interaction']) not in violation_interaction_dict.keys() else violation_interaction_dict['->'.join(violation_point['interaction'])] + 1
         pprint.pprint(violation_interaction_dict)
         evaluator.evaluate_detection_accuracy(anomaly_starting_positions, violation_event_ids)
 
