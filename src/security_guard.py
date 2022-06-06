@@ -30,9 +30,8 @@ class PhantomStateMachine():
         return result_dict
     
     def __str__(self):
-        format_name_string  = '%-10s' * self.n_expanded_vars
-        format_value_string = '%-10i' * self.n_expanded_vars
-        return format_name_string.format(self.expanded_var_names) + '\n' + format_value_string.format(self.phantom_states)
+        format_string  = '{:<8}' * self.n_expanded_vars
+        return format_string.format(*self.expanded_var_names) + '\n' + format_string.format(*self.phantom_states)
 
 class InteractionChain():
 
