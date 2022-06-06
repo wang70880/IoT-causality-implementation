@@ -28,6 +28,9 @@ class PhantomStateMachine():
                         if name_flag == 0 else\
                         {self.expanded_var_names[index]: self.phantom_states[index] for index in expanded_attr_indices}
         return result_dict
+    
+    def __str__(self):
+        return ('%-12s' * self.n_expanded_vars).format(self.expanded_var_names) + '\n' + ('%-12i' * self.n_expanded_vars).format(self.phantom_states)
 
 class InteractionChain():
 
@@ -131,6 +134,8 @@ class SecurityGuard():
     def anomaly_detection(self, event_id, event, maximum_length):
         report_to_user = False
         attr = event[0]; expanded_attr_index = self.expanded_var_names.index(attr)
+        print("[Anomaly Detection] Event {}: {}".format(event_id + self.frame['testing-start-index'], event))
+        print(self.phantom_state_machine)
         breakpoint_flag = self.breakpoint_detection(event)
         anomalous_score_flag, anomaly_score = self.state_validation(event=event)
         if self.chain_manager.is_tracking_normal_chain():
@@ -185,6 +190,7 @@ class SecurityGuard():
         if len(parent_state_dict.keys()) > 0:
             estimated_state = self.bayesian_fitter.predict_attr_state(attr, parent_state_dict)
             anomaly_score = 1.0 * (estimated_state - observed_state)**2
+        print(" [Score Computation] The anomaly score for {} becoming {} is {}".format(attr, observed_state, anomaly_score))
         return anomaly_score
 
     def _compute_anomaly_score_cutoff(self, sig_level = 0.9):

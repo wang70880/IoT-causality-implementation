@@ -378,6 +378,7 @@ for frame_id in range(event_preprocessor.frame_count):
     """Security Guard."""
     if COMM.rank == 0:
         print("\n********** Initiate Security Guarding. **********")
+        print("Testing log starting positions: {}".format(frame['testing-start-index']))
         sig_level = 0.95
         security_guard = security_guard.SecurityGuard(frame=frame, bayesian_fitter=bayesian_fitter, sig_level=sig_level)
         # 1. Inject device anomalies
