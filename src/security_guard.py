@@ -178,8 +178,8 @@ class SecurityGuard():
             1. Create a new normal chain starting with the normal event.
             2. Set the state machine to the normal propagations.
         """
-        print("     [Calibration] The nearest benign event is {}".format(testing_event_id + self.frame['testing-start-index'] + 1))
         event = (self.frame['testing-attr-sequence'][benign_event_id], self.frame['testing-state-sequence'][benign_event_id])
+        print("     [Calibration] The nearest benign event is {}: {}".format(testing_event_id + self.frame['testing-start-index'] + 1, event))
         attr = event[0]; expanded_attr_index = self.expanded_var_names.index(attr)
         i = self.tau_max
         while i >= 0:
