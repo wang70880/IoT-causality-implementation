@@ -1,6 +1,7 @@
 from itertools import chain
 import numpy as np
 import pprint
+from tabulate import tabulate
 
 NORMAL = 0
 TYPE1_ANOMALY = 1
@@ -30,8 +31,7 @@ class PhantomStateMachine():
         return result_dict
     
     def __str__(self):
-        format_string  = '{:<8}' * self.n_expanded_vars
-        return format_string.format(*self.expanded_var_names) + '\n' + format_string.format(*self.phantom_states)
+        return tabulate(list(zip(self.expanded_var_names, self.phantom_states)), headers= ['Attr', 'State'])
 
 class InteractionChain():
 
