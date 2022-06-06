@@ -148,6 +148,7 @@ class SecurityGuard():
                     self.chain_manager.update(expanded_attr_index)
             else: # An abnormal event
                 if breakpoint_flag: # Type 1 anomaly
+                    print("     [Anomaly Tracking] Capture a Type I anomaly at event {}, starting to track its propagations!".format(event_id + self.frame['testing-start-index'] + 1))
                     self.breakpoint_dict[event_id] = {}
                     self.breakpoint_dict[event_id]['attr'] = attr
                     self.breakpoint_dict[event_id]['interaction'] = \
@@ -157,6 +158,7 @@ class SecurityGuard():
                     self.breakpoint_dict[event_id]['anomaly-score'] = anomaly_score
                     self.chain_manager.create(event_id, expanded_attr_index, TYPE1_ANOMALY)
                 else: # Type 2 anomaly
+                    print("     [Anomaly Tracking] Capture a Type II anomaly at event {}, starting to track its propagations!".format(event_id + self.frame['testing-start-index'] + 1))
                     self.violation_dict[event_id] = {}
                     self.violation_dict[event_id]['attr'] = attr
                     self.violation_dict[event_id]['interaction'] = \
@@ -165,6 +167,7 @@ class SecurityGuard():
                     self.chain_manager.create(event_id, expanded_attr_index, TYPE2_ANOMALY)
         else:
             if breakpoint_flag or self.chain_manager.current_chain_length() >= maximum_length: # The propagation of abnormal chains ends.
+                print("     [Anomaly Tracking] Tracking finished at event {} with len(chain): {}. Prepare to calibrate it.".format(event_id + self.frame['testing-start-index'] + 1, self.chain_manager.current_chain_length()))
                 report_to_user = True # Finish tracking the current anomaly chain: Report to users
             else: 
                 self.chain_manager.update(expanded_attr_index) # The current chain is still propagating.
@@ -176,6 +179,7 @@ class SecurityGuard():
             1. Create a new normal chain starting with the normal event.
             2. Set the state machine to the normal propagations.
         """
+        print("     [Calibration] The nearest benign event is {}".format(testing_event_id + self.frame['testing-start-index'] + 1))
         event = (self.frame['testing-attr-sequence'][benign_event_id], self.frame['testing-state-sequence'][benign_event_id])
         attr = event[0]; expanded_attr_index = self.expanded_var_names.index(attr)
         i = self.tau_max
@@ -183,6 +187,7 @@ class SecurityGuard():
             lagged_benign_state_vector = self.frame['testing-data'].values[benign_event_id - i]
             self.phantom_state_machine.set_state(lagged_benign_state_vector)
             i -= 1
+        print(self.phantom_state_machine)
         self.chain_manager.create(testing_event_id, expanded_attr_index, NORMAL)
 
     def compute_event_anomaly_score(self, event, phantom_state_machine):
