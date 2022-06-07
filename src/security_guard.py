@@ -1,6 +1,6 @@
 from itertools import chain
 import numpy as np
-import pprint
+from pprint import pprint
 from tabulate import tabulate
 
 NORMAL = 0
