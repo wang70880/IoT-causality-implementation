@@ -111,7 +111,8 @@ class SecurityGuard():
         # Chain manager
         self.chain_manager = ChainManager(bayesian_fitter.var_names, bayesian_fitter.expanded_var_names, bayesian_fitter.expanded_causal_graph)
         # The score threshold
-        self.score_threshold = self._compute_anomaly_score_cutoff(sig_level=sig_level)
+        self.score_threshold = 0.0
+        self._compute_anomaly_score_cutoff(sig_level=sig_level)
         # Anomaly analyzer
         self.breakpoint_dict = {}
         self.violation_dict = {}
@@ -135,8 +136,8 @@ class SecurityGuard():
     def anomaly_detection(self, event_id, event, maximum_length):
         report_to_user = False
         attr = event[0]; expanded_attr_index = self.expanded_var_names.index(attr)
-        print(self.phantom_state_machine)
-        print("[Anomaly Detection] Event {}: {}".format(event_id + self.frame['testing-start-index'] + 1, event))
+        #print(self.phantom_state_machine)
+        print("[Anomaly Detection] Event {}: {}. Tracked chain's normality: {}".format(event_id + self.frame['testing-start-index'] + 1, event, self.chain_manager.is_tracking_normal_chain()))
         breakpoint_flag = self.breakpoint_detection(event)
         anomalous_score_flag, anomaly_score = self.state_validation(event=event)
         #print(" [Score Computation] The anomaly flag, score for {} becoming {} is ({}, {})".format(event[0], event[1], anomalous_score_flag, anomaly_score))
@@ -193,12 +194,15 @@ class SecurityGuard():
         anomaly_score = 0
         attr = event[0]; observed_state = event[1]; expanded_attr_index = self.expanded_var_names.index(attr)
         expanded_parent_indices = self.bayesian_fitter.get_expanded_parent_indices(expanded_attr_index)
-        print(" [Score Computation] Now handling attr {} with parents ({})".format(attr, ','.join([self.expanded_var_names[i] for i in expanded_parent_indices])))
+        #print(" [Score Computation] Now handling attr {} with parents ({})".format(attr, ','.join([self.expanded_var_names[i] for i in expanded_parent_indices])))
         parent_state_dict = phantom_state_machine.get_states(expanded_parent_indices, 1)
-        pprint(parent_state_dict)
         if len(parent_state_dict.keys()) > 0:
             estimated_state = self.bayesian_fitter.predict_attr_state(attr, parent_state_dict)
             anomaly_score = 1.0 * (estimated_state - observed_state)**2
+            if self.score_threshold > 0 and anomaly_score > self.score_threshold: # Print out the anomaly
+                print(" [Score Computation] A score anomaly is detected for event {}. Parent situations:".format(event))
+                pprint(parent_state_dict)
+                print(" Estimated state is {} while the observed state is {}".format(estimated_state, observed_state))
         return anomaly_score
 
     def _compute_anomaly_score_cutoff(self, sig_level = 0.9):
