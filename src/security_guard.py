@@ -16,11 +16,19 @@ class PhantomStateMachine():
 
     def set_state(self, current_state_vector):
         assert(len(current_state_vector) == self.n_vars)
-        self.phantom_states = [*self.phantom_states[self.n_vars:], *current_state_vector]
+        self.phantom_states = [*self.phantom_states[self.n_vars:], *current_state_vector] 
+        # Push the state machine backwards
+        dummy_states = [0] * self.n_vars
+        self.phantom_states = [*self.phantom_states[self.n_vars:], *dummy_states]
 
     def update(self, event):
+        """Update the phantom state machine according to the newly received event.
+            1. Copy the last-time state as the current state.
+            2. Update the current state according to the event.
+            3. Set the current state using function set_state
+        """
         attr = event[0]; state = event[1]
-        current_state_vector = self.phantom_states[-1*self.n_vars:].copy()
+        current_state_vector = self.phantom_states[-2*self.n_vars: -1*self.n_vars].copy()
         current_state_vector[self.var_names.index(attr)] = state
         self.set_state(current_state_vector)
 
