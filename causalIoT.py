@@ -184,7 +184,7 @@ class BayesianFitter:
         #print(cpd)
         self.model.fit(df, estimator= MaximumLikelihoodEstimator) 
     
-    def predict_attr_state(self, attr, parent_state_dict):
+    def predict_attr_state(self, attr, parent_state_dict, verbose=0):
         """ Predict the value of the target attribute given its parent states, i.e., E[attr|par(attr)]
 
         Args:
@@ -195,6 +195,8 @@ class BayesianFitter:
             val: The estimated state of the attribute
         """
         val = 0.0
+        if verbose == 1:
+            print(self.model.get_cpds(attr))
         phi = self.model.get_cpds(attr).to_factor()
         state_dict = parent_state_dict.copy()
         for possible_val in [0, 1]: # In our case, each attribute is a binary variable. Therefore the state space is [0, 1]
