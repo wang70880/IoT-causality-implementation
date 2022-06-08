@@ -137,13 +137,14 @@ class SecurityGuard():
         report_to_user = False
         attr = event[0]; expanded_attr_index = self.expanded_var_names.index(attr)
         #print(self.phantom_state_machine)
-        print("[Anomaly Detection] Event {}: {}. Tracked chain's normality: {}".format(event_id + self.frame['testing-start-index'] + 1, event, self.chain_manager.is_tracking_normal_chain()))
         breakpoint_flag = self.breakpoint_detection(event)
         anomalous_score_flag, anomaly_score = self.state_validation(event=event)
+        print("[Anomaly Detection] Event {}: {}. Tracked chain's normality: {}. Anomaly score (flag, number) = ({}, {})".format(event_id + self.frame['testing-start-index'] + 1, event, self.chain_manager.is_tracking_normal_chain(), anomalous_score_flag, anomaly_score))
         #print(" [Score Computation] The anomaly flag, score for {} becoming {} is ({}, {})".format(event[0], event[1], anomalous_score_flag, anomaly_score))
         if self.chain_manager.is_tracking_normal_chain():
             if not anomalous_score_flag: # A normal event
                 self.phantom_state_machine.update(event)
+                print(self.phantom_state_machine)
                 if not breakpoint_flag: # A normal propagation event
                     self.chain_manager.update(expanded_attr_index)
             else: # An abnormal event
@@ -220,7 +221,6 @@ class SecurityGuard():
                 anomaly_score = self.compute_event_anomaly_score(cur_event, training_phantom_machine)
                 computed_anomaly_scores.append(anomaly_score)
         self.score_threshold = np.percentile(np.array(computed_anomaly_scores), sig_level * 100)
-        print("The computed score threshold is {}".format(self.score_threshold))
         return self.score_threshold
 
     def breakpoint_detection(self, event=()):

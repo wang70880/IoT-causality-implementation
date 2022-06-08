@@ -284,6 +284,7 @@ if BACKGROUND_GENERATION:
 for frame_id in range(event_preprocessor.frame_count):
     frame = event_preprocessor.frame_dict[frame_id]; dataframe = frame['training-data']
     """Causal Graph Skeleton Construction."""
+    start = time.time()
     if not skip_skeleton_estimation_flag:
         T = dataframe.T; N = dataframe.N
         record_count_list.append(T)
@@ -300,7 +301,6 @@ for frame_id in range(event_preprocessor.frame_count):
             (j, pcmci_of_j, parents_of_j) = _run_pc_stable_parallel(j=j, dataframe=dataframe, cond_ind_test=cond_ind_test, selected_links=selected_links,\
                                                                 tau_min=tau_min, tau_max=tau_max, pc_alpha=pc_alpha,\
                                                                 max_conds_dim=max_conds_dim, verbosity=verbosity, maximum_comb=maximum_comb)
-            print("Parent identification for variable {} ({}) finished!".format(j, dataframe.var_names[j]))
             filtered_parents_of_j = parents_of_j.copy()
             n_edges = min(len(filtered_parents_of_j[j]), max_n_edges) # Only select top 5 causal edges with maximum statistic values (MCI)
             if n_edges > 0:
@@ -372,6 +372,7 @@ for frame_id in range(event_preprocessor.frame_count):
                     print("##\n## MCI for frame {} finished. Consumed time: {} mins\n##".format(frame_id, (mci_end - mci_start) * 1.0 / 60))
     else:
         pc_result_dict[frame_id] = {'D001': [], 'D002': [('D002', -1), ('M001', -1)], 'LS001': [('LS001', -1), ('D002', -1), ('M008', -1), ('M001', -1)], 'LS002': [('M008', -1), ('M002', -1)], 'LS003': [('M008', -1)], 'LS004':             [('LS016', -1), ('M008', -1)], 'LS005': [('M008', -1)], 'LS006': [('LS006', -1), ('M006', -1), ('M003', -1)], 'LS007': [], 'LS008': [('LS013', -1)], 'LS009': [('M008', -1)], 'LS010': [('LS001', -1),      ('M001', -1)], 'LS011': [('M001', -1), ('M008', -1)], 'LS012': [('M008', -1)], 'LS013': [('LS013', -1), ('M008', -1)], 'LS014': [('LS014', -1), ('LS009', -1), ('M009', -1), ('M008', -1)], 'LS015':        [('M011', -1)], 'LS016': [('M002', -1), ('M008', -1)], 'M001': [('D002', -1), ('M001', -1), ('M010', -1), ('M005', -1), ('LS001', -1)], 'M002': [('M002', -1), ('M004', -1), ('LS016', -1), ('LS002', -1),  ('M003', -1)], 'M003': [('LS006', -1), ('LS003', -1), ('M006', -1), ('M003', -1), ('M002', -1), ('M007', -1), ('M004', -1)], 'M004': [('M004', -1), ('M002', -1), ('M008', -1), ('M003', -1), ('LS016', -   1)], 'M005': [('M005', -1), ('M008', -1), ('M001', -1), ('M004', -1), ('M010', -1)], 'M006': [('M006', -1), ('LS006', -1), ('M003', -1)], 'M007': [('M007', -1), ('M003', -1)], 'M008': [('M008', -1),      ('M004', -1), ('T104', -1), ('M005', -1), ('LS013', -1), ('LS008', -1), ('LS005', -1), ('LS012', -1), ('LS010', -1), ('LS004', -1), ('LS001', -1), ('LS002', -1), ('LS016', -1), ('LS003', -1), ('LS011', - 1), ('LS014', -1)], 'M009': [('M009', -1), ('M012', -1), ('LS014', -1), ('LS009', -1)], 'M010': [('M010', -1), ('M001', -1), ('D002', -1), ('M005', -1)], 'M011': [('M011', -1), ('LS015', -1), ('M009', -  1), ('M001', -1)], 'M012': [('M009', -1), ('M012', -1), ('LS014', -1)], 'T101': [('T101', -1)], 'T102': [], 'T103': [], 'T104': [('T104', -1), ('M008', -1)], 'T105': [('T105', -1), ('M008', -1)]}
+    print("Skeleton construction completes. Consumed time: {} mins.".format((time.time() - start)*1.0/60))
 
     """Causal Graph Parameterization."""
     if COMM.rank == 0:
@@ -384,14 +385,14 @@ for frame_id in range(event_preprocessor.frame_count):
         bayesian_fitter.analyze_discovery_statistics()
         if not skip_bayesian_fitting_flag:
             bayesian_fitter.construct_bayesian_model()
-        print("Bayesian fitting complete. Consumed time: {} seconds.".format((time.time() - start)*1.0/60))
+        print("Bayesian fitting complete. Consumed time: {} mins.".format((time.time() - start)*1.0/60))
     
     """Security Guard."""
     if COMM.rank == 0:
         print("\n********** Initiate Security Guarding. **********")
-        print("Testing log starting positions: {}".format(frame['testing-start-index'] + 1))
         sig_level = 0.95
         security_guard = security_guard.SecurityGuard(frame=frame, bayesian_fitter=bayesian_fitter, sig_level=sig_level)
+        print("[Security guarding] Testing log starting positions {} with score threshold {}.".format(frame['testing-start-index'] + 1, security_guard.score_threshold))
         # 1. Inject device anomalies
         #testing_event_sequences = list(zip(frame['testing-attr-sequence'], frame['testing-state-sequence'])); true_anomaly_positions = []
         testing_event_sequences, anomaly_starting_positions, benign_position_dict = evaluator.inject_type1_anomalies(frame_id=frame_id, n_anomalies=0, maximum_length=3)
@@ -406,7 +407,7 @@ for frame_id in range(event_preprocessor.frame_count):
                 event_id = min(x for x in benign_position_dict.keys() if x >= event_id) # Automatically jump to the next normal event
                 security_guard.calibrate(benign_position_dict[event_id], event_id) # Simulate user behavior and calibrate the current state machine and chain
             event_id += 1
-        print("[Security guarding] Anomaly detection completes for {} runtime events. Consumed time: {} seconds.".format(event_id, (time.time() - start)*1.0/60))
+        print("[Security guarding] Anomaly detection completes for {} runtime events. Consumed time: {} mins.".format(event_id, (time.time() - start)*1.0/60))
         # 3. Evaluate the detection accuracy.
         print("[Security guarding] Evaluating the detection accuracy for breakpoint detections")
         breakpoint_interaction_dict = {}; breakpoint_count_dict = {}; violation_interaction_dict = {}
