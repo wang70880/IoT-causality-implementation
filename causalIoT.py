@@ -182,7 +182,7 @@ class BayesianFitter:
         df = pd.DataFrame(data=self.expanded_data_array, columns=self.expanded_var_names)
         #cpd = MaximumLikelihoodEstimator(self.model, df).estimate_cpd(corrs_attr) # JC TEST: The bayesian fitting consumes much time. Let's test the exact consumed time here..
         #print(cpd)
-        self.model.fit(df, estimator= MaximumLikelihoodEstimator) 
+        self.model.fit(df, estimator= BayesianEstimator) 
     
     def predict_attr_state(self, attr, parent_state_dict, verbose=0):
         """ Predict the value of the target attribute given its parent states, i.e., E[attr|par(attr)]
@@ -255,12 +255,15 @@ if PARAM_SETTING:
     tau_max = 1; tau_min = 1
     verbosity = -1 # -1: No debugging information; 0: Debugging information in this module; 2: Debugging info in PCMCI class; 3: Debugging info in CIT implementations
     ## For stable-pc
+    max_n_edges = 5
     pc_alpha = 0.1
     max_conds_dim = 5
     maximum_comb = 1
     ## For MCI
     alpha_level = 0.01
     max_conds_px = 5; max_conds_py= 5
+    ## For anomaly detection
+    sig_level = 0.95
     ## Resulting dict
     pc_result_dict = {}; mci_result_dict = {}
     # For evaluations
@@ -298,12 +301,10 @@ for frame_id in range(event_preprocessor.frame_count):
                                                                 tau_min=tau_min, tau_max=tau_max, pc_alpha=pc_alpha,\
                                                                 max_conds_dim=max_conds_dim, verbosity=verbosity, maximum_comb=maximum_comb)
             print("Parent identification for variable {} ({}) finished!".format(j, dataframe.var_names[j]))
-            # JC TODO: Only select top-10 causal edges with maximal ?
             filtered_parents_of_j = parents_of_j.copy()
-            max_edges = min(len(filtered_parents_of_j[j]), 5)
-            if max_edges > 0:
-                filtered_parents_of_j[j] = filtered_parents_of_j[j][0:max_edges]
-            print(filtered_parents_of_j)
+            n_edges = min(len(filtered_parents_of_j[j]), max_n_edges) # Only select top 5 causal edges with maximum statistic values (MCI)
+            if n_edges > 0:
+                filtered_parents_of_j[j] = filtered_parents_of_j[j][0: n_edges]
             results.append((j, pcmci_of_j, filtered_parents_of_j))
             #results.append((j, pcmci_of_j, parents_of_j))
         results = MPI.COMM_WORLD.gather(results, root=0)
@@ -411,20 +412,20 @@ for frame_id in range(event_preprocessor.frame_count):
         breakpoint_interaction_dict = {}; breakpoint_count_dict = {}; violation_interaction_dict = {}
         breakpoint_event_ids = list(security_guard.breakpoint_dict.keys())
         for break_event_id, breakpoint in security_guard.breakpoint_dict.items():
-            print(" * Breakpoint (event id, interaction, score) = ({}, {}, {})".format(break_event_id, breakpoint['interaction'], breakpoint['anomaly-score']))
+            #print(" * Breakpoint (event id, interaction, score) = ({}, {}, {})".format(break_event_id, breakpoint['interaction'], breakpoint['anomaly-score']))
             breakpoint_count_dict[breakpoint['interaction'][1]] = 0 if breakpoint['interaction'][1] not in breakpoint_count_dict.keys() else  breakpoint_count_dict[breakpoint['interaction'][1]] + 1
             breakpoint_interaction_dict['->'.join(breakpoint['interaction'])] = 1 if '->'.join(breakpoint['interaction']) not in breakpoint_interaction_dict.keys() else breakpoint_interaction_dict['->'.join(breakpoint['interaction'])] + 1
             breakpoint_count_dict = dict(sorted(breakpoint_count_dict.items(), key=lambda item: item[1]))
             breakpoint_interaction_dict = dict(sorted(breakpoint_interaction_dict.items(), key=lambda item: item[1]))
         pprint.pprint(breakpoint_count_dict)
-        evaluator.evaluate_detection_accuracy(anomaly_starting_positions, breakpoint_event_ids)
+        #evaluator.evaluate_detection_accuracy(anomaly_starting_positions, breakpoint_event_ids)
         print("[Security guarding] Evaluating the detection accuracy for state transition violations")
         violation_event_ids = list(security_guard.violation_dict.keys())
         for violation_event_id, violation_point in security_guard.violation_dict.items():
-            print(" * Violation (event id, interaction, score) = ({}, {}, {})".format(violation_event_id, violation_point['interaction'], violation_point['anomaly-score']))
+            #print(" * Violation (event id, interaction, score) = ({}, {}, {})".format(violation_event_id, violation_point['interaction'], violation_point['anomaly-score']))
             violation_interaction_dict['->'.join(violation_point['interaction'])] = 1 if '->'.join(violation_point['interaction']) not in violation_interaction_dict.keys() else violation_interaction_dict['->'.join(violation_point['interaction'])] + 1
         pprint.pprint(violation_interaction_dict)
-        evaluator.evaluate_detection_accuracy(anomaly_starting_positions, violation_event_ids)
+        #evaluator.evaluate_detection_accuracy(anomaly_starting_positions, violation_event_ids)
 
     frame_id += 1
 
