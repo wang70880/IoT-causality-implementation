@@ -299,10 +299,13 @@ for frame_id in range(event_preprocessor.frame_count):
                                                                 max_conds_dim=max_conds_dim, verbosity=verbosity, maximum_comb=maximum_comb)
             print("Parent identification for variable {} ({}) finished!".format(j, dataframe.var_names[j]))
             # JC TODO: Only select top-10 causal edges with maximal ?
-            max_edges = 10
-            filterd_parents_of_j = parents_of_j.copy()
-            print(parents_of_j)
-            results.append((j, pcmci_of_j, parents_of_j))
+            filtered_parents_of_j = parents_of_j.copy()
+            max_edges = min(len(filtered_parents_of_j[j]), 5)
+            if max_edges > 0:
+                filtered_parents_of_j[j] = filtered_parents_of_j[j][0:max_edges]
+            print(filtered_parents_of_j)
+            results.append((j, pcmci_of_j, filtered_parents_of_j))
+            #results.append((j, pcmci_of_j, parents_of_j))
         results = MPI.COMM_WORLD.gather(results, root=0)
         pc_end = time.time()
         if COMM.rank == 0: # The root node gathers the result and generate the interaction graph.
