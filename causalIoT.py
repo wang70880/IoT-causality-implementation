@@ -297,7 +297,10 @@ for frame_id in range(event_preprocessor.frame_count):
             (j, pcmci_of_j, parents_of_j) = _run_pc_stable_parallel(j=j, dataframe=dataframe, cond_ind_test=cond_ind_test, selected_links=selected_links,\
                                                                 tau_min=tau_min, tau_max=tau_max, pc_alpha=pc_alpha,\
                                                                 max_conds_dim=max_conds_dim, verbosity=verbosity, maximum_comb=maximum_comb)
+            print("Parent identification for variable {} ({}) finished!".format(j, dataframe.var_names[j]))
             # JC TODO: Only select top-10 causal edges with maximal ?
+            mci_dict = pcmci_of_j.val_min[j]
+            print(mci_dict)
             results.append((j, pcmci_of_j, parents_of_j))
         results = MPI.COMM_WORLD.gather(results, root=0)
         pc_end = time.time()
