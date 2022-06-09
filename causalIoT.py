@@ -403,7 +403,7 @@ for frame_id in range(event_preprocessor.frame_count):
             event = testing_event_sequences[event_id]
             if event_id <= tau_max: # Initialize the anomaly detection system
                 security_guard.initialize(event_id, event, frame['testing-data'].values[event_id])
-            elif security_guard.score_anomaly_detection(event_id=event_id, event=event, maximum_length=3): # There is anomaly report: # Start the anomaly detection
+            elif security_guard.score_anomaly_detection(event_id=event_id, event=event): # There is anomaly report: # Start the anomaly detection
                 event_id = min(x for x in benign_position_dict.keys() if x >= event_id) # Automatically jump to the next normal event
                 security_guard.calibrate(benign_position_dict[event_id], event_id) # Simulate user behavior and calibrate the current state machine and chain
             event_id += 1

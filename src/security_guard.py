@@ -169,9 +169,9 @@ class SecurityGuard():
         self.last_processed_event = event
         return report_to_user
 
-    def score_anomaly_detection(self, event_id, event, maximum_length):
+    def score_anomaly_detection(self, event_id, event):
         report_to_user = False
-        attr = event[0]; expanded_attr_index = self.expanded_var_names.index(attr)
+        attr = event[0]
         anomalous_score_flag, anomaly_score = self.state_validation(event=event)
         if not anomalous_score_flag: # A normal event
             self.phantom_state_machine.update(event)
