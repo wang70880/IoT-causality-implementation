@@ -146,7 +146,7 @@ class SecurityGuard():
         attr = event[0]; expanded_attr_index = self.expanded_var_names.index(attr)
         #print(self.phantom_state_machine)
         print("[Anomaly Detection] Event {}: {}. Tracked chain's normality: {}.".format(event_id + self.frame['testing-start-index'] + 1, event, self.chain_manager.is_tracking_normal_chain()))
-        print(self.phantom_state_machine)
+        #print(self.phantom_state_machine)
         breakpoint_flag = self.breakpoint_detection(event)
         anomalous_score_flag, anomaly_score = self.state_validation(event=event)
         #print(" [Score Computation] The anomaly flag, score for {} becoming {} is ({}, {})".format(event[0], event[1], anomalous_score_flag, anomaly_score))
@@ -208,9 +208,9 @@ class SecurityGuard():
         pprint(parent_state_dict)
         if len(parent_state_dict.keys()) > 0:
             estimated_state = self.bayesian_fitter.predict_attr_state(attr, parent_state_dict)
-            print(" (Estimated state, Observed state) = ({}, {})".format(estimated_state, observed_state))
             anomaly_score = 1.0 * (estimated_state - observed_state)**2
             if self.score_threshold > 0 and anomaly_score > self.score_threshold: # Print out the anomaly
+                print(" (Estimated state, Observed state) = ({}, {})".format(estimated_state, observed_state))
                 print(" [Score Computation] A score anomaly is detected! ({} > {})".format(anomaly_score, self.score_threshold))
         return anomaly_score
 
