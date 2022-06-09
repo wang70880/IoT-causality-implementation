@@ -122,7 +122,6 @@ class SecurityGuard():
         self.score_threshold = 0.0
         self._compute_anomaly_score_cutoff(sig_level=sig_level)
         # Anomaly analyzer
-        self.breakpoint_dict = {}
         self.violation_dict = {}
         self.type1_debugging_dict = {}
     
@@ -145,8 +144,6 @@ class SecurityGuard():
         report_to_user = False
         attr = event[0]; expanded_attr_index = self.expanded_var_names.index(attr)
         #print(self.phantom_state_machine)
-        print("[Anomaly Detection] Event {}: {}. Tracked chain's normality: {}.".format(event_id + self.frame['testing-start-index'] + 1, event, self.chain_manager.is_tracking_normal_chain()))
-        #print(self.phantom_state_machine)
         breakpoint_flag = self.breakpoint_detection(event)
         anomalous_score_flag, anomaly_score = self.state_validation(event=event)
         #print(" [Score Computation] The anomaly flag, score for {} becoming {} is ({}, {})".format(event[0], event[1], anomalous_score_flag, anomaly_score))
@@ -156,24 +153,14 @@ class SecurityGuard():
                 if not breakpoint_flag: # A normal propagation event
                     self.chain_manager.update(expanded_attr_index)
             else: # An abnormal event
-                if breakpoint_flag: # Type 1 anomaly
-                    #print("     [Anomaly Tracking] Capture a Type I anomaly at event {}, starting to track its propagations!".format(event_id + self.frame['testing-start-index'] + 1))
-                    self.breakpoint_dict[event_id] = {}
-                    self.breakpoint_dict[event_id]['attr'] = attr
-                    self.breakpoint_dict[event_id]['interaction'] = \
-                        (self.chain_manager.current_chain.get_header_attr(), attr)
-                    self.breakpoint_dict[event_id]['breakpoint-flag'] = breakpoint_flag
-                    self.breakpoint_dict[event_id]['score-flag'] = anomalous_score_flag
-                    self.breakpoint_dict[event_id]['anomaly-score'] = anomaly_score
-                    self.chain_manager.create(event_id, expanded_attr_index, TYPE1_ANOMALY)
-                else: # Type 2 anomaly
-                    #print("     [Anomaly Tracking] Capture a Type II anomaly at event {}, starting to track its propagations!".format(event_id + self.frame['testing-start-index'] + 1))
-                    self.violation_dict[event_id] = {}
-                    self.violation_dict[event_id]['attr'] = attr
-                    self.violation_dict[event_id]['interaction'] = \
-                        (self.chain_manager.current_chain.get_header_attr(), attr)
-                    self.violation_dict[event_id]['anomaly-score'] = anomaly_score
-                    self.chain_manager.create(event_id, expanded_attr_index, TYPE2_ANOMALY)
+                print("[Anomaly Detection] Event {}: {}. Tracked chain's normality: {}.".format(event_id + self.frame['testing-start-index'] + 1, event, self.chain_manager.is_tracking_normal_chain()))
+                self.violation_dict[event_id] = {}
+                self.violation_dict[event_id]['attr'] = attr
+                self.violation_dict[event_id]['interaction'] = \
+                    (self.chain_manager.current_chain.get_header_attr(), attr)
+                self.violation_dict[event_id]['breakpoint-flag'] = breakpoint_flag
+                self.violation_dict[event_id]['anomaly-score'] = anomaly_score
+                self.chain_manager.create(event_id, expanded_attr_index, TYPE2_ANOMALY)
         else:
             if breakpoint_flag or self.chain_manager.current_chain_length() >= maximum_length: # The propagation of abnormal chains ends.
                 #print("     [Anomaly Tracking] Tracking finished at event {} with len(chain): {}. Prepare to calibrate it.".format(event_id + self.frame['testing-start-index'] + 1, self.chain_manager.current_chain_length()))
