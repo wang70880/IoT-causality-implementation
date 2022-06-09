@@ -156,8 +156,7 @@ class SecurityGuard():
                 print("[Anomaly Detection] Event {}: {}. Tracked chain's normality: {}.".format(event_id + self.frame['testing-start-index'] + 1, event, self.chain_manager.is_tracking_normal_chain()))
                 self.violation_dict[event_id] = {}
                 self.violation_dict[event_id]['attr'] = attr
-                self.violation_dict[event_id]['interaction'] = \
-                    (self.chain_manager.current_chain.get_header_attr(), attr)
+                self.violation_dict[event_id]['interaction'] = (self.chain_manager.current_chain.get_header_attr(), attr)
                 self.violation_dict[event_id]['breakpoint-flag'] = breakpoint_flag
                 self.violation_dict[event_id]['anomaly-score'] = anomaly_score
                 self.chain_manager.create(event_id, expanded_attr_index, TYPE2_ANOMALY)
@@ -169,6 +168,22 @@ class SecurityGuard():
                 self.chain_manager.update(expanded_attr_index) # The current chain is still propagating.
         self.last_processed_event = event
         return report_to_user
+
+    def score_anomaly_detection(self, event_id, event, maximum_length):
+        report_to_user = False
+        attr = event[0]; expanded_attr_index = self.expanded_var_names.index(attr)
+        anomalous_score_flag, anomaly_score = self.state_validation(event=event)
+        if not anomalous_score_flag: # A normal event
+            self.phantom_state_machine.update(event)
+        else: # An abnormal event
+            print("[Anomaly Detection] Event {}: {}. Tracked chain's normality: {}.".format(event_id + self.frame['testing-start-index'] + 1, event, self.chain_manager.is_tracking_normal_chain()))
+            self.violation_dict[event_id] = {}
+            self.violation_dict[event_id]['attr'] = attr
+            self.violation_dict[event_id]['anomaly-score'] = anomaly_score
+            report_to_user = True
+        self.last_processed_event = event
+        return report_to_user
+
     
     def calibrate(self, benign_event_id, testing_event_id):
         """Find the latest normal event, then

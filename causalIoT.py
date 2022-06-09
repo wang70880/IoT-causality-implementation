@@ -403,23 +403,31 @@ for frame_id in range(event_preprocessor.frame_count):
             event = testing_event_sequences[event_id]
             if event_id <= tau_max: # Initialize the anomaly detection system
                 security_guard.initialize(event_id, event, frame['testing-data'].values[event_id])
-            elif security_guard.anomaly_detection(event_id=event_id, event=event, maximum_length=3): # There is anomaly report: # Start the anomaly detection
+            elif security_guard.score_anomaly_detection(event_id=event_id, event=event, maximum_length=3): # There is anomaly report: # Start the anomaly detection
                 event_id = min(x for x in benign_position_dict.keys() if x >= event_id) # Automatically jump to the next normal event
                 security_guard.calibrate(benign_position_dict[event_id], event_id) # Simulate user behavior and calibrate the current state machine and chain
             event_id += 1
         print("[Security guarding] Anomaly detection completes for {} runtime events. Consumed time: {} mins.".format(event_id, (time.time() - start)*1.0/60))
         # 3. Evaluate the detection accuracy.
         print("[Security guarding] Evaluating the detection accuracy for state transition violations")
-        violation_interaction_dict = {}; violation_count_dict = {}
-        violation_event_ids = list(security_guard.violation_dict.keys())
+        violation_count_dict = {}; violation_event_ids = list(security_guard.violation_dict.keys())
         for violation_event_id, violation_point in security_guard.violation_dict.items():
             #print(" * Violation (event id, interaction, score) = ({}, {}, {})".format(violation_event_id, violation_point['interaction'], violation_point['anomaly-score']))
-            violation_count_dict[violation_point['interaction'][1]] = 0 if violation_point['interaction'][1] not in violation_count_dict.keys() else  violation_count_dict[violation_point['interaction'][1]] + 1
-            violation_interaction_dict['->'.join(violation_point['interaction'])] = 1 if '->'.join(violation_point['interaction']) not in violation_interaction_dict.keys() else violation_interaction_dict['->'.join(violation_point['interaction'])] + 1
+            violation_count_dict[violation_point['attr']] = 1 if violation_point['attr'] not in violation_count_dict.keys() else violation_count_dict[violation_point['attr']] + 1
             violation_count_dict = dict(sorted(violation_count_dict.items(), key=lambda item: item[1]))
         pprint.pprint(violation_count_dict)
-        pprint.pprint(violation_interaction_dict)
         evaluator.evaluate_detection_accuracy(anomaly_starting_positions, violation_event_ids)
+        #print("[Security guarding] Evaluating the detection accuracy for state transition violations")
+        #violation_interaction_dict = {}; violation_count_dict = {}
+        #violation_event_ids = list(security_guard.violation_dict.keys())
+        #for violation_event_id, violation_point in security_guard.violation_dict.items():
+        #    #print(" * Violation (event id, interaction, score) = ({}, {}, {})".format(violation_event_id, violation_point['interaction'], violation_point['anomaly-score']))
+        #    violation_count_dict[violation_point['interaction'][1]] = 0 if violation_point['interaction'][1] not in violation_count_dict.keys() else  violation_count_dict[violation_point['interaction'][1]] + 1
+        #    violation_interaction_dict['->'.join(violation_point['interaction'])] = 1 if '->'.join(violation_point['interaction']) not in violation_interaction_dict.keys() else violation_interaction_dict['->'.join(violation_point['interaction'])] + 1
+        #    violation_count_dict = dict(sorted(violation_count_dict.items(), key=lambda item: item[1]))
+        #pprint.pprint(violation_count_dict)
+        #pprint.pprint(violation_interaction_dict)
+        #evaluator.evaluate_detection_accuracy(anomaly_starting_positions, violation_event_ids)
 
     frame_id += 1
 
