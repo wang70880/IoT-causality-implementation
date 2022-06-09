@@ -39,7 +39,7 @@ class PhantomStateMachine():
         return result_dict
     
     def __str__(self):
-        return tabulate(list(zip(self.expanded_var_names, self.phantom_states)), headers= ['Attr', 'State'])
+        return tabulate(list(zip(self.expanded_var_names[0: self.n_expanded_vars - 1 - self.n_vars], self.phantom_states[0: self.n_expanded_vars - 1 - self.n_vars])), headers= ['Attr', 'State'])
 
 class InteractionChain():
 
@@ -205,15 +205,13 @@ class SecurityGuard():
         expanded_parent_indices = self.bayesian_fitter.get_expanded_parent_indices(expanded_attr_index)
         #print(" [Score Computation] Now handling attr {} with parents ({})".format(attr, ','.join([self.expanded_var_names[i] for i in expanded_parent_indices])))
         parent_state_dict = phantom_state_machine.get_states(expanded_parent_indices, 1)
+        pprint(parent_state_dict)
         if len(parent_state_dict.keys()) > 0:
             estimated_state = self.bayesian_fitter.predict_attr_state(attr, parent_state_dict)
+            print(" (Estimated state, Observed state) = ({}, {})".format(estimated_state, observed_state))
             anomaly_score = 1.0 * (estimated_state - observed_state)**2
             if self.score_threshold > 0 and anomaly_score > self.score_threshold: # Print out the anomaly
-                print(" [Score Computation] A score anomaly is detected for event {}. Parent situations:".format(event))
-                pprint(parent_state_dict)
-                if len(parent_state_dict.keys()) < 5:
-                    self.bayesian_fitter.predict_attr_state(attr, parent_state_dict, 1) # Print out the table for debugging
-                print(" Estimated state is {} while the observed state is {}".format(estimated_state, observed_state))
+                print(" [Score Computation] A score anomaly is detected! ({} > {})".format(anomaly_score, self.score_threshold))
         return anomaly_score
 
     def _compute_anomaly_score_cutoff(self, sig_level = 0.9):
