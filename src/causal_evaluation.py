@@ -126,7 +126,7 @@ class Evaluator():
             truth_count_list.append(truth_count); precision_list.append(precision); recall_list.append(recall)
         return statistics.mean(truth_count_list), statistics.mean(precision_list), statistics.mean(recall_list)
     
-    def inject_type1_anomalies(self, frame_id, n_anomalies, maximum_length):
+    def inject_anomalies(self, frame_id, n_anomalies, maximum_length):
         """_summary_
 
         Args:

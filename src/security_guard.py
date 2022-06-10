@@ -210,7 +210,7 @@ class SecurityGuard():
         if len(parent_state_dict.keys()) > 0:
             estimated_state = self.bayesian_fitter.predict_attr_state(attr, parent_state_dict)
             anomaly_score = 1.0 * (estimated_state - observed_state)**2
-            if self.score_threshold > 0 and anomaly_score > self.score_threshold and event[0] == 'T101': # Print out the anomaly
+            if self.score_threshold > 0 and anomaly_score > self.score_threshold and event[0] == 'M001': # Print out the anomaly
                 print("[Anomaly Detection] Event {} is an anomaly!".format(event))
                 pprint(parent_state_dict)
                 print("     (Estimated state, Observed state) = ({}, {})".format(estimated_state, observed_state))
