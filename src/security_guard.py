@@ -176,7 +176,7 @@ class SecurityGuard():
         if not anomalous_score_flag: # A normal event
             self.phantom_state_machine.update(event)
         else: # An abnormal event
-            #print("[Anomaly Detection] Anomalous score event {}: {}.".format(event_id + self.frame['testing-start-index'] + 1, event))
+            print("[Anomaly Detection] Anomalous score event {}: {}.".format(event_id + self.frame['testing-start-index'] + 1, event))
             self.violation_dict[event_id] = {}
             self.violation_dict[event_id]['attr'] = attr
             self.violation_dict[event_id]['anomaly-score'] = anomaly_score
