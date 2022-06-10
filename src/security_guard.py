@@ -176,7 +176,7 @@ class SecurityGuard():
         if not anomalous_score_flag: # A normal event
             self.phantom_state_machine.update(event)
         else: # An abnormal event
-            print("[Anomaly Detection] Anomalous score event {}: {}.".format(event_id + self.frame['testing-start-index'] + 1, event))
+            print("[Anomaly Detection] Anomalous score event {}: {}.\n".format(event_id + self.frame['testing-start-index'] + 1, event))
             self.violation_dict[event_id] = {}
             self.violation_dict[event_id]['attr'] = attr
             self.violation_dict[event_id]['anomaly-score'] = anomaly_score
@@ -210,11 +210,11 @@ class SecurityGuard():
         if len(parent_state_dict.keys()) > 0:
             estimated_state = self.bayesian_fitter.predict_attr_state(attr, parent_state_dict)
             anomaly_score = 1.0 * (estimated_state - observed_state)**2
-            if self.score_threshold > 0 and anomaly_score > self.score_threshold and event[0] == 'M001': # Print out the anomaly
+            if self.score_threshold > 0 and anomaly_score > self.score_threshold and event[0] == 'T101': # Print out the anomaly
                 print("[Anomaly Detection] Event {} is an anomaly!".format(event))
                 pprint(parent_state_dict)
                 print("     (Estimated state, Observed state) = ({}, {})".format(estimated_state, observed_state))
-                print("     (Abnormal score > threshold) = ({} > {})\n".format(anomaly_score, self.score_threshold))
+                print("     (Abnormal score > threshold) = ({} > {})".format(anomaly_score, self.score_threshold))
         return anomaly_score
 
     def _compute_anomaly_score_cutoff(self, sig_level = 0.9):
