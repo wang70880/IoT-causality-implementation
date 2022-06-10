@@ -154,7 +154,6 @@ class SecurityGuard():
                     self.chain_manager.update(expanded_attr_index)
             else: # An abnormal event
                 #print("[Anomaly Detection] Event {}: {}. Tracked chain's normality: {}.".format(event_id + self.frame['testing-start-index'] + 1, event, self.chain_manager.is_tracking_normal_chain()))
-                print(self.phantom_state_machine)
                 self.violation_dict[event_id] = {}
                 self.violation_dict[event_id]['attr'] = attr
                 self.violation_dict[event_id]['interaction'] = (self.chain_manager.current_chain.get_header_attr(), attr)
@@ -177,7 +176,7 @@ class SecurityGuard():
         if not anomalous_score_flag: # A normal event
             self.phantom_state_machine.update(event)
         else: # An abnormal event
-            print("[Anomaly Detection] Anomalous score event {}: {}.".format(event_id + self.frame['testing-start-index'] + 1, event))
+            #print("[Anomaly Detection] Anomalous score event {}: {}.".format(event_id + self.frame['testing-start-index'] + 1, event))
             self.violation_dict[event_id] = {}
             self.violation_dict[event_id]['attr'] = attr
             self.violation_dict[event_id]['anomaly-score'] = anomaly_score
@@ -211,7 +210,7 @@ class SecurityGuard():
         if len(parent_state_dict.keys()) > 0:
             estimated_state = self.bayesian_fitter.predict_attr_state(attr, parent_state_dict)
             anomaly_score = 1.0 * (estimated_state - observed_state)**2
-            if self.score_threshold > 0 and anomaly_score > self.score_threshold: # Print out the anomaly
+            if self.score_threshold > 0 and anomaly_score > self.score_threshold and event[0] == 'M001': # Print out the anomaly
                 print("[Anomaly Detection] Event {} is an anomaly!".format(event))
                 pprint(parent_state_dict)
                 print("     (Estimated state, Observed state) = ({}, {})".format(estimated_state, observed_state))
