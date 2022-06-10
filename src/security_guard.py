@@ -153,7 +153,8 @@ class SecurityGuard():
                 if not breakpoint_flag: # A normal propagation event
                     self.chain_manager.update(expanded_attr_index)
             else: # An abnormal event
-                print("[Anomaly Detection] Event {}: {}. Tracked chain's normality: {}.".format(event_id + self.frame['testing-start-index'] + 1, event, self.chain_manager.is_tracking_normal_chain()))
+                #print("[Anomaly Detection] Event {}: {}. Tracked chain's normality: {}.".format(event_id + self.frame['testing-start-index'] + 1, event, self.chain_manager.is_tracking_normal_chain()))
+                print(self.phantom_state_machine)
                 self.violation_dict[event_id] = {}
                 self.violation_dict[event_id]['attr'] = attr
                 self.violation_dict[event_id]['interaction'] = (self.chain_manager.current_chain.get_header_attr(), attr)
@@ -211,9 +212,10 @@ class SecurityGuard():
             estimated_state = self.bayesian_fitter.predict_attr_state(attr, parent_state_dict)
             anomaly_score = 1.0 * (estimated_state - observed_state)**2
             if self.score_threshold > 0 and anomaly_score > self.score_threshold: # Print out the anomaly
-                print(" (Estimated state, Observed state) = ({}, {})".format(estimated_state, observed_state))
-                print(" [Score Computation] A score anomaly is detected! ({} > {})".format(anomaly_score, self.score_threshold))
+                print("[Anomaly Detection] Event {} is an anomaly!".format(event))
                 pprint(parent_state_dict)
+                print("     (Estimated state, Observed state) = ({}, {})".format(estimated_state, observed_state))
+                print("     (Abnormal score > threshold) = ({} > {})".format(anomaly_score, self.score_threshold))
         return anomaly_score
 
     def _compute_anomaly_score_cutoff(self, sig_level = 0.9):
