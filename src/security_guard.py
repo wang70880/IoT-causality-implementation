@@ -214,7 +214,7 @@ class SecurityGuard():
                 print("[Anomaly Detection] Event {} is an anomaly!".format(event))
                 pprint(parent_state_dict)
                 print("     (Estimated state, Observed state) = ({}, {})".format(estimated_state, observed_state))
-                print("     (Abnormal score > threshold) = ({} > {})".format(anomaly_score, self.score_threshold))
+                print("     (Abnormal score > threshold) = ({} > {})\n".format(anomaly_score, self.score_threshold))
         return anomaly_score
 
     def _compute_anomaly_score_cutoff(self, sig_level = 0.9):
