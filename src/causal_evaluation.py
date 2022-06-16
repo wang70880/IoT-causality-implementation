@@ -125,14 +125,15 @@ class Evaluator():
             truth_count, precision, recall = self.estimate_single_discovery_accuracy(frame_id, tau, result)
             truth_count_list.append(truth_count); precision_list.append(precision); recall_list.append(recall)
         return statistics.mean(truth_count_list), statistics.mean(precision_list), statistics.mean(recall_list)
-    
-    def inject_anomalies(self, frame_id, n_anomalies, maximum_length):
-        """_summary_
 
-        Args:
-            frame_id (_type_): _description_
-            n_anomalies (_type_): _description_
-            maximum_length (_type_): _description_
+    def inject_anomalies(self, frame_id, n_anomalies, maximum_length):
+        """
+        The function which is used for injecting anomalies to the testing data.
+
+        Parameters:
+            frame_id: The id of currently testing dataframe
+            n_anomalies: The number of point anomalies which are going to be injected
+            maximum_length: The maximum length of the anomaly chain. If 0, the function injects single point anomalies.
 
         Returns:
             testing_event_sequence: The list of testing events (with injected anomalies)

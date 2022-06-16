@@ -395,7 +395,7 @@ for frame_id in range(event_preprocessor.frame_count):
         print("[Security guarding] Testing log starting positions {} with score threshold {}.".format(frame['testing-start-index'] + 1, security_guard.score_threshold))
         # 1. Inject device anomalies
         #testing_event_sequences = list(zip(frame['testing-attr-sequence'], frame['testing-state-sequence'])); true_anomaly_positions = []
-        testing_event_sequences, anomaly_starting_positions, benign_position_dict = evaluator.inject_anomalies(frame_id=frame_id, n_anomalies=0, maximum_length=3)
+        testing_event_sequences, anomaly_starting_positions, benign_position_dict = evaluator.inject_anomalies(frame_id=frame_id, n_anomalies=0, maximum_length=1)
         # 2. Initiate anomaly detection
         start = time.time()
         event_id = 0
