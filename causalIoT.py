@@ -219,6 +219,14 @@ class BayesianFitter:
                 outcoming_degree += sum(self.expanded_causal_graph[self.expanded_var_names.index(_lag_name(var_name, tau))])
             outcoming_degree_dict[var_name] = outcoming_degree
         
+        nointeraction_attr_list = []
+        for var_name in self.var_names:
+            var_index =  self.expanded_var_names.index(var_name)
+            parents_index = [k for k in range(self.n_expanded_vars) if self.expanded_causal_graph[k, var_index] > 0]
+            if all([ (p - var_index) % self.n_vars == 0 for p in parents_index]):
+                nointeraction_attr_list.append(var_name)
+
+        
         isolated_attr_list = [var_name for var_name in self.var_names if incoming_degree_dict[var_name] + outcoming_degree_dict[var_name] == 0]
         exogenous_attr_list = [var_name for (var_name, count) in incoming_degree_dict.items() if count == 0 and var_name not in isolated_attr_list]
         stop_attr_list = [var_name for (var_name, count) in outcoming_degree_dict.items() if count == 0 and var_name not in isolated_attr_list]
@@ -228,6 +236,7 @@ class BayesianFitter:
         str = " * isolated attrs, #: {}, {}\n".format(isolated_attr_list, len(isolated_attr_list))\
             + " * stop attrs, #: {}, {}\n".format(stop_attr_list, len(stop_attr_list))\
             + " * exogenous attrs, #: {}, {}\n".format(exogenous_attr_list, len(exogenous_attr_list))\
+            + " * no-interaction attrs, #: {}, {}\n".format(nointeraction_attr_list, len(nointeraction_attr_list))\
             + " * # edges: {}\n".format(np.sum(self.expanded_causal_graph))\
             + " * (max, mean, min) for outcoming degrees: ({}, {}, {})\n".format(max(outcoming_degree_list),\
                         sum(outcoming_degree_list)*1.0/(self.n_vars - len(isolated_attr_list)), min(outcoming_degree_list))\
