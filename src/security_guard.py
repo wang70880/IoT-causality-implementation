@@ -176,7 +176,7 @@ class SecurityGuard():
         if not anomalous_score_flag: # A normal event
             self.phantom_state_machine.update(event)
         else: # An abnormal event
-            if event[0] == 'M001':
+            if event[0] == 'M001': # JC DEBUGGING 
                 print("[Anomaly Detection] Anomalous score event {}: {}.\n".format(event_id + self.frame['testing-start-index'] + 1, event))
             self.violation_dict[event_id] = {}
             self.violation_dict[event_id]['attr'] = attr
@@ -210,7 +210,7 @@ class SecurityGuard():
         if attr not in self.bayesian_fitter.nointeraction_attr_list: # JC NOTE: For all attributes which have no interactions or only aturocorrelations, they are not our focus and we assume they are benign.
             estimated_state = self.bayesian_fitter.predict_attr_state(attr, parent_state_dict)
             anomaly_score = 1.0 * (estimated_state - observed_state)**2
-            if self.score_threshold > 0 and anomaly_score > self.score_threshold and event[0] == 'M001': # Print out the anomaly
+            if self.score_threshold > 0 and anomaly_score > self.score_threshold and event[0] == 'M001': # JC DEBUGGING
                 print("[Anomaly Detection] Event {} is an anomaly!".format(event))
                 pprint(parent_state_dict)
                 print("     (Estimated state, Observed state) = ({}, {})".format(estimated_state, observed_state))
