@@ -206,7 +206,7 @@ class SecurityGuard():
         expanded_parent_indices = self.bayesian_fitter.get_expanded_parent_indices(expanded_attr_index)
         #print(" [Score Computation] Now handling attr {} with parents ({})".format(attr, ','.join([self.expanded_var_names[i] for i in expanded_parent_indices])))
         parent_state_dict = phantom_state_machine.get_states(expanded_parent_indices, 1)
-        if len(parent_state_dict.keys()) > 0:
+        if attr not in self.bayesian_fitter.nointeraction_attr_list: # JC NOTE: For all attributes which have no interactions or only aturocorrelations, they are not our focus and we assume they are benign.
             estimated_state = self.bayesian_fitter.predict_attr_state(attr, parent_state_dict)
             anomaly_score = 1.0 * (estimated_state - observed_state)**2
             if self.score_threshold > 0 and anomaly_score > self.score_threshold and event[0] == 'T101': # Print out the anomaly

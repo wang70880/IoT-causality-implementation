@@ -39,10 +39,48 @@ import src.background_generator as bk_generator
 import src.causal_evaluation as causal_eval
 import src.security_guard as security_guard
 
+"""Parameter Settings"""
+
 # Default communicator
 COMM = MPI.COMM_WORLD
 NORMAL = 0
 ABNORMAL = 1
+
+TEST_PARAM_SETTING = True
+PARAM_SETTING = True
+DATA_PREPROCESSING = True
+BACKGROUND_GENERATION = True
+partition_config = int(sys.argv[1])
+apply_bk = int(sys.argv[2])
+
+if TEST_PARAM_SETTING:
+    single_frame_test_flag = 1 # JC TEST: Test for single dataframe
+    skip_skeleton_estimation_flag = 0 # JC TEST: Skip the causal discovery algorithm
+    skip_bayesian_fitting_flag = 0
+    num_anomalies = 0
+    max_prop_length = 1
+
+if PARAM_SETTING:
+    dataset = 'hh101'
+    stable_only = 1
+    cond_ind_test = CMIsymb()
+    tau_max = 1; tau_min = 1
+    verbosity = -1 # -1: No debugging information; 0: Debugging information in this module; 2: Debugging info in PCMCI class; 3: Debugging info in CIT implementations
+    ## For stable-pc
+    max_n_edges = 5
+    pc_alpha = 0.1
+    max_conds_dim = 5
+    maximum_comb = 1
+    ## For MCI
+    alpha_level = 0.01
+    max_conds_px = 5; max_conds_py= 5
+    ## For anomaly detection
+    sig_level = 0.9
+    ## Resulting dict
+    pc_result_dict = {}; mci_result_dict = {}
+    # For evaluations
+    record_count_list =[]
+    pc_time_list = []; mci_time_list = []
 
 def _split(container, count):
     """
@@ -244,42 +282,11 @@ class BayesianFitter:
                         sum(incomming_degree_list)*1.0/(self.n_vars - len(isolated_attr_list)), min(incomming_degree_list))
         print(str)
 
-"""Parameter Settings"""
-TEST_PARAM_SETTING = True
-PARAM_SETTING = True
-DATA_PREPROCESSING = True
-BACKGROUND_GENERATION = True
-partition_config = int(sys.argv[1])
-apply_bk = int(sys.argv[2])
+        self.nointeraction_attr_list = nointeraction_attr_list
+        self.isolated_attr_list = isolated_attr_list
+        self.exogenous_attr_list = exogenous_attr_list
+        self.stop_attr_list = stop_attr_list
 
-if TEST_PARAM_SETTING:
-    single_frame_test_flag = 1 # JC TEST: Test for single dataframe
-    skip_skeleton_estimation_flag = 0 # JC TEST: Skip the causal discovery algorithm
-    skip_bayesian_fitting_flag = 0
-    num_anomalies = 0
-    max_prop_length = 1
-
-if PARAM_SETTING:
-    dataset = 'hh101'
-    stable_only = 1
-    cond_ind_test = CMIsymb()
-    tau_max = 1; tau_min = 1
-    verbosity = -1 # -1: No debugging information; 0: Debugging information in this module; 2: Debugging info in PCMCI class; 3: Debugging info in CIT implementations
-    ## For stable-pc
-    max_n_edges = 5
-    pc_alpha = 0.1
-    max_conds_dim = 5
-    maximum_comb = 1
-    ## For MCI
-    alpha_level = 0.01
-    max_conds_px = 5; max_conds_py= 5
-    ## For anomaly detection
-    sig_level = 0.9
-    ## Resulting dict
-    pc_result_dict = {}; mci_result_dict = {}
-    # For evaluations
-    record_count_list =[]
-    pc_time_list = []; mci_time_list = []
 
 """Event preprocessing"""
 if DATA_PREPROCESSING:
