@@ -57,7 +57,7 @@ if TEST_PARAM_SETTING:
     single_frame_test_flag = 1 # JC TEST: Test for single dataframe
     skip_skeleton_estimation_flag = 0 # JC TEST: Skip the causal discovery algorithm
     skip_bayesian_fitting_flag = 0
-    num_anomalies = 0
+    num_anomalies = 100
     max_prop_length = 1
 
 if PARAM_SETTING:
