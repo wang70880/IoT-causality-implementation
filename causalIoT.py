@@ -75,7 +75,7 @@ if PARAM_SETTING:
     alpha_level = 0.01
     max_conds_px = 5; max_conds_py= 5
     ## For anomaly detection
-    sig_level = 0.9
+    siglevel = 0.9
     ## Resulting dict
     pc_result_dict = {}; mci_result_dict = {}
     # For evaluations
