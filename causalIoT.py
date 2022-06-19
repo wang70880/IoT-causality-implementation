@@ -417,8 +417,11 @@ for frame_id in range(event_preprocessor.frame_count):
         # 2. Initiate anomaly detection
         start = time.time()
         event_id = 0
+        m001_count = 0
         while event_id < len(testing_event_sequences):
             event = testing_event_sequences[event_id]
+            if event == ('M001', 1):
+                m001_count += 1
             if event_id <= tau_max: # Initialize the anomaly detection system
                 security_guard.initialize(event_id, event, frame['testing-data'].values[event_id])
             elif security_guard.score_anomaly_detection(event_id=event_id, event=event): # There is anomaly report: Start the anomaly detection
@@ -426,6 +429,7 @@ for frame_id in range(event_preprocessor.frame_count):
                 event_id = min(x for x in benign_position_dict.keys() if x >= event_id)
                 security_guard.calibrate(benign_position_dict[event_id], event_id) # Calibrate the current state machine and chain
             event_id += 1
+        print("M001 count is {}".format(m001_count))
         print("[Security guarding] Anomaly detection completes for {} runtime events. Consumed time: {} mins.".format(event_id, (time.time() - start)*1.0/60))
         # 3. Evaluate the detection accuracy.
         print("[Security guarding] Evaluating the detection accuracy for state transition violations")
