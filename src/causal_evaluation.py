@@ -15,11 +15,12 @@ def _lag_name(attr:'str', lag:'int'):
 
 class Evaluator():
 
-    def __init__(self, dataset, event_processor, background_generator, tau_max) -> None:
+    def __init__(self, dataset, event_processor, background_generator, bayesian_fitter, tau_max) -> None:
         self.dataset = dataset
         self.tau_max = tau_max
         self.event_processor = event_processor
         self.background_generator = background_generator
+        self.bayesian_fitter = bayesian_fitter
 
         self.user_correlation_dict = self.construct_user_correlation_benchmark()
         self.physical_correlation_dict = None
@@ -156,6 +157,8 @@ class Evaluator():
                 preceding_attr = benign_testing_event_sequence[split_position][0]; preceding_attr_index = original_frame['var-name'].index(preceding_attr)
                 candidate_anomalous_attrs = [original_frame['var-name'][i] for i in list(np.where(self.background_generator.candidate_pair_dict[frame_id][anomaly_lag][preceding_attr_index] == 0)[0])]
                 anomalous_attr = random.choice(candidate_anomalous_attrs)
+                while anomalous_attr in self.bayesian_fitter.nointeraction_attr_list: # JC NOTE: We assume that the nointeraction attr will not be anomalous.
+                    anomalous_attr = random.choice(candidate_anomalous_attrs)
                 anomalous_sequence.append(anomalous_attr)
                 for i in range(maximum_length - 1): # Propagate the anomaly chain (given pre-selected anomalous attr)
                     preceding_attr_index = original_frame['var-name'].index(anomalous_attr)

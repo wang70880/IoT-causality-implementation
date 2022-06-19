@@ -1,5 +1,5 @@
 #!/bin/sh
-com="[Debugging] Reason for the high false positive of devices M001."
+com="[Evaluation] Evaluating the detection accuracy."
 git add -A
 git commit -m "$com"
 git push --set-upstream origin breakpoint-theory
