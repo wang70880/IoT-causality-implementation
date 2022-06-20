@@ -6,6 +6,7 @@ import numpy as np
 import random
 import src.event_processing as evt_proc
 import src.background_generator as bk_generator
+from src.security_guard import PhantomStateMachine
 import statistics
 
 def _lag_name(attr:'str', lag:'int'):
@@ -126,6 +127,54 @@ class Evaluator():
             truth_count, precision, recall = self.estimate_single_discovery_accuracy(frame_id, tau, result)
             truth_count_list.append(truth_count); precision_list.append(precision); recall_list.append(recall)
         return statistics.mean(truth_count_list), statistics.mean(precision_list), statistics.mean(recall_list)
+
+    def simulate_malicious_control(self, frame, n_anomaly, maximum_length):
+        """
+        The function injects anomalous events to the benign testing data,
+        and generates the testing event sequences (simulating Malicious Control Attack).
+        1. Randomly select n_anomaly positions.
+        2. Traverse each benign event, and maintain a phantom state machine to track the system state.
+        3. When reaching to a pre-designated position:
+            * Determine the anomalous device and its state (flips of benign states).
+            * Generate an anomalous event and insert it to the testing sequence.
+            * If maximum_length > 1, propagate the anomaly according to the golden standard interaction.
+        4. Record the nearest stable benign states for each testing sequence.
+            
+
+        Parameters:
+            frame: The dataframe storing benign testing sequences
+            n_anomaly: The number of injected anomalies
+            maximum_length: The maximum length of the anomaly chain. If 0, the function injects single point anomalies.
+
+        Returns:
+            testing_event_sequence: The list of testing events (with injected anomalies)
+            anomaly_positions: The list of injection positions in testing sequences
+            stable_states_dict: Dict of {Key: position in testing log; Value: stable roll-back (event, states) pair}
+        """
+        testing_event_sequence = []; anomaly_positions = []; stable_states_dict = {}
+        benign_event_sequence = list(zip(frame['testing-attr-sequence'], frame['testing-state-sequence']))
+        candidate_positions = sorted(random.sample(\
+                                    range(self.tau_max, len(benign_event_sequence) - 1, self.tau_max + maximum_length),\
+                                    n_anomaly))
+
+        benign_count = 0; testing_count = 0
+        for benign_count in range(len(benign_event_sequence)):
+            # First update the list according to the benign events and the corresponding stable_states vector
+            event = benign_event_sequence[benign_count]; stable_states = frame['testing-data'].values[benign_count].copy() 
+            testing_event_sequence.append(event); stable_states_dict[testing_count] = (event, stable_states); testing_count += 1 
+            # Reach the anomaly position: inject the anomaly after the benign events.
+            if benign_count in candidate_positions:
+                # Determine the abnormal attribute
+                candidate_anomalous_attrs = frame['var-name'].copy()
+                anomalous_attr = random.choice(candidate_anomalous_attrs)
+                anomalous_attr_state = int(1 - stable_states[frame['var-name'].index(event[0])]) # Flip the state
+                testing_event_sequence.append((anomalous_attr, anomalous_attr_state)); anomaly_positions.append(testing_count); stable_states_dict[testing_count] = (event, stable_states)
+                testing_count += 1
+                if maximum_length > 1:
+                    # JC TODO: Implement the anomaly propagation scheme.
+                    pass
+
+        return testing_event_sequence, anomaly_positions, stable_states_dict
 
     def inject_anomalies(self, frame_id, n_anomalies, maximum_length):
         """

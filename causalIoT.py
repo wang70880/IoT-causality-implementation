@@ -388,7 +388,7 @@ for frame_id in range(event_preprocessor.frame_count):
                 if verbosity > -1:
                     print("##\n## MCI for frame {} finished. Consumed time: {} mins\n##".format(frame_id, (mci_end - mci_start) * 1.0 / 60))
     else:
-        pc_result_dict[frame_id] = {'D001': [], 'D002': [('D002', -1), ('M001', -1)], 'LS001': [('LS001', -1), ('D002', -1), ('M008', -1), ('M001', -1)], 'LS002': [('M008', -1), ('M002', -1)], 'LS003': [('M008', -1)], 'LS004':             [('LS016', -1), ('M008', -1)], 'LS005': [('M008', -1)], 'LS006': [('LS006', -1), ('M006', -1), ('M003', -1)], 'LS007': [], 'LS008': [('LS013', -1)], 'LS009': [('M008', -1)], 'LS010': [('LS001', -1),      ('M001', -1)], 'LS011': [('M001', -1), ('M008', -1)], 'LS012': [('M008', -1)], 'LS013': [('LS013', -1), ('M008', -1)], 'LS014': [('LS014', -1), ('LS009', -1), ('M009', -1), ('M008', -1)], 'LS015':        [('M011', -1)], 'LS016': [('M002', -1), ('M008', -1)], 'M001': [('D002', -1), ('M001', -1), ('M010', -1), ('M005', -1), ('LS001', -1)], 'M002': [('M002', -1), ('M004', -1), ('LS016', -1), ('LS002', -1),  ('M003', -1)], 'M003': [('LS006', -1), ('LS003', -1), ('M006', -1), ('M003', -1), ('M002', -1), ('M007', -1), ('M004', -1)], 'M004': [('M004', -1), ('M002', -1), ('M008', -1), ('M003', -1), ('LS016', -   1)], 'M005': [('M005', -1), ('M008', -1), ('M001', -1), ('M004', -1), ('M010', -1)], 'M006': [('M006', -1), ('LS006', -1), ('M003', -1)], 'M007': [('M007', -1), ('M003', -1)], 'M008': [('M008', -1),      ('M004', -1), ('T104', -1), ('M005', -1), ('LS013', -1), ('LS008', -1), ('LS005', -1), ('LS012', -1), ('LS010', -1), ('LS004', -1), ('LS001', -1), ('LS002', -1), ('LS016', -1), ('LS003', -1), ('LS011', - 1), ('LS014', -1)], 'M009': [('M009', -1), ('M012', -1), ('LS014', -1), ('LS009', -1)], 'M010': [('M010', -1), ('M001', -1), ('D002', -1), ('M005', -1)], 'M011': [('M011', -1), ('LS015', -1), ('M009', -  1), ('M001', -1)], 'M012': [('M009', -1), ('M012', -1), ('LS014', -1)], 'T101': [('T101', -1)], 'T102': [], 'T103': [], 'T104': [('T104', -1), ('M008', -1)], 'T105': [('T105', -1), ('M008', -1)]}
+        pc_result_dict[frame_id] = {'D001': [], 'D002': [('D002', -1), ('M001', -1)], 'LS001': [('LS001', -1), ('D002', -1), ('M008', -1), ('M001', -1)], 'LS002': [('M008', -1), ('M002', -1)], 'LS003': [('M008', -1)], 'LS004': [('LS016', -1), ('M008', -1)], 'LS005': [('M008', -1)], 'LS006': [('LS006', -1), ('M006', -1), ('M003', -1)], 'LS007': [], 'LS008': [('LS013', -1)], 'LS009': [('M008', -1)], 'LS010': [('LS001', -1),      ('M001', -1)], 'LS011': [('M001', -1), ('M008', -1)], 'LS012': [('M008', -1)], 'LS013': [('LS013', -1), ('M008', -1)], 'LS014': [('LS014', -1), ('LS009', -1), ('M009', -1), ('M008', -1)], 'LS015':        [('M011', -1)], 'LS016': [('M002', -1), ('M008', -1)], 'M001': [('D002', -1), ('M001', -1), ('M010', -1), ('M005', -1), ('LS001', -1)], 'M002': [('M002', -1), ('M004', -1), ('LS016', -1), ('LS002', -1),  ('M003', -1)], 'M003': [('LS006', -1), ('LS003', -1), ('M006', -1), ('M003', -1), ('M002', -1), ('M007', -1), ('M004', -1)], 'M004': [('M004', -1), ('M002', -1), ('M008', -1), ('M003', -1), ('LS016', -   1)], 'M005': [('M005', -1), ('M008', -1), ('M001', -1), ('M004', -1), ('M010', -1)], 'M006': [('M006', -1), ('LS006', -1), ('M003', -1)], 'M007': [('M007', -1), ('M003', -1)], 'M008': [('M008', -1),('M004', -1), ('T104', -1), ('M005', -1), ('LS013', -1), ('LS008', -1), ('LS005', -1)], 'M009': [('M009', -1), ('M012', -1), ('LS014', -1), ('LS009', -1)], 'M010': [('M010', -1), ('M001', -1), ('D002', -1), ('M005', -1)], 'M011': [('M011', -1), ('LS015', -1), ('M009', -  1), ('M001', -1)], 'M012': [('M009', -1), ('M012', -1), ('LS014', -1)], 'T101': [('T101', -1)], 'T102': [], 'T103': [], 'T104': [('T104', -1), ('M008', -1)], 'T105': [('T105', -1), ('M008', -1)]}
 
 
     """Causal Graph Parameterization."""
@@ -413,20 +413,36 @@ for frame_id in range(event_preprocessor.frame_count):
                                              bayesian_fitter = bayesian_fitter, tau_max=tau_max)
         print("[Security guarding] Testing log starting positions {} with score threshold {}.".format(frame['testing-start-index'] + 1, security_guard.score_threshold))
         # 1. Inject device anomalies
-        #testing_event_sequences = list(zip(frame['testing-attr-sequence'], frame['testing-state-sequence'])); true_anomaly_positions = []
-        testing_event_sequences, anomaly_starting_positions, benign_position_dict = evaluator.inject_anomalies(frame_id=frame_id, n_anomalies= num_anomalies, maximum_length= max_prop_length)
+        testing_event_sequence, anomaly_positions, stable_states_dict = evaluator.simulate_malicious_control(frame=frame, n_anomaly=num_anomalies, maximum_length=max_prop_length)
+        # JC DEBUG: Test the accuracy of anomaly injection.
+        benign_event_sequence = list(zip(frame['testing-attr-sequence'], frame['testing-state-sequence']))
+        if num_anomalies == 0:
+            assert(testing_event_sequence == benign_event_sequence)
+            assert(anomaly_positions == [])
+            assert(len(testing_event_sequence) == len(stable_states_dict.keys()))
+            for i in range(len(testing_event_sequence)):
+                assert(stable_states_dict[i][0] == benign_event_sequence[i])
+                assert(stable_states_dict[i][1] == frame['testing-data'].values[i])
+        if num_anomalies > 0:
+            assert(len(testing_event_sequence) == len(benign_event_sequence) + num_anomalies * max_prop_length)
+            assert(len(anomaly_positions) == num_anomalies * max_prop_length)
+            anomaly_count = 0
+            for i in range(len(testing_event_sequence)):
+                if i in anomaly_positions:
+                    anomaly_count += 1
+                assert(stable_states_dict[i][0] == benign_event_sequence[i - anomaly_count])
         # 2. Initiate anomaly detection
         start = time.time()
         event_id = 0
-        while event_id < len(testing_event_sequences):
-            event = testing_event_sequences[event_id]
+        while event_id < len(testing_event_sequence):
+            event = testing_event_sequence[event_id]
             if event_id <= tau_max: # Initialize the anomaly detection system
                 security_guard.initialize(event_id, event, frame['testing-data'].values[event_id])
-            elif security_guard.score_anomaly_detection(event_id=event_id, event=event): # There is anomaly report: Start the anomaly detection
-                # JC NOTE: Here we simulate a user envolvment, which handles the reported anomalies as soon as it is reported.
-                event_id = min(x for x in benign_position_dict.keys() if x >= event_id)
-                security_guard.calibrate(benign_position_dict[event_id], event_id) # Calibrate the current state machine and chain
+            elif security_guard.score_anomaly_detection(event_id=event_id, event=event):
+                # JC NOTE: Here we simulate a user involvement, which handles the reported anomalies as soon as it is reported.
+                security_guard.calibrate(event_id, stable_states_dict)
             event_id += 1
+
         print("[Security guarding] Anomaly detection completes for {} runtime events. Consumed time: {} mins.".format(event_id, (time.time() - start)*1.0/60))
         # 3. Evaluate the detection accuracy.
         print("[Security guarding] Evaluating the detection accuracy for state transition violations")
@@ -436,7 +452,8 @@ for frame_id in range(event_preprocessor.frame_count):
             violation_count_dict[violation_point['attr']] = 1 if violation_point['attr'] not in violation_count_dict.keys() else violation_count_dict[violation_point['attr']] + 1
             violation_count_dict = dict(sorted(violation_count_dict.items(), key=lambda item: item[1]))
         pprint.pprint(violation_count_dict)
-        evaluator.evaluate_detection_accuracy(anomaly_starting_positions, violation_event_ids)
+
+        evaluator.evaluate_detection_accuracy(anomaly_positions, violation_event_ids)
         #print("[Security guarding] Evaluating the detection accuracy for state transition violations")
         #violation_interaction_dict = {}; violation_count_dict = {}
         #violation_event_ids = list(security_guard.violation_dict.keys())

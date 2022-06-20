@@ -433,6 +433,7 @@ class Hprocessor(Processor):
 			dataframe = pp.DataFrame(data=training_data, var_names=attr_names); testing_dataframe = pp.DataFrame(data=testing_data, var_names=attr_names)
 			dataframes.append(dataframe); testing_dataframes.append(testing_dataframe)
 			frame_dict[frame_count] = {}
+			frame_dict[frame_count]['id'] = frame_count
 			frame_dict[frame_count]['var-name'] = attr_names
 			frame_dict[frame_count]['number'] = seg_point - last_point
 			frame_dict[frame_count]['day-interval'] = day_criteria
@@ -442,6 +443,7 @@ class Hprocessor(Processor):
 			frame_dict[frame_count]['attr-sequence'] = [tup[0][2] for tup in transition_events_states[last_point:testing_start_point]]; frame_dict[frame_count]['testing-attr-sequence'] = [tup[0][2] for tup in transition_events_states[testing_start_point:seg_point]]
 			frame_dict[frame_count]['attr-type-sequence'] = [tup[0][3] for tup in transition_events_states[last_point:testing_start_point]]; frame_dict[frame_count]['testing-attr-type-sequence'] = [tup[0][3] for tup in transition_events_states[testing_start_point:seg_point]]
 			frame_dict[frame_count]['state-sequence'] = [1 if tup[0][4] == 'A' else 0 for tup in transition_events_states[last_point:testing_start_point]]; frame_dict[frame_count]['testing-state-sequence'] = [1 if tup[0][4] == 'A' else 0 for tup in transition_events_states[testing_start_point:seg_point]]
+			frame_dict[frame_count]['n-training'] = len(frame_dict[frame_count]['attr-sequence']); frame_dict[frame_count]['n-testing'] = len(frame_dict[frame_count]['testing-attr-sequence'])
 			frame_count += 1
 			last_point = seg_point
 
