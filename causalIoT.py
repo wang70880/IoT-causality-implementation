@@ -55,9 +55,9 @@ apply_bk = int(sys.argv[2])
 
 if TEST_PARAM_SETTING:
     single_frame_test_flag = 1 # JC TEST: Test for single dataframe
-    skip_skeleton_estimation_flag = 0 # JC TEST: Skip the causal discovery algorithm
+    skip_skeleton_estimation_flag = 1 # JC TEST: Skip the causal discovery algorithm
     skip_bayesian_fitting_flag = 0
-    num_anomalies = 100
+    num_anomalies = 0
     max_prop_length = 1
 
 if PARAM_SETTING:
@@ -416,12 +416,12 @@ for frame_id in range(event_preprocessor.frame_count):
         # JC DEBUG: Test the accuracy of anomaly injection.
         benign_event_sequence = list(zip(frame['testing-attr-sequence'], frame['testing-state-sequence']))
         if num_anomalies == 0:
-            assert(testing_event_sequence == benign_event_sequence)
+            assert(all([testing_event_sequence[i] == benign_event_sequence[i] for i in range(len(testing_event_sequence))]))
             assert(anomaly_positions == [])
             assert(len(testing_event_sequence) == len(stable_states_dict.keys()))
             for i in range(len(testing_event_sequence)):
                 assert(stable_states_dict[i][0] == benign_event_sequence[i])
-                assert(stable_states_dict[i][1] == frame['testing-data'].values[i])
+                assert(all([stable_states_dict[i][1][j] == frame['testing-data'].values[i][j] for j in range(len(stable_states_dict[i][1]))]))
         if num_anomalies > 0:
             assert(len(testing_event_sequence) == len(benign_event_sequence) + num_anomalies * max_prop_length)
             assert(len(anomaly_positions) == num_anomalies * max_prop_length)
@@ -430,7 +430,7 @@ for frame_id in range(event_preprocessor.frame_count):
                 if i in anomaly_positions:
                     anomaly_count += 1
                 assert(stable_states_dict[i][0] == benign_event_sequence[i - anomaly_count])
-        ########################### Anomaly injection test ends ############################
+        ########################### Debug ends ############################
         # 2. Initiate anomaly detection
         start = time.time()
         event_id = 0
@@ -445,6 +445,7 @@ for frame_id in range(event_preprocessor.frame_count):
             if event_id in anomaly_positions:
                 assert(security_guard.phantom_state_machine.get_lagged_states() == stable_states_dict[i][1])
                 assert(security_guard.chain_manager.current_chain.get_header_attr() == stable_states_dict[i][0][0])
+            ########################### Debug ends ############################
             event_id += 1
 
         print("[Security guarding] Anomaly detection completes for {} runtime events. Consumed time: {} mins.".format(event_id, (time.time() - start)*1.0/60))
