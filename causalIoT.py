@@ -430,20 +430,20 @@ for frame_id in range(event_preprocessor.frame_count):
                 if i in anomaly_positions:
                     anomaly_count += 1
                 assert(stable_states_dict[i][0] == benign_event_sequence[i - anomaly_count])
-        ########################### Debug ends ############################
+
         # 2. Initiate anomaly detection
         start = time.time()
         event_id = 0
         while event_id < len(testing_event_sequence):
             event = testing_event_sequence[event_id]
-            if event_id <= tau_max: # Initialize the anomaly detection system
+            if event_id < tau_max: # Initialize the anomaly detection system
                 security_guard.initialize(event_id, event, frame['testing-data'].values[event_id])
             elif security_guard.score_anomaly_detection(event_id=event_id, event=event):
                 # JC NOTE: Here we simulate a user involvement, which handles the reported anomalies as soon as it is reported.
                 security_guard.calibrate(event_id, stable_states_dict)
             # JC DEBUG: Test the accuracy of calibration
             if event_id in anomaly_positions:
-                assert(security_guard.phantom_state_machine.get_lagged_states() == stable_states_dict[i][1])
+                assert(all([security_guard.phantom_state_machine.get_lagged_states()[j] == stable_states_dict[i][1][j] for j in range(len(stable_states_dict[i][1]))]))
                 assert(security_guard.chain_manager.current_chain.get_header_attr() == stable_states_dict[i][0][0])
             ########################### Debug ends ############################
             event_id += 1
