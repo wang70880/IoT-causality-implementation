@@ -441,8 +441,10 @@ for frame_id in range(event_preprocessor.frame_count):
             elif security_guard.score_anomaly_detection(event_id=event_id, event=event):
                 # JC NOTE: Here we simulate a user involvement, which handles the reported anomalies as soon as it is reported.
                 security_guard.calibrate(event_id, stable_states_dict)
+                print("Detect and fix anomalies at {}".format(event_id))
             # JC DEBUG: Test the accuracy of calibration
             if event_id in anomaly_positions:
+                print("True anomaly happens at {}".format(event_id))
                 print(security_guard.phantom_state_machine.get_lagged_states())
                 print(stable_states_dict[event_id][1])
                 assert(all([security_guard.phantom_state_machine.get_lagged_states()[j] == stable_states_dict[event_id][1][j] for j in range(len(stable_states_dict[i][1]))]))
