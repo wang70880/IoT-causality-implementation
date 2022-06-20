@@ -229,12 +229,12 @@ class SecurityGuard():
             stable_states_dict: The {event_id: (stable event, stable state vector)} dict
         """
         #print("     [Calibration] The nearest benign event is {}: {}".format(testing_event_id + self.frame['testing-start-index'] + 1, event))
-        i = self.tau_max
-        while i > 0:
+        i = 0
+        while i < self.tau_max:
             lagged_benign_state_vector = stable_states_dict[event_id - i][1]
             self.phantom_state_machine.set_states(lagged_benign_state_vector)
-            i -= 1
-        attr = stable_states_dict[event_id][0][0]; expanded_attr_index = self.expanded_var_names.index(attr)
+            i += 1
+        last_stable_attr = stable_states_dict[event_id][0][0]; expanded_attr_index = self.expanded_var_names.index(last_stable_attr)
         #print(self.phantom_state_machine)
         self.chain_manager.create(event_id, expanded_attr_index, NORMAL)
 
@@ -243,7 +243,7 @@ class SecurityGuard():
         attr = event[0]; observed_state = event[1]; expanded_attr_index = self.expanded_var_names.index(attr)
         expanded_parent_indices = self.bayesian_fitter.get_expanded_parent_indices(expanded_attr_index)
         #print(" [Score Computation] Now handling attr {} with parents ({})".format(attr, ','.join([self.expanded_var_names[i] for i in expanded_parent_indices])))
-        parent_state_dict = phantom_state_machine.get_states(expanded_parent_indices, 1)
+        parent_state_dict = phantom_state_machine.get_attr_states(expanded_parent_indices, True)
         if attr not in self.bayesian_fitter.nointeraction_attr_list: # JC NOTE: For all attributes which have no interactions or only aturocorrelations, they are not our focus and we assume they are benign.
             estimated_state = self.bayesian_fitter.predict_attr_state(attr, parent_state_dict)
             anomaly_score = 1.0 * (estimated_state - observed_state)**2

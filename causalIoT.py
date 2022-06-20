@@ -75,7 +75,7 @@ if PARAM_SETTING:
     alpha_level = 0.01
     max_conds_px = 5; max_conds_py= 5
     ## For anomaly detection
-    siglevel = 0.9
+    sig_level = 0.9
     ## Resulting dict
     pc_result_dict = {}; mci_result_dict = {}
     # For evaluations
@@ -407,7 +407,6 @@ for frame_id in range(event_preprocessor.frame_count):
     """Security Guard."""
     if COMM.rank == 0:
         print("\n********** Initiate Security Guarding. **********")
-        sig_level = 0.95
         security_guard = security_guard.SecurityGuard(frame=frame, bayesian_fitter=bayesian_fitter, sig_level=sig_level)
         evaluator = causal_eval.Evaluator(dataset=dataset, event_processor=event_preprocessor, background_generator=background_generator,\
                                              bayesian_fitter = bayesian_fitter, tau_max=tau_max)
@@ -431,6 +430,7 @@ for frame_id in range(event_preprocessor.frame_count):
                 if i in anomaly_positions:
                     anomaly_count += 1
                 assert(stable_states_dict[i][0] == benign_event_sequence[i - anomaly_count])
+        ########################### Anomaly injection test ends ############################
         # 2. Initiate anomaly detection
         start = time.time()
         event_id = 0
@@ -441,6 +441,10 @@ for frame_id in range(event_preprocessor.frame_count):
             elif security_guard.score_anomaly_detection(event_id=event_id, event=event):
                 # JC NOTE: Here we simulate a user involvement, which handles the reported anomalies as soon as it is reported.
                 security_guard.calibrate(event_id, stable_states_dict)
+            # JC DEBUG: Test the accuracy of calibration
+            if event_id in anomaly_positions:
+                assert(security_guard.phantom_state_machine.get_lagged_states() == stable_states_dict[i][1])
+                assert(security_guard.chain_manager.current_chain.get_header_attr() == stable_states_dict[i][0][0])
             event_id += 1
 
         print("[Security guarding] Anomaly detection completes for {} runtime events. Consumed time: {} mins.".format(event_id, (time.time() - start)*1.0/60))
