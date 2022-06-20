@@ -287,7 +287,6 @@ class BayesianFitter:
         self.exogenous_attr_list = exogenous_attr_list
         self.stop_attr_list = stop_attr_list
 
-
 """Event preprocessing"""
 if DATA_PREPROCESSING:
     event_preprocessor = evt_proc.Hprocessor(dataset)
@@ -418,14 +417,13 @@ for frame_id in range(event_preprocessor.frame_count):
         while event_id < len(testing_event_sequence):
             event = testing_event_sequence[event_id]
             report_to_user = False
-            # Initialize the anomaly detection system.
             if event_id < tau_max:
                 security_guard.initialize(event_id, event, frame['testing-data'].values[event_id])
-            # Initiate anomaly detection
             else:
                 report_to_user = security_guard.score_anomaly_detection(event_id=event_id, event=event)
+
             # JC NOTE: Here we simulate a user involvement, which handles the reported anomalies as soon as it is reported.
-            if event_id in anomaly_positions:
+            if event_id in anomaly_positions or report_to_user is True:
                 security_guard.calibrate(event_id, stable_states_dict)
             event_id += 1
 
