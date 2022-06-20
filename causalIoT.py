@@ -444,9 +444,9 @@ for frame_id in range(event_preprocessor.frame_count):
             # JC DEBUG: Test the accuracy of calibration
             if event_id in anomaly_positions:
                 print(security_guard.phantom_state_machine.get_lagged_states())
-                print(stable_states_dict[i][1])
-                assert(all([security_guard.phantom_state_machine.get_lagged_states()[j] == stable_states_dict[i][1][j] for j in range(len(stable_states_dict[i][1]))]))
-                assert(security_guard.chain_manager.current_chain.get_header_attr() == stable_states_dict[i][0][0])
+                print(stable_states_dict[event_id][1])
+                assert(all([security_guard.phantom_state_machine.get_lagged_states()[j] == stable_states_dict[event_id][1][j] for j in range(len(stable_states_dict[i][1]))]))
+                assert(security_guard.chain_manager.current_chain.get_header_attr() == stable_states_dict[event_id][0][0])
             ########################### Debug ends ############################
             event_id += 1
 
