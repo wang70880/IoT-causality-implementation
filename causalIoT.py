@@ -390,7 +390,6 @@ for frame_id in range(event_preprocessor.frame_count):
     else:
         pc_result_dict[frame_id] = {'D001': [], 'D002': [('D002', -1), ('M001', -1)], 'LS001': [('LS001', -1), ('D002', -1), ('M008', -1), ('M001', -1)], 'LS002': [('M008', -1), ('M002', -1)], 'LS003': [('M008', -1)], 'LS004': [('LS016', -1), ('M008', -1)], 'LS005': [('M008', -1)], 'LS006': [('LS006', -1), ('M006', -1), ('M003', -1)], 'LS007': [], 'LS008': [('LS013', -1)], 'LS009': [('M008', -1)], 'LS010': [('LS001', -1),      ('M001', -1)], 'LS011': [('M001', -1), ('M008', -1)], 'LS012': [('M008', -1)], 'LS013': [('LS013', -1), ('M008', -1)], 'LS014': [('LS014', -1), ('LS009', -1), ('M009', -1), ('M008', -1)], 'LS015':        [('M011', -1)], 'LS016': [('M002', -1), ('M008', -1)], 'M001': [('D002', -1), ('M001', -1), ('M010', -1), ('M005', -1), ('LS001', -1)], 'M002': [('M002', -1), ('M004', -1), ('LS016', -1), ('LS002', -1),  ('M003', -1)], 'M003': [('LS006', -1), ('LS003', -1), ('M006', -1), ('M003', -1), ('M002', -1), ('M007', -1), ('M004', -1)], 'M004': [('M004', -1), ('M002', -1), ('M008', -1), ('M003', -1), ('LS016', -   1)], 'M005': [('M005', -1), ('M008', -1), ('M001', -1), ('M004', -1), ('M010', -1)], 'M006': [('M006', -1), ('LS006', -1), ('M003', -1)], 'M007': [('M007', -1), ('M003', -1)], 'M008': [('M008', -1),('M004', -1), ('T104', -1), ('M005', -1), ('LS013', -1), ('LS008', -1), ('LS005', -1)], 'M009': [('M009', -1), ('M012', -1), ('LS014', -1), ('LS009', -1)], 'M010': [('M010', -1), ('M001', -1), ('D002', -1), ('M005', -1)], 'M011': [('M011', -1), ('LS015', -1), ('M009', -  1), ('M001', -1)], 'M012': [('M009', -1), ('M012', -1), ('LS014', -1)], 'T101': [('T101', -1)], 'T102': [], 'T103': [], 'T104': [('T104', -1), ('M008', -1)], 'T105': [('T105', -1), ('M008', -1)]}
 
-
     """Causal Graph Parameterization."""
     if COMM.rank == 0:
         print("Skeleton construction completes. Consumed time: {} mins.".format((time.time() - start)*1.0/60))
@@ -418,10 +417,15 @@ for frame_id in range(event_preprocessor.frame_count):
         event_id = 0
         while event_id < len(testing_event_sequence):
             event = testing_event_sequence[event_id]
-            if event_id < tau_max: # Initialize the anomaly detection system
+            report_to_user = False
+            # Initialize the anomaly detection system.
+            if event_id < tau_max:
                 security_guard.initialize(event_id, event, frame['testing-data'].values[event_id])
-            elif security_guard.score_anomaly_detection(event_id=event_id, event=event):
-                # JC NOTE: Here we simulate a user involvement, which handles the reported anomalies as soon as it is reported.
+            # Initiate anomaly detection
+            else:
+                report_to_user = security_guard.score_anomaly_detection(event_id=event_id, event=event)
+            # JC NOTE: Here we simulate a user involvement, which handles the reported anomalies as soon as it is reported.
+            if event_id in anomaly_positions:
                 security_guard.calibrate(event_id, stable_states_dict)
             event_id += 1
 
