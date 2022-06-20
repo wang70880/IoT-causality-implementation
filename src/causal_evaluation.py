@@ -167,6 +167,8 @@ class Evaluator():
                 # Determine the abnormal attribute
                 candidate_anomalous_attrs = frame['var-name'].copy()
                 anomalous_attr = random.choice(candidate_anomalous_attrs)
+                while anomalous_attr in self.bayesian_fitter.nointeraction_attr_list: # JC NOTE: We assume that the nointeraction attr will not be anomalous.
+                    anomalous_attr = random.choice(candidate_anomalous_attrs)
                 anomalous_attr_state = int(1 - stable_states[frame['var-name'].index(event[0])]) # Flip the state
                 testing_event_sequence.append((anomalous_attr, anomalous_attr_state)); anomaly_positions.append(testing_count); stable_states_dict[testing_count] = (event, stable_states)
                 testing_count += 1
