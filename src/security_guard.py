@@ -66,7 +66,7 @@ class PhantomStateMachine():
             result_dict (dict[int:int] or dict[str:int]): The name-state dict
         """
         assert(all([x < self.n_expanded_vars - self.n_vars for x in expanded_attr_indices])) # Since phantom state machine does not store the current state, the function cannot help to fetch the current state.
-        result_dict = {index: self.phantom_states[index] for index in expanded_attr_indices} if name_type else \
+        result_dict = {index: self.phantom_states[index] for index in expanded_attr_indices} if not name_type else \
                             {self.expanded_var_names[index]: self.phantom_states[index] for index in expanded_attr_indices}
         return result_dict
     
