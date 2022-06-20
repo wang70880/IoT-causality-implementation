@@ -75,7 +75,7 @@ if PARAM_SETTING:
     alpha_level = 0.01
     max_conds_px = 5; max_conds_py= 5
     ## For anomaly detection
-    sig_level = 0.9
+    sig_level = 0.95
     ## Resulting dict
     pc_result_dict = {}; mci_result_dict = {}
     # For evaluations
@@ -421,7 +421,6 @@ for frame_id in range(event_preprocessor.frame_count):
                 security_guard.initialize(event_id, event, frame['testing-data'].values[event_id])
             else:
                 report_to_user = security_guard.score_anomaly_detection(event_id=event_id, event=event)
-
             # JC NOTE: Here we simulate a user involvement, which handles the reported anomalies as soon as it is reported.
             if event_id in anomaly_positions or report_to_user is True:
                 security_guard.calibrate(event_id, stable_states_dict)
