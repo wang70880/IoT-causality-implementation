@@ -1,5 +1,5 @@
 #!/bin/sh
-com="[Implementation] Implement the anomaly injection scheme: Case of malicious control; [Testing] Test the accuracy of the implementation."
+com="[Implementation] Implement the anomaly injection scheme: Case of malicious control; [Evaluation] Evaluate the accuracy for malicious control detection."
 git add -A
 git commit -m "$com"
 git push --set-upstream origin breakpoint-theory

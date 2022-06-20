@@ -55,7 +55,7 @@ apply_bk = int(sys.argv[2])
 
 if TEST_PARAM_SETTING:
     single_frame_test_flag = 1 # JC TEST: Test for single dataframe
-    skip_skeleton_estimation_flag = 1 # JC TEST: Skip the causal discovery algorithm
+    skip_skeleton_estimation_flag = 0 # JC TEST: Skip the causal discovery algorithm
     skip_bayesian_fitting_flag = 0
     num_anomalies = 0
     max_prop_length = 1
@@ -413,24 +413,6 @@ for frame_id in range(event_preprocessor.frame_count):
         print("[Security guarding] Testing log starting positions {} with score threshold {}.".format(frame['testing-start-index'] + 1, security_guard.score_threshold))
         # 1. Inject device anomalies
         testing_event_sequence, anomaly_positions, stable_states_dict = evaluator.simulate_malicious_control(frame=frame, n_anomaly=num_anomalies, maximum_length=max_prop_length)
-        # JC DEBUG: Test the accuracy of anomaly injection.
-        benign_event_sequence = list(zip(frame['testing-attr-sequence'], frame['testing-state-sequence']))
-        if num_anomalies == 0:
-            assert(all([testing_event_sequence[i] == benign_event_sequence[i] for i in range(len(testing_event_sequence))]))
-            assert(anomaly_positions == [])
-            assert(len(testing_event_sequence) == len(stable_states_dict.keys()))
-            for i in range(len(testing_event_sequence)):
-                assert(stable_states_dict[i][0] == benign_event_sequence[i])
-                assert(all([stable_states_dict[i][1][j] == frame['testing-data'].values[i][j] for j in range(len(stable_states_dict[i][1]))]))
-        if num_anomalies > 0:
-            assert(len(testing_event_sequence) == len(benign_event_sequence) + num_anomalies * max_prop_length)
-            assert(len(anomaly_positions) == num_anomalies * max_prop_length)
-            anomaly_count = 0
-            for i in range(len(testing_event_sequence)):
-                if i in anomaly_positions:
-                    anomaly_count += 1
-                assert(stable_states_dict[i][0] == benign_event_sequence[i - anomaly_count])
-
         # 2. Initiate anomaly detection
         start = time.time()
         event_id = 0
@@ -441,11 +423,6 @@ for frame_id in range(event_preprocessor.frame_count):
             elif security_guard.score_anomaly_detection(event_id=event_id, event=event):
                 # JC NOTE: Here we simulate a user involvement, which handles the reported anomalies as soon as it is reported.
                 security_guard.calibrate(event_id, stable_states_dict)
-                print("Detect and fix anomalies at {}".format(event_id))
-            # JC DEBUG: Test the accuracy of calibration
-            if event_id in anomaly_positions:
-                print("True anomaly happens at {}".format(event_id))
-            ########################### Debug ends ############################
             event_id += 1
 
         print("[Security guarding] Anomaly detection completes for {} runtime events. Consumed time: {} mins.".format(event_id, (time.time() - start)*1.0/60))
