@@ -238,10 +238,10 @@ class SecurityGuard():
             attr_count_dict[attr] = 1 if attr not in attr_count_dict.keys() else attr_count_dict[attr] + 1
             anomaly_score_lists.append(score); degree_list.append(attr_degree)
         pprint(attr_count_dict)
-        print(anomaly_score_lists)
         avg_score = 0 if len(anomaly_score_lists) == 0 else sum(anomaly_score_lists) * 1.0 / len(anomaly_score_lists)
-        print("Anomaly scores:\n{}\nAverage: {}".format(anomaly_score_lists, avg_score))
-        print("Attr degrees:\n{}\nAverage: {}".format(degree_list, mean(degree_list)))
+        avg_degree = 0 if len(degree_list) == 0 else sum(degree_list) * 1.0 / len(degree_list)
+        print("**Anomaly scores**:\n{}\nAverage: {}".format(anomaly_score_lists, avg_score))
+        print("**Attr degrees**:\n{}\nAverage: {}".format(degree_list, avg_degree))
 
     def calibrate(self, event_id, stable_states_dict):
         """

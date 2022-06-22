@@ -221,6 +221,7 @@ class BayesianFitter:
         #cpd = MaximumLikelihoodEstimator(self.model, df).estimate_cpd(corrs_attr) # JC TEST: The bayesian fitting consumes much time. Let's test the exact consumed time here..
         #print(cpd)
         self.model.fit(df, estimator= BayesianEstimator) 
+        print(self.model.get_cpds('D002'))
     
     def predict_attr_state(self, attr, parent_state_dict, verbose=0):
         """ Predict the value of the target attribute given its parent states, i.e., E[attr|par(attr)]
