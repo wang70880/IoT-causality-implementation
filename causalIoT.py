@@ -410,7 +410,10 @@ for frame_id in range(event_preprocessor.frame_count):
                                              bayesian_fitter = bayesian_fitter, tau_max=tau_max)
         print("[Security guarding] Testing log starting positions {} with score threshold {}.".format(frame['testing-start-index'] + 1, security_guard.score_threshold))
         # 1. Inject device anomalies
-        testing_event_sequence, anomaly_positions, stable_states_dict = evaluator.simulate_malicious_control(frame=frame, n_anomaly=num_anomalies, maximum_length=max_prop_length)
+        testing_event_sequence, anomaly_events, anomaly_positions, stable_states_dict = evaluator.simulate_malicious_control(frame=frame, n_anomaly=num_anomalies, maximum_length=max_prop_length)
+        assert(len(anomaly_events) == len(anomaly_positions))
+        for i in range(len(anomaly_positions)):
+            assert(testing_event_sequence[anomaly_positions[i]] == anomaly_events[i])
         # 2. Initiate anomaly detection
         start = time.time()
         event_id = 0

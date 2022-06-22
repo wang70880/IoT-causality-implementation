@@ -130,8 +130,7 @@ class Evaluator():
 
     def simulate_malicious_control(self, frame, n_anomaly, maximum_length):
         """
-        The function injects anomalous events to the benign testing data,
-        and generates the testing event sequences (simulating Malicious Control Attack).
+        The function injects anomalous events to the benign testing data, and generates the testing event sequences (simulating Malicious Control Attack).
         1. Randomly select n_anomaly positions.
         2. Traverse each benign event, and maintain a phantom state machine to track the system state.
         3. When reaching to a pre-designated position:
@@ -151,7 +150,7 @@ class Evaluator():
             anomaly_positions: The list of injection positions in testing sequences
             stable_states_dict: Dict of {Key: position in testing log; Value: stable roll-back (event, states) pair}
         """
-        testing_event_sequence = []; anomaly_positions = []; stable_states_dict = {}
+        testing_event_sequence = []; anomaly_positions = []; anomaly_events = []; stable_states_dict = {}
         benign_event_sequence = list(zip(frame['testing-attr-sequence'], frame['testing-state-sequence']))
         candidate_positions = sorted(random.sample(\
                                     range(self.tau_max, len(benign_event_sequence) - 1, self.tau_max + maximum_length),\
@@ -170,13 +169,14 @@ class Evaluator():
                 while anomalous_attr in self.bayesian_fitter.nointeraction_attr_list: # JC NOTE: We assume that the nointeraction attr will not be anomalous.
                     anomalous_attr = random.choice(candidate_anomalous_attrs)
                 anomalous_attr_state = int(1 - stable_states[frame['var-name'].index(event[0])]) # Flip the state
+                anomaly_events.append((anomalous_attr, anomalous_attr_state))
                 testing_event_sequence.append((anomalous_attr, anomalous_attr_state)); anomaly_positions.append(testing_count); stable_states_dict[testing_count] = (event, stable_states)
                 testing_count += 1
                 if maximum_length > 1:
                     # JC TODO: Implement the anomaly propagation scheme.
                     pass
 
-        return testing_event_sequence, anomaly_positions, stable_states_dict
+        return testing_event_sequence, anomaly_events, anomaly_positions, stable_states_dict
 
     def inject_anomalies(self, frame_id, n_anomalies, maximum_length):
         """
