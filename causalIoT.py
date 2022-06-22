@@ -245,6 +245,11 @@ class BayesianFitter:
     def get_expanded_parent_indices(self, expanded_attr_index: 'int'):
         return list(np.where(self.expanded_causal_graph[:,expanded_attr_index] == 1)[0])
         #return {index: self.expanded_var_names[i] for index in par_indices}
+    
+    def get_parents(self, attr, name_flag = True):
+        expanded_attr_index = self.expanded_var_names.index(attr)
+        parent_index_list = list(np.where(self.expanded_causal_graph[:,expanded_attr_index] == 1)[0]); parent_name_list = [self.expanded_var_names[i] for i in parent_index_list]
+        return parent_index_list if not name_flag else parent_name_list
 
     def analyze_discovery_statistics(self):
         print("[Bayesian Fitting] Analyzing discovery statistics.")

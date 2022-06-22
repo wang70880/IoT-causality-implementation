@@ -2,6 +2,7 @@ from itertools import chain
 import numpy as np
 from pprint import pprint
 from tabulate import tabulate
+from statistics import mean
 
 NORMAL = 0
 TYPE1_ANOMALY = 1
@@ -230,16 +231,17 @@ class SecurityGuard():
     
     def print_debugging_dict(self, fp_flag=True):
         target_dict = self.fp_debugging_dict if fp_flag else self.fn_debugging_dict
-        attr_count_dict = {}; anomaly_score_lists = []
+        attr_count_dict = {}; anomaly_score_lists = []; degree_list = []
         for evt_id, anomaly in target_dict.items():
-            attr = anomaly['attr']; state = anomaly['state'];  score = anomaly['anomaly-score']
-            print("     * ID, event, score = {} ({}, {}) {}".format(evt_id, attr, state, score))
+            attr = anomaly['attr']; attr_degree = len(self.bayesian_fitter.get_parents(attr)); state = anomaly['state'];  score = anomaly['anomaly-score']
+            print("     * ID, event, in-degree, score = {} ({}, {}) {} {}".format(evt_id, attr, state, attr_degree, score))
             attr_count_dict[attr] = 1 if attr not in attr_count_dict.keys() else attr_count_dict[attr] + 1
-            anomaly_score_lists.append(score)
+            anomaly_score_lists.append(score); degree_list.append(attr_degree)
         pprint(attr_count_dict)
         print(anomaly_score_lists)
         avg_score = 0 if len(anomaly_score_lists) == 0 else sum(anomaly_score_lists) * 1.0 / len(anomaly_score_lists)
-        print(avg_score)
+        print("Anomaly scores:\n{}\nAverage: {}".format(anomaly_score_lists, avg_score))
+        print("Attr degrees:\n{}\nAverage: {}".format(degree_list, mean(degree_list)))
 
     def calibrate(self, event_id, stable_states_dict):
         """
