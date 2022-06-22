@@ -432,7 +432,7 @@ for frame_id in range(event_preprocessor.frame_count):
         print("[Security guarding] Anomaly detection completes for {} runtime events. Consumed time: {} mins.".format(event_id, (time.time() - start)*1.0/60))
         # 3. Evaluate the detection accuracy.
         print("[Security guarding] Evaluating the false positive for state transition violations")
-        security_guard.print_debugging_dict(tp_flag=True)
+        security_guard.print_debugging_dict(fp_flag=True)
         #violation_count_dict = {}; violation_event_ids = list(security_guard.violation_dict.keys())
         #for violation_event_id, violation_point in security_guard.violation_dict.items():
         #    #print(" * Violation (event id, interaction, score) = ({}, {}, {})".format(violation_event_id, violation_point['interaction'], violation_point['anomaly-score']))

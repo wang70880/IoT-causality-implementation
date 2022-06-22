@@ -222,6 +222,7 @@ class SecurityGuard():
             if event_id not in debugging_id_list:
                 self.fp_debugging_dict[event_id] = {}
                 self.fp_debugging_dict[event_id]['attr'] = attr
+                self.fp_debugging_dict[event_id]['state'] = state
                 self.fp_debugging_dict[event_id]['anomaly-score'] = anomaly_score
             report_to_user = True
         self.last_processed_event = event
@@ -237,7 +238,8 @@ class SecurityGuard():
             anomaly_score_lists.append(score)
         pprint(attr_count_dict)
         print(anomaly_score_lists)
-        print(sum(anomaly_score_lists) * 1.0 / len(anomaly_score_lists))
+        avg_score = 0 if len(anomaly_score_lists) == 0 else sum(anomaly_score_lists) * 1.0 / len(anomaly_score_lists)
+        print(avg_score)
 
     def calibrate(self, event_id, stable_states_dict):
         """
