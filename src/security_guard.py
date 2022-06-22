@@ -158,6 +158,8 @@ class SecurityGuard():
         # Anomaly analyzer
         self.violation_dict = {}
         self.type1_debugging_dict = {}
+        self.fn_debugging_dict = {}
+        self.fp_debugging_dict = {}
     
     def initialize(self, event_id, event, state_vector):
         self.phantom_state_machine.set_states(state_vector) # Initialize the phantom state machine
@@ -203,21 +205,39 @@ class SecurityGuard():
         self.last_processed_event = event
         return report_to_user
 
-    def score_anomaly_detection(self, event_id, event):
+    def score_anomaly_detection(self, event_id, event, debugging_id_list = []):
         report_to_user = False
-        attr = event[0]
+        attr = event[0]; state = event[1]
         anomalous_score_flag, anomaly_score = self.state_validation(event=event)
         if not anomalous_score_flag: # A normal event
             self.phantom_state_machine.update(event)
+            if event_id in debugging_id_list: # A false negative is detected.
+                self.fn_debugging_dict[event_id] = {}
+                self.fn_debugging_dict[event_id]['attr'] = attr
+                self.fn_debugging_dict[event_id]['state'] = state
+                self.fn_debugging_dict[event_id]['anomaly-score'] = anomaly_score
         else: # An abnormal event
             #if event[0] == 'M001': # JC DEBUGGING 
             #    print("[Anomaly Detection] Anomalous score event {}: {}.\n".format(event_id + self.frame['testing-start-index'] + 1, event))
-            self.violation_dict[event_id] = {}
-            self.violation_dict[event_id]['attr'] = attr
-            self.violation_dict[event_id]['anomaly-score'] = anomaly_score
+            if event_id not in debugging_id_list:
+                self.fp_debugging_dict[event_id] = {}
+                self.fp_debugging_dict[event_id]['attr'] = attr
+                self.fp_debugging_dict[event_id]['anomaly-score'] = anomaly_score
             report_to_user = True
         self.last_processed_event = event
         return report_to_user
+    
+    def print_debugging_dict(self, fp_flag=True):
+        target_dict = self.fp_debugging_dict if fp_flag else self.fn_debugging_dict
+        attr_count_dict = {}; anomaly_score_lists = []
+        for evt_id, anomaly in target_dict.items():
+            attr = anomaly['attr']; state = anomaly['state'];  score = anomaly['anomaly-score']
+            print("     * ID, event, score = {} ({}, {}) {}".format(evt_id, attr, state, score))
+            attr_count_dict[attr] = 1 if attr not in attr_count_dict.keys() else attr_count_dict[attr] + 1
+            anomaly_score_lists.append(score)
+        pprint(attr_count_dict)
+        print(anomaly_score_lists)
+        print(sum(anomaly_score_lists) * 1.0 / len(anomaly_score_lists))
 
     def calibrate(self, event_id, stable_states_dict):
         """
