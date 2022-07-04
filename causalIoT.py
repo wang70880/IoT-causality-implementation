@@ -54,8 +54,9 @@ partition_config = int(sys.argv[1])
 apply_bk = int(sys.argv[2])
 
 if TEST_PARAM_SETTING:
-    single_frame_test_flag = 1 # JC TEST: Test for single dataframe
-    skip_skeleton_estimation_flag = 0 # JC TEST: Skip the causal discovery algorithm
+    single_frame_test_flag = 1 # Whether only testing single dataframe
+    autocorrelation_flag = False # Whether consider autocorrelations in structure identification
+    skip_skeleton_estimation_flag = 0 # Whether skip the causal structure identification process (For speedup and testing)
     skip_bayesian_fitting_flag = 0
     num_anomalies = 0
     max_prop_length = 1
@@ -318,7 +319,7 @@ for frame_id in range(event_preprocessor.frame_count):
         selected_variables = list(range(N))
         splitted_jobs = None
         results = []
-        selected_links = background_generator.generate_candidate_interactions(apply_bk, frame_id, N) # Get candidate interactions
+        selected_links = background_generator.generate_candidate_interactions(apply_bk, frame_id, N, autocorrelation_flag=autocorrelation_flag) # Get candidate interactions
         # 1. Paralleled Discovery Engine
         if COMM.rank == 0: # Assign selected_variables into whatever cores are available.
             splitted_jobs = _split(selected_variables, COMM.size)

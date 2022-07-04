@@ -1,5 +1,5 @@
 #!/bin/sh
-com="[Implementation] Implement the anomaly injection scheme: Case of malicious control; [Debugging] Find out why the accuracy is low: Print out the CPT of device D002, which is a good debugging point."
+com="[Debugging] Preprare to implement the data debugger, and use new dataset (hh130) to verify the preprocessing process and verify semantic CI testing results."
 git add -A
 git commit -m "$com"
 git push --set-upstream origin breakpoint-theory

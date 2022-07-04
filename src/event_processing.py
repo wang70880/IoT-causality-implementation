@@ -280,14 +280,15 @@ class Hprocessor(Processor):
 	def sanitize_raw_events(self):
 		"""This function aims to sanitize raw events.
 		Specifically, it initiates the following two steps.
-		1. Filter periodic attribute events.
-		2. Filter noisy events (in particular, duplicated device events)
+		1. Filter events about irrelevant device states.
+		2. Filter periodic attribute events.
+		3. Filter noisy events (in particular, duplicated device events)
 		Returns:
 			qualified_events: list[list[str]]: The list of qualified parsed events
 		"""
 		qualified_events: list[list[str]] = []
 		fin = None
-		if path.isfile(self.transition_data): # If we have parsed the file: No need to reparse it.
+		if path.isfile(self.transition_data): # If we have parsed the file: No need to re-parse it.
 			fin = open(self.transition_data, 'r')
 			for line in fin.readlines():
 				parsed_event: list[str] = line.strip().split(' ')
@@ -311,7 +312,7 @@ class Hprocessor(Processor):
 					The information about the attributes can be also obtained from the dataset readme file.
 				'''
 				# 1. Select interested attributes.
-				if parsed_event[3] not in ['Control4-Motion', 'Control4-Door', 'Control4-Temperature', 'Control4-LightSensor', 'Control4-Light', 'Control4-Button']:
+				if parsed_event[3] not in ['Control4-Motion', 'Control4-Door', 'Control4-Light', 'Control4-Temperature', 'Control4-LightSensor', 'Control4-Button']:
 					continue
 				# 2. Remove duplicated device events
 				if len(last_parsed_event) != 0 and \
