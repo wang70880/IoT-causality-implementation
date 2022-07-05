@@ -170,7 +170,8 @@ class Hprocessor(Processor):
 	def __init__(self, dataset, verbosity=1):
 		super().__init__(dataset)
 		self.attr_names = None
-		self.device_dict = defaultdict(DevAttribute) # The str-DevAttribute dict using the attr name as the dict key
+		self.name_device_dict = defaultdict(DevAttribute) # The str-DevAttribute dict using the attr name as the dict key
+		self.index_device_dict = defaultdict(DevAttribute) # The str-DevAttribute dict using the attr index as the dict key
 		self.attr_count_dict = defaultdict(int); self.dev_count_dict = defaultdict(int)
 		self.transition_events_states = None # Lists of all (event, state array) tuple
 		self.frame_dict = None # A dict with key, value = (frame_id, dict['number', 'day-interval', 'start-date', 'end-date', 'attr-sequence', 'attr-type-sequence', 'state-sequence'])
@@ -193,8 +194,8 @@ class Hprocessor(Processor):
 		return AttrEvent(inp[0], inp[1], inp[2], inp[6], inp[5])
 
 	def _enum_unification(self, val: 'str') -> 'str':
-		act_list = ["ON", "OPEN", "HIGH"]
-		de_list = ["OFF", "CLOSE", "LOW"]
+		act_list = ["ON", "OPEN", "HIGH", "1"]
+		de_list = ["OFF", "CLOSE", "LOW", "0"]
 		unified_val = ''
 		if val in act_list:
 			unified_val = 1
@@ -293,9 +294,9 @@ class Hprocessor(Processor):
 			for parsed_event in parsed_events: # Finally, transform the numeric attribute to low-high enum attribute 
 				if parsed_event.dev in numeric_attr_dict.keys():
 					parsed_event.value = "HIGH" if float(parsed_event.value) > numeric_attr_dict[parsed_event.dev] else "LOW"
-			# 2. Enum unification
-			for parsed_event in parsed_events: # Unify the range of all enum variables to {0, 1}
-				parsed_event.value = self._enum_unification(parsed_event.value)
+		# 2. Enum unification
+		for parsed_event in parsed_events: # Unify the range of all enum variables to {0, 1}
+			parsed_event.value = self._enum_unification(parsed_event.value)
 		return parsed_events
 	
 	def create_data_frame(self, unified_parsed_events: "list[AttrEvent]"):
@@ -316,14 +317,16 @@ class Hprocessor(Processor):
 			attr_names.add(unified_event.dev)
 		attr_names = list(attr_names); attr_names.sort()
 		for i in range(len(attr_names)): # Build the index for each attribute
-			self.device_dict[attr_names[i]] = DevAttribute(attr_name=attr_names[i], attr_index=i, lag=0)
+			device = DevAttribute(attr_name=attr_names[i], attr_index=i, lag=0)
+			self.name_device_dict[attr_names[i]] = device; self.index_device_dict[i] = device
+		assert(len(self.name_device_dict.keys()) == len(self.index_device_dict.keys())) # Otherwise, the violation indicates that there exists devices with the same name
 		last_states = [0] * len(attr_names) # The initial states are all 0
 		for unified_event in unified_parsed_events:
 			cur_states = last_states.copy()
 			# Filter redundant events which do not imply state changes
-			if cur_states[self.device_dict[unified_event.dev].index] == unified_event.value:
+			if cur_states[self.name_device_dict[unified_event.dev].index] == unified_event.value:
 				continue
-			cur_states[self.device_dict[unified_event.dev].index] = unified_event.value
+			cur_states[self.name_device_dict[unified_event.dev].index] = unified_event.value
 			transition_events_states.append((unified_event, np.array(cur_states)))  # Record legitimate events
 			self.dev_count_dict[unified_event.dev] += 1; self.attr_count_dict[unified_event.attr] += 1
 			last_states = cur_states
@@ -391,4 +394,4 @@ class Hprocessor(Processor):
 		unified_parsed_events = self.unify_value_type(parsed_events)
 		transition_events_states = self.create_data_frame(unified_parsed_events)
 		self.partition_data_frame(transition_events_states, partition_config, training_ratio=training_ratio)
-		return self.device_dict, self.frame_dict
+		return self.frame_dict
