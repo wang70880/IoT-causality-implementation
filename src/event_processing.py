@@ -4,9 +4,12 @@ import jenkspy
 import math
 import numpy as np
 from datetime import datetime
+from collections import defaultdict
+from pprint import pprint
 
 from sklearn.linear_model import PassiveAggressiveClassifier
 from src.tigramite.tigramite import data_processing as pp
+from src.genetic_type import DevAttribute, AttrEvent
 
 class Processor:
 
@@ -239,14 +242,17 @@ class Processor:
 
 class Hprocessor(Processor):
 
-	def __init__(self, dataset):
+	def __init__(self, dataset, verbosity=1):
 		super().__init__(dataset)
 		self.attr_names = None
-		self.transition_events_states = None
+		self.attribute_dict = defaultdict(DevAttribute) # The str-DevAttribute dict using the attr name as the dict key
+		self.attr_count_dict = defaultdict(int)
+		self.transition_events_states = None # Tuple of (AttrEvent, state array)
 		self.seg_points = None
 		self.dataframes = None
 		self.frame_dict = None # A dict with key, value = (frame_id, dict['number', 'day-interval', 'start-date', 'end-date', 'attr-sequence', 'attr-type-sequence', 'state-sequence'])
 		self.frame_count = None
+		self.verbosity = verbosity
 
 	def _parse_raw_events(self, raw_event: "str"):
 		"""Transform raw events into well-formed tuples
@@ -255,11 +261,11 @@ class Hprocessor(Processor):
 			raw_event (str): The raw event logs
 
 		Returns:
-			event_tuple (list[str]): [date, time, dev_name, dev_attr, value]
+			event_tuple (AttrEvent): AttrEvent(date, time, dev, dev, value)
 		"""
 		raw_event = ' '.join(raw_event.split())
 		inp = raw_event.strip().split(' ')
-		return [inp[0], inp[1], inp[2], inp[6], inp[5]]
+		return AttrEvent(inp[0], inp[1], inp[2], inp[6], inp[5])
 
 	def _enum_unification(self, val: 'str') -> 'str':
 		act_list = ["ON", "OPEN", "HIGH"]
@@ -269,6 +275,8 @@ class Hprocessor(Processor):
 			unified_val = 'A'
 		elif val in de_list:
 			unified_val = 'DA'
+		if unified_val == '':
+			print("Unknown values detected: {}".format(val))
 		return unified_val
 
 	def _timestr2Seconds(timestr):
@@ -278,32 +286,28 @@ class Hprocessor(Processor):
 		return sec
 
 	def sanitize_raw_events(self):
-		"""This function aims to sanitize raw events.
-		Specifically, it initiates the following two steps.
-		1. Filter events about irrelevant device states.
-		2. Filter periodic attribute events.
-		3. Filter noisy events (in particular, duplicated device events)
+		"""This function aims to filter unnecessary attributes and imperfect devices.
+
 		Returns:
-			qualified_events: list[list[str]]: The list of qualified parsed events
+			qualified_events: list[AttrEvent]: The list of qualified parsed events
 		"""
-		qualified_events: list[list[str]] = []
-		fin = None
+		qualified_events: list[AttrEvent] = []
 		if path.isfile(self.transition_data): # If we have parsed the file: No need to re-parse it.
 			fin = open(self.transition_data, 'r')
 			for line in fin.readlines():
-				parsed_event: list[str] = line.strip().split(' ')
+				parsed_event:'AttrEvent' = self._parse_raw_events(line) # (date, time, dev_name, dev_attr, value)
 				qualified_events.append(parsed_event)
 		else:
-			last_parsed_event: list[str] = []
 			fin = open(self.origin_data, 'r')
+			missed_attr_dicts = defaultdict(int)
 			for line in fin.readlines():
-				parsed_event: list[str] = self._parse_raw_events(line) # (date, time, dev_name, dev_attr, value)
+				parsed_event:'AttrEvent' = self._parse_raw_events(line) # (date, time, dev_name, dev_attr, value)
 				'''
 				0. Filter noisy events.
 					Some datasets contain noisy events including typos and setup events.
 					As a result, the preprocessor should remove them.
 				'''
-				if self.dataset == 'hh101' and datetime.strptime(parsed_event[0], '%Y-%m-%d') <= datetime.strptime('2012-07-18', '%Y-%m-%d'): # The events before the date 07-18 are all setup events.
+				if self.dataset == 'hh101' and datetime.strptime(parsed_event.date, '%Y-%m-%d') <= datetime.strptime('2012-07-18', '%Y-%m-%d'): # The events before the date 07-18 are all setup events.
 					continue
 				'''
 				1. Filter periodic attribute events.
@@ -312,17 +316,21 @@ class Hprocessor(Processor):
 					The information about the attributes can be also obtained from the dataset readme file.
 				'''
 				# 1. Select interested attributes.
-				if parsed_event[3] not in ['Control4-Motion', 'Control4-Door', 'Control4-Light', 'Control4-Temperature', 'Control4-LightSensor', 'Control4-Button']:
+				if parsed_event.attr not in ['Control4-Motion', 'Control4-LightSensor', 'Control4-Door', 'Control4-Temperature', 'Control4-Light']:
+					missed_attr_dicts[parsed_event.attr] += 1
 					continue
-				# 2. Remove duplicated device events
-				if len(last_parsed_event) != 0 and \
-				(last_parsed_event[0], last_parsed_event[2], last_parsed_event[3], last_parsed_event[4]) == (last_parsed_event[0], parsed_event[2], parsed_event[3], parsed_event[4]) :
-					continue
+				if self.dataset == 'hh130':
+					if parsed_event.attr == 'Control4-LightSensor' and parsed_event.dev not in ['LS007', 'LS008', 'LS009', 'LS010']: # Filter those imperfect light sensor (motion sensors with stickers)
+						continue
+					if parsed_event.attr == 'Control4-Temperature' and parsed_event.dev not in ['T103', 'T104']:
+						continue
 				qualified_events.append(parsed_event)
-				last_parsed_event = parsed_event.copy()
+			if self.verbosity:
+				print("Missed attr dict during data preprocessing:")
+				pprint(missed_attr_dicts)
 		return qualified_events
 
-	def unify_value_type(self, parsed_events: "list[list[str]]") -> "list[list[str]]":
+	def unify_value_type(self, parsed_events: "list[AttrEvent]") -> "list[AttrEvent]":
 		"""This function unifies the attribute values by the following two steps.
 		1. Initiate the numeric-enum conversion.
 		2. Unify the enum variables and map their ranges to ['A', 'DA']
@@ -335,41 +343,38 @@ class Hprocessor(Processor):
 		"""
 
 		# 1. Numeric-to-enum conversion
-		numeric_attr_dict = {}
-		unified_parsed_events: "list[list[str]]" = []
+		numeric_attr_dict = defaultdict(list)
 		if path.isfile(self.transition_data):
-			unified_parsed_events = parsed_events
+			pass
 		else:
 			for parsed_event in parsed_events: # First collect all float values for each numeric attribute
-				attr_name = parsed_event[2] # In this dataset, the device name is actually the attribute name.
 				try:
-					val = float(parsed_event[4])
-					numeric_attr_dict[attr_name] = numeric_attr_dict[attr_name] if attr_name in numeric_attr_dict.keys() else []
-					numeric_attr_dict[attr_name].append(val)
+					float_val = float(parsed_event.value)
+					numeric_attr_dict[parsed_event.dev].append(float_val) # In this dataset, the device name is actually the attribute name.
 				except:
 					continue
+			if self.verbosity:
+				print("Prepare to initiate natural breaks algorithm.")
 			for k, v in numeric_attr_dict.items(): # Then call natural breaks algorithms to get the break for each attribute
+				print("		* {}: {}".format(k, len(v)))
 				numeric_attr_dict[k] = jenkspy.jenks_breaks(v, nb_class=2)[1]
 			for parsed_event in parsed_events: # Finally, transform the numeric attribute to low-high enum attribute 
-				attr_name = parsed_event[2]
-				if attr_name in numeric_attr_dict.keys():
-					val = float(parsed_event[4])
-					parsed_event[4] = "HIGH" if val > numeric_attr_dict[attr_name] else "LOW"
+				if parsed_event.dev in numeric_attr_dict.keys():
+					parsed_event.value = "HIGH" if float(parsed_event.value) > numeric_attr_dict[parsed_event.dev] else "LOW"
 			# 2. Enum unification
 			for parsed_event in parsed_events: # Unify the range of all enum variables
-				unified_val = self._enum_unification(parsed_event[4])
+				unified_val = self._enum_unification(parsed_event.value)
 				if unified_val != '':
-					parsed_event[4] = unified_val
-					unified_parsed_events.append(parsed_event)
-		return unified_parsed_events
+					parsed_event.value = unified_val
+		return parsed_events
 	
-	def create_data_frame(self, unified_parsed_events: "list[list[str]]"):
+	def create_data_frame(self, unified_parsed_events: "list[AttrEvent]"):
 		"""This function takes unified events as inputs, and filters non-transition events
 		Moreover, it creates the data frame for the transition events
 		Finally, this function writes these transition events into data files
 
 		Args:
-			unified_parsed_events (list[list[str]]): The unified events (from the unify_value_type function)
+			unified_parsed_events (list[AttrEvent]): The unified events (from the unify_value_type function)
 
 		Returns:
 			attr_names (list[str]): The list of involved attributes 
@@ -378,20 +383,22 @@ class Hprocessor(Processor):
 		attr_names = set()
 		transition_events_states = []
 		for unified_event in unified_parsed_events: # Get the list of attributes
-			attr_names.add(unified_event[2])
+			attr_names.add(unified_event.dev)
 		attr_names = list(attr_names); attr_names.sort()
+		for i in range(len(attr_names)): # Build the index for each attribute
+			self.attribute_dict[attr_names[i]] = DevAttribute(attr_name=attr_names[i], attr_index=i, lag=0)
 		last_states = [0] * len(attr_names) # The initial states are all 0
-		for unified_event in unified_parsed_events: # Filering of non-transition events results in a deduction of len(unified_parsed_events) - len(transition_event_str) events
-			attr_name = unified_event[2]; val = unified_event[4]
+		for unified_event in unified_parsed_events: # Filter non-transition events
 			cur_states = last_states.copy()
-			cur_states[attr_names.index(attr_name)] = 1 if val == 'A' else 0
-			if cur_states != last_states: # A state transition happens: Record the event and the current state
+			cur_states[self.attribute_dict[unified_event.dev].index] = 1 if unified_event.value == 'A' else 0
+			if any([cur_states[i] != last_states[i] for i in range(len(attr_names))]): # Filter out events (e.g., periodic state report) with no state transitions, and only record events which indicate state transitions.
 				transition_events_states.append((unified_event, np.array(cur_states)))
+				self.attr_count_dict[unified_event.dev] += 1
 			last_states = cur_states
 		if not path.isfile(self.transition_data):
 			fout = open(self.transition_data, 'w+') # Finally, write these transition events into the data file
 			for tup in transition_events_states: 
-				fout.write(' '.join(tup[0]) + '\n')
+				fout.write(tup[0].__str__() + '\n')
 			fout.close()
 		return attr_names, transition_events_states
 	
@@ -408,24 +415,21 @@ class Hprocessor(Processor):
 		dataframes = []; testing_dataframes = []
 		frame_dict = {}
 		states_array = np.stack([tup[1] for tup in transition_events_states], axis=0)
-		events_list = [tup[0] for tup in transition_events_states]
+		events_list:'list[AttrEvent]' = [tup[0] for tup in transition_events_states]
 
-		day_criteria = partition_config
-		last_timestamp = ''
+		last_timestamp = ''; count = 0
 		seg_points = []
-		count = 0
-		for tup in transition_events_states: # First get the semengation points
-			transition_event = tup[0]
-			cur_timestamp = '{} {}'.format(transition_event[0], transition_event[1])
+		for tup in transition_events_states: # First get the segmentation points
+			transition_event:'AttrEvent' = tup[0]
+			cur_timestamp = '{} {}'.format(transition_event.date, transition_event.time)
 			last_timestamp = cur_timestamp if last_timestamp == '' else last_timestamp
 			past_days = ((datetime.fromisoformat(cur_timestamp) - datetime.fromisoformat(last_timestamp)).total_seconds()) * 1.0 / 86400
-			if past_days >= day_criteria:
+			if past_days >= partition_config:
 				seg_points.append(count)
 				last_timestamp = cur_timestamp
 			count += 1
 
-		last_point = 0
-		frame_count = 0
+		last_point = 0; frame_count = 0
 		for seg_point in seg_points: # Get the data frame with range [last_point, seg_point]
 			if seg_point - last_point < 100: # If current day contains too few records, append the current day's record to the next day.
 				continue
@@ -437,13 +441,13 @@ class Hprocessor(Processor):
 			frame_dict[frame_count]['id'] = frame_count
 			frame_dict[frame_count]['var-name'] = attr_names
 			frame_dict[frame_count]['number'] = seg_point - last_point
-			frame_dict[frame_count]['day-interval'] = day_criteria
+			frame_dict[frame_count]['day-interval'] = partition_config
 			frame_dict[frame_count]['training-data'] = dataframe; frame_dict[frame_count]['testing-data'] = testing_dataframe 
 			frame_dict[frame_count]['testing-start-index'] = testing_start_point
-			frame_dict[frame_count]['start-date'] = "{} {}".format(events_list[last_point][0], events_list[last_point][1]); frame_dict[frame_count]['end-date'] = "{} {}".format(events_list[seg_point][0], events_list[seg_point][1])
-			frame_dict[frame_count]['attr-sequence'] = [tup[0][2] for tup in transition_events_states[last_point:testing_start_point]]; frame_dict[frame_count]['testing-attr-sequence'] = [tup[0][2] for tup in transition_events_states[testing_start_point:seg_point]]
-			frame_dict[frame_count]['attr-type-sequence'] = [tup[0][3] for tup in transition_events_states[last_point:testing_start_point]]; frame_dict[frame_count]['testing-attr-type-sequence'] = [tup[0][3] for tup in transition_events_states[testing_start_point:seg_point]]
-			frame_dict[frame_count]['state-sequence'] = [1 if tup[0][4] == 'A' else 0 for tup in transition_events_states[last_point:testing_start_point]]; frame_dict[frame_count]['testing-state-sequence'] = [1 if tup[0][4] == 'A' else 0 for tup in transition_events_states[testing_start_point:seg_point]]
+			frame_dict[frame_count]['start-date'] = "{} {}".format(events_list[last_point].date, events_list[last_point].time); frame_dict[frame_count]['end-date'] = "{} {}".format(events_list[seg_point].date, events_list[seg_point].time)
+			frame_dict[frame_count]['attr-sequence'] = [event.dev for event in events_list[last_point:testing_start_point]]; frame_dict[frame_count]['testing-attr-sequence'] = [event.dev for event in events_list[testing_start_point:seg_point]]
+			frame_dict[frame_count]['attr-type-sequence'] = [event.attr for event in events_list[last_point:testing_start_point]]; frame_dict[frame_count]['testing-attr-sequence'] = [event.attr for event in events_list[testing_start_point:seg_point]]
+			frame_dict[frame_count]['state-sequence'] = [1 if event.attr == 'A' else 0 for event in events_list[last_point:testing_start_point]]; frame_dict[frame_count]['state-sequence'] = [1 if event.attr == 'A' else 0 for event in events_list[testing_start_point:seg_point]]
 			frame_dict[frame_count]['n-training'] = len(frame_dict[frame_count]['attr-sequence']); frame_dict[frame_count]['n-testing'] = len(frame_dict[frame_count]['testing-attr-sequence'])
 			frame_count += 1
 			last_point = seg_point
