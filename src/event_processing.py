@@ -9,7 +9,7 @@ from pprint import pprint
 
 from sklearn.linear_model import PassiveAggressiveClassifier
 from src.tigramite.tigramite import data_processing as pp
-from src.genetic_type import DevAttribute, AttrEvent
+from src.genetic_type import DevAttribute, AttrEvent, DataFrame
 
 class Processor:
 
@@ -64,81 +64,6 @@ class Processor:
 		fout_time.close()
 		return involved_sensors
 
-	def identify_causal_processes(self, act_label = '', sensors_list = []):
-		Path(self.mat_path_prefix + act_label).mkdir(parents=True, exist_ok=True)
-		Path(self.timeorder_path_prefix + act_label).mkdir(parents=True, exist_ok=True)
-		Path(self.priortruth_path_prefix + act_label).mkdir(parents=True, exist_ok=True)
-		Path(self.truth_path_prefix + act_label).mkdir(parents=True, exist_ok=True)
-		system("rm -rf {}/*".format(self.timeorder_path_prefix + act_label))
-		system("rm -rf {}/*".format(self.priortruth_path_prefix + act_label))
-		fin_act = open(self.partition_path_prefix + act_label + '/data', 'r') 
-		sequence_count_dict = {} # Record all existing sequences in the dataset
-		process_count_dict = {} # Record more frequent sequences in the dataset
-		device_dependency_count_dict: 'dict[str, int]' = {} # Record less frequent sequences in the dataset
-		complete_dependency_count_dict : 'dict[str, int]' = {}
-		process_index_dict = {} 
-		process_instance_dict = {} # Record the instance (the sequence of device state updates) of a process.
-		process_lineno_dict = {} # Record the line no for each process instance, and write it to the txt file
-		slist = []; statelist = []; linelist = []
-		last_date = ''
-		line_number = 0
-
-		for line in fin_act.readlines(): # The 1st step: Identify causal processes in the act-dataset
-			line_number += 1
-			inp = line.strip().split(' ')
-			date = inp[0]
-			sensor_name = inp[2]
-			sensor_state = inp[3]
-			if (date != last_date) or (sensor_name in slist): # NOTE: How to partition the sequence is important!
-				if len(slist) > 1: # Here we only calculate those causal processes with num(devices) > 1
-					k = ' '.join(slist)
-					sequence_count_dict[k] = sequence_count_dict[k] + 1 if k in sequence_count_dict.keys() else 1 # Record all the sequence
-					process_instance_dict[k] = process_instance_dict[k] if k in process_instance_dict.keys() else []; process_instance_dict[k].append(statelist) # Record the process instance
-					process_lineno_dict[k] = process_lineno_dict[k] if k in process_lineno_dict.keys() else []; process_lineno_dict[k].append(linelist) # Record the process line
-				last_date = date
-				slist = []; statelist = []; linelist = []
-			slist.append(sensor_name); statelist.append(sensor_state); linelist.append(line_number)
-		fin_act.close()
-		system("rm -rf {}/*".format(self.mat_path_prefix + act_label))
-		process_index = 1
-		total_days = sum(list(sequence_count_dict.values()))
-
-		for process, count in sequence_count_dict.items(): ## The 2nd step: Build the file for each identified causal processes, and the corresponding time order file
-			if count < total_days * 0.005: # NOTE: For rare sequences (say, occurrence less than 0.01%), we regard them as device dependency and store them into the dependency_count_dict
-				complete_dependency_count_dict[process] = count
-				devices = list(process.split(" "))
-				for i in range(len(devices) - 1):
-					dependency = '{} {}'.format(devices[i], devices[i+1])
-					device_dependency_count_dict[dependency] = device_dependency_count_dict[dependency] + count if dependency in device_dependency_count_dict.keys() else count
-			else:
-				#print("highly frequent process, count, index = {}, {}, {}".format(process, count, process_index))
-				process_count_dict[process] = count; process_index_dict[process] = process_index
-				fout = open(self.mat_path_prefix + act_label + '/{}.mat'.format(process_index), 'w+')
-				ftxtout = open(self.mat_path_prefix + act_label + '/{}.txt'.format(process_index), 'w+')
-				fout.write(" ".join(sensors_list) + '\n')
-				sensors = list(process.split(" "))
-				for i in range (len(process_instance_dict[process])): # Traverse each instance of the process, and generate and write the data
-					process_instance = process_instance_dict[process][i]
-					line_instance = process_lineno_dict[process][i]
-					assert(len(sensors) == len(process_instance))
-					# First, construct initial states before the process instance
-					vec = ['0'] *  len(sensors_list) # The vec variable records the list of binary states
-					for j in range(len(sensors)):  # (sensors[i], process_instance[i]) denotes the ith record
-						sensor_index = sensors_list.index(sensors[j])
-						vec[sensor_index] = '0' if process_instance[j] == 'A' else '1'
-					fout.write(" ".join(vec) + "\n") # write the initial state (before the process starts) to the file
-					# Second, for each record, we add the record to the dataset
-					for j in range(len(sensors)):
-						sensor_index = sensors_list.index(sensors[j])
-						vec[sensor_index] = '1' if process_instance[j] == 'A' else '0'
-						fout.write(" ".join(vec) + "\n") # write each log (before the process starts) to the file
-						ftxtout.write("{}: {} {}\n".format(line_instance[0], sensors[j], process_instance[j])) if j == 0 else ftxtout.write("{} {}\n".format(sensors[j], process_instance[j]))
-					ftxtout.write("\n")
-				process_index += 1
-				fout.close()
-				ftxtout.close()
-		return process_index_dict, process_count_dict, device_dependency_count_dict
-	
 	def build_timerel_and_truth(self, act_label:'str' = '', devices_list:'list[str]' = [], process_index_dict:'dict[str, int]'= {}):
 		mixed_truth_mat = np.zeros( (len(devices_list), len(devices_list)) )
 		for process, process_index in process_index_dict.items(): # The 3rd step: Build the corresponding time order file and the truth file
@@ -245,14 +170,14 @@ class Hprocessor(Processor):
 	def __init__(self, dataset, verbosity=1):
 		super().__init__(dataset)
 		self.attr_names = None
-		self.attribute_dict = defaultdict(DevAttribute) # The str-DevAttribute dict using the attr name as the dict key
-		self.attr_count_dict = defaultdict(int)
-		self.transition_events_states = None # Tuple of (AttrEvent, state array)
-		self.seg_points = None
-		self.dataframes = None
+		self.device_dict = defaultdict(DevAttribute) # The str-DevAttribute dict using the attr name as the dict key
+		self.attr_count_dict = defaultdict(int); self.dev_count_dict = defaultdict(int)
+		self.transition_events_states = None # Lists of all (event, state array) tuple
 		self.frame_dict = None # A dict with key, value = (frame_id, dict['number', 'day-interval', 'start-date', 'end-date', 'attr-sequence', 'attr-type-sequence', 'state-sequence'])
 		self.frame_count = None
 		self.verbosity = verbosity
+		# Variables for testing purposes
+		self.discretization_dict:'dict[tuple]' = {}
 
 	def _parse_raw_events(self, raw_event: "str"):
 		"""Transform raw events into well-formed tuples
@@ -272,11 +197,12 @@ class Hprocessor(Processor):
 		de_list = ["OFF", "CLOSE", "LOW"]
 		unified_val = ''
 		if val in act_list:
-			unified_val = 'A'
+			unified_val = 1
 		elif val in de_list:
-			unified_val = 'DA'
-		if unified_val == '':
+			unified_val = 0
+		else:
 			print("Unknown values detected: {}".format(val))
+			assert(0)
 		return unified_val
 
 	def _timestr2Seconds(timestr):
@@ -292,11 +218,12 @@ class Hprocessor(Processor):
 			qualified_events: list[AttrEvent]: The list of qualified parsed events
 		"""
 		qualified_events: list[AttrEvent] = []
+		device_state_dict = defaultdict(str)
 		if path.isfile(self.transition_data): # If we have parsed the file: No need to re-parse it.
 			fin = open(self.transition_data, 'r')
 			for line in fin.readlines():
-				parsed_event:'AttrEvent' = self._parse_raw_events(line) # (date, time, dev_name, dev_attr, value)
-				qualified_events.append(parsed_event)
+				inp = ' '.join(line.split()).strip().split(' ')
+				qualified_events.append(AttrEvent(inp[0], inp[1], inp[2], inp[3], inp[4]))
 		else:
 			fin = open(self.origin_data, 'r')
 			missed_attr_dicts = defaultdict(int)
@@ -308,6 +235,8 @@ class Hprocessor(Processor):
 					As a result, the preprocessor should remove them.
 				'''
 				if self.dataset == 'hh101' and datetime.strptime(parsed_event.date, '%Y-%m-%d') <= datetime.strptime('2012-07-18', '%Y-%m-%d'): # The events before the date 07-18 are all setup events.
+					continue
+				elif self.dataset == 'hh130' and datetime.strptime(parsed_event.date, '%Y-%m-%d') <= datetime.strptime('2014-04-20', '%Y-%m-%d'): # The events before the date 07-18 are all setup events.
 					continue
 				'''
 				1. Filter periodic attribute events.
@@ -324,16 +253,21 @@ class Hprocessor(Processor):
 						continue
 					if parsed_event.attr == 'Control4-Temperature' and parsed_event.dev not in ['T103', 'T104']:
 						continue
+				# 2. Remove redundant events (which implies no state transitions)
+				if device_state_dict[parsed_event.dev] == parsed_event.value:
+					continue
+				# 3. Collect legitimate events
+				device_state_dict[parsed_event.dev] = parsed_event.value
 				qualified_events.append(parsed_event)
 			if self.verbosity:
-				print("Missed attr dict during data preprocessing:")
+				print("[Preprocessing] Missed attr dict during data preprocessing:")
 				pprint(missed_attr_dicts)
 		return qualified_events
 
 	def unify_value_type(self, parsed_events: "list[AttrEvent]") -> "list[AttrEvent]":
 		"""This function unifies the attribute values by the following two steps.
 		1. Initiate the numeric-enum conversion.
-		2. Unify the enum variables and map their ranges to ['A', 'DA']
+		2. Unify the enum variables and map their ranges to {0, 1}
 
 		Args:
 			parsed_events (list[list[str]]): The parsed sanitized events (derived from the sanitize_data function)
@@ -343,29 +277,25 @@ class Hprocessor(Processor):
 		"""
 
 		# 1. Numeric-to-enum conversion
-		numeric_attr_dict = defaultdict(list)
+		continuous_attr_dict = defaultdict(list);  numeric_attr_dict = defaultdict(float)
 		if path.isfile(self.transition_data):
 			pass
 		else:
 			for parsed_event in parsed_events: # First collect all float values for each numeric attribute
 				try:
 					float_val = float(parsed_event.value)
-					numeric_attr_dict[parsed_event.dev].append(float_val) # In this dataset, the device name is actually the attribute name.
+					continuous_attr_dict[parsed_event.dev].append(float_val) # In this dataset, the device name is actually the attribute name.
 				except:
 					continue
-			if self.verbosity:
-				print("Prepare to initiate natural breaks algorithm.")
-			for k, v in numeric_attr_dict.items(): # Then call natural breaks algorithms to get the break for each attribute
-				print("		* {}: {}".format(k, len(v)))
+			for k, v in continuous_attr_dict.items(): # Then call natural breaks algorithms to get the break for each attribute
 				numeric_attr_dict[k] = jenkspy.jenks_breaks(v, nb_class=2)[1]
+				self.discretization_dict[k] = (v, numeric_attr_dict[k])
 			for parsed_event in parsed_events: # Finally, transform the numeric attribute to low-high enum attribute 
 				if parsed_event.dev in numeric_attr_dict.keys():
 					parsed_event.value = "HIGH" if float(parsed_event.value) > numeric_attr_dict[parsed_event.dev] else "LOW"
 			# 2. Enum unification
-			for parsed_event in parsed_events: # Unify the range of all enum variables
-				unified_val = self._enum_unification(parsed_event.value)
-				if unified_val != '':
-					parsed_event.value = unified_val
+			for parsed_event in parsed_events: # Unify the range of all enum variables to {0, 1}
+				parsed_event.value = self._enum_unification(parsed_event.value)
 		return parsed_events
 	
 	def create_data_frame(self, unified_parsed_events: "list[AttrEvent]"):
@@ -386,23 +316,31 @@ class Hprocessor(Processor):
 			attr_names.add(unified_event.dev)
 		attr_names = list(attr_names); attr_names.sort()
 		for i in range(len(attr_names)): # Build the index for each attribute
-			self.attribute_dict[attr_names[i]] = DevAttribute(attr_name=attr_names[i], attr_index=i, lag=0)
+			self.device_dict[attr_names[i]] = DevAttribute(attr_name=attr_names[i], attr_index=i, lag=0)
 		last_states = [0] * len(attr_names) # The initial states are all 0
-		for unified_event in unified_parsed_events: # Filter non-transition events
+		for unified_event in unified_parsed_events:
 			cur_states = last_states.copy()
-			cur_states[self.attribute_dict[unified_event.dev].index] = 1 if unified_event.value == 'A' else 0
-			if any([cur_states[i] != last_states[i] for i in range(len(attr_names))]): # Filter out events (e.g., periodic state report) with no state transitions, and only record events which indicate state transitions.
-				transition_events_states.append((unified_event, np.array(cur_states)))
-				self.attr_count_dict[unified_event.dev] += 1
+			# Filter redundant events which do not imply state changes
+			if cur_states[self.device_dict[unified_event.dev].index] == unified_event.value:
+				continue
+			cur_states[self.device_dict[unified_event.dev].index] = unified_event.value
+			transition_events_states.append((unified_event, np.array(cur_states)))  # Record legitimate events
+			self.dev_count_dict[unified_event.dev] += 1; self.attr_count_dict[unified_event.attr] += 1
 			last_states = cur_states
+		if self.verbosity:
+			print("[Preprocessing] Event preprocessing finished. Target attribute dict")
+			pprint(self.attr_count_dict)
+			print("[Preprocessing] Event preprocessing finished. Target device dict")
+			pprint(self.dev_count_dict)
 		if not path.isfile(self.transition_data):
 			fout = open(self.transition_data, 'w+') # Finally, write these transition events into the data file
 			for tup in transition_events_states: 
 				fout.write(tup[0].__str__() + '\n')
 			fout.close()
-		return attr_names, transition_events_states
+		self.attr_names = attr_names
+		return transition_events_states
 	
-	def partition_data_frame(self, attr_names=[], transition_events_states=[], partition_config = 10, training_ratio=1.0):
+	def partition_data_frame(self, transition_events_states, partition_config, training_ratio):
 		"""Partition the data frame according to the set of triggered attributes
 
 		Args:
@@ -412,10 +350,8 @@ class Hprocessor(Processor):
 		Returns:
 			dataframes (list[Dataframe]): The separated data frames
 		"""
-		dataframes = []; testing_dataframes = []
-		frame_dict = {}
+		frame_dict = defaultdict(DataFrame)
 		states_array = np.stack([tup[1] for tup in transition_events_states], axis=0)
-		events_list:'list[AttrEvent]' = [tup[0] for tup in transition_events_states]
 
 		last_timestamp = ''; count = 0
 		seg_points = []
@@ -435,73 +371,24 @@ class Hprocessor(Processor):
 				continue
 			testing_start_point = math.floor(last_point + training_ratio * (seg_point - last_point))
 			training_data = states_array[last_point:testing_start_point, ]; testing_data = states_array[testing_start_point: seg_point, ]
-			dataframe = pp.DataFrame(data=training_data, var_names=attr_names); testing_dataframe = pp.DataFrame(data=testing_data, var_names=attr_names)
-			dataframes.append(dataframe); testing_dataframes.append(testing_dataframe)
-			frame_dict[frame_count] = {}
-			frame_dict[frame_count]['id'] = frame_count
-			frame_dict[frame_count]['var-name'] = attr_names
-			frame_dict[frame_count]['number'] = seg_point - last_point
-			frame_dict[frame_count]['day-interval'] = partition_config
-			frame_dict[frame_count]['training-data'] = dataframe; frame_dict[frame_count]['testing-data'] = testing_dataframe 
-			frame_dict[frame_count]['testing-start-index'] = testing_start_point
-			frame_dict[frame_count]['start-date'] = "{} {}".format(events_list[last_point].date, events_list[last_point].time); frame_dict[frame_count]['end-date'] = "{} {}".format(events_list[seg_point].date, events_list[seg_point].time)
-			frame_dict[frame_count]['attr-sequence'] = [event.dev for event in events_list[last_point:testing_start_point]]; frame_dict[frame_count]['testing-attr-sequence'] = [event.dev for event in events_list[testing_start_point:seg_point]]
-			frame_dict[frame_count]['attr-type-sequence'] = [event.attr for event in events_list[last_point:testing_start_point]]; frame_dict[frame_count]['testing-attr-sequence'] = [event.attr for event in events_list[testing_start_point:seg_point]]
-			frame_dict[frame_count]['state-sequence'] = [1 if event.attr == 'A' else 0 for event in events_list[last_point:testing_start_point]]; frame_dict[frame_count]['state-sequence'] = [1 if event.attr == 'A' else 0 for event in events_list[testing_start_point:seg_point]]
-			frame_dict[frame_count]['n-training'] = len(frame_dict[frame_count]['attr-sequence']); frame_dict[frame_count]['n-testing'] = len(frame_dict[frame_count]['testing-attr-sequence'])
+			dataframe = pp.DataFrame(data=training_data, var_names=self.attr_names); testing_dataframe = pp.DataFrame(data=testing_data, var_names=self.attr_names)
+			dframe = DataFrame(id=frame_count, var_names=self.attr_names, n_events=seg_point-last_point)
+			dframe.set_training_data(transition_events_states[last_point:testing_start_point], dataframe)
+			dframe.set_testing_data(transition_events_states[testing_start_point:seg_point], testing_dataframe)
+			frame_dict[frame_count] = dframe
+
 			frame_count += 1
 			last_point = seg_point
 
-		self.attr_names = attr_names	
 		self.transition_events_states = transition_events_states
-		self.seg_points = seg_points
-		self.dataframes = dataframes; self.testing_dataframes = testing_dataframes
 		self.frame_dict = frame_dict
 		self.frame_count = frame_count
-
-		return dataframes
 	
-	def initiate_data_preprocessing(self, partition_config=10, training_ratio=1.0):
+	def initiate_data_preprocessing(self, partition_config=15, training_ratio=0.9):
 		"""The starting function for preprocessing data
 		"""
 		parsed_events = self.sanitize_raw_events()
 		unified_parsed_events = self.unify_value_type(parsed_events)
-		attr_names, transition_events_states = self.create_data_frame(unified_parsed_events)
-		dataframes = self.partition_data_frame(attr_names, transition_events_states, partition_config, training_ratio=training_ratio)
-		return attr_names, dataframes
-	
-	def deprecated_instrument_data(self):
-		'''
-		[Deprecated function]
-		Instrument the dataset by randomly generating automation rules.
-		'''
-		num_rules = random.randint(1, 3); i = 0
-		selected_triggers = []
-		while True:
-			selected_trigger = random.choice(list(self.sensor_count_dict.keys()))
-			for chosen_trigger in selected_triggers: # Avoid two consecutive device event, both triggering responser event (not real-world case)
-				if ('{} {}'.format(chosen_trigger, selected_trigger) in self.dependency_interval_dict.keys()) or ('{} {}'.format(selected_trigger, chosen_trigger) in self.dependency_interval_dict.keys()):
-					continue
-			selected_responser = random.choice(list(self.actuator_count_dict.keys()))
-			potential_automaiton_interaction = '{} {}'.format(selected_trigger, selected_responser)
-			if (potential_automaiton_interaction not in list(self.dependency_interval_dict.keys())) and (selected_trigger not in self.instrumented_automation_rule_dict.keys()):
-				selected_triggers.append(selected_trigger)
-				self.instrumented_automation_rule_dict[selected_trigger] = selected_responser
-				i += 1
-				if i == num_rules:
-					break
-		fin = open(self.datafile, 'r'); fout = open(self.datafile + '-temp', 'w+')
-		last_date = ''; last_time = ''; last_device = ''; last_device_state = ''
-		count = 0
-		for line in fin.readlines():
-			if (last_device in self.instrumented_automation_rule_dict.keys()) and (last_device_state == 'A'): # Check if the device in the last record matches the trigger name
-				fout.write('{} {} {} A Control4-Automation\n'.format(last_date, last_time, self.instrumented_automation_rule_dict[last_device])) # NOTE: Later here the time should be replaced.
-				count += 1
-			inp = line.strip().split(' ')
-			last_date = inp[0]; last_time = inp[1]; last_device = inp[2]; last_device_state = inp[3]
-			fout.write(line)
-		fin.close()
-		fout.close()
-		os.system('mv {} {}'.format(self.datafile + '-temp', self.datafile))
-		self.get_device_statistics()
-	
+		transition_events_states = self.create_data_frame(unified_parsed_events)
+		self.partition_data_frame(transition_events_states, partition_config, training_ratio=training_ratio)
+		return self.device_dict, self.frame_dict
