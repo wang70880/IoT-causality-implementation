@@ -26,6 +26,8 @@ import statistics
 import pprint
 import time
 
+from collections import defaultdict
+
 from pgmpy.models import BayesianNetwork 
 from pgmpy.estimators import MaximumLikelihoodEstimator, BayesianEstimator
 
@@ -33,6 +35,9 @@ from src.tigramite.tigramite import data_processing as pp
 from src.tigramite.tigramite.toymodels import structural_causal_processes as toys
 from src.tigramite.tigramite.pcmci import PCMCI
 from src.tigramite.tigramite.independence_tests import CMIsymb
+
+from src.event_processing import Hprocessor
+from src.genetic_type import DataFrame, AttrEvent, DevAttribute
 
 import src.event_processing as evt_proc
 import src.background_generator as bk_generator
@@ -42,36 +47,35 @@ import src.security_guard as security_guard
 """Parameter Settings"""
 
 # Default communicator
+os.environ['KMP_DUPLICATE_LIB_OK']='True'
 COMM = MPI.COMM_WORLD
 NORMAL = 0
 ABNORMAL = 1
 
 TEST_PARAM_SETTING = True
 PARAM_SETTING = True
-DATA_PREPROCESSING = True
-BACKGROUND_GENERATION = True
 partition_config = int(sys.argv[1])
 apply_bk = int(sys.argv[2])
 
 if TEST_PARAM_SETTING:
     single_frame_test_flag = 1 # Whether only testing single dataframe
-    autocorrelation_flag = False # Whether consider autocorrelations in structure identification
+    autocorrelation_flag = True # Whether consider autocorrelations in structure identification
     skip_skeleton_estimation_flag = 0 # Whether skip the causal structure identification process (For speedup and testing)
     skip_bayesian_fitting_flag = 0
     num_anomalies = 0
     max_prop_length = 1
 
 if PARAM_SETTING:
-    dataset = 'hh101'
+    dataset = 'hh130'
     stable_only = 1
     cond_ind_test = CMIsymb()
-    tau_max = 1; tau_min = 1
+    tau_max = 5; tau_min = 1
     verbosity = -1 # -1: No debugging information; 0: Debugging information in this module; 2: Debugging info in PCMCI class; 3: Debugging info in CIT implementations
     ## For stable-pc
     max_n_edges = 5
-    pc_alpha = 0.1
+    pc_alpha = 0.001
     max_conds_dim = 5
-    maximum_comb = 1
+    maximum_comb = 10
     ## For MCI
     alpha_level = 0.01
     max_conds_px = 5; max_conds_py= 5
@@ -246,7 +250,7 @@ class BayesianFitter:
     def get_expanded_parent_indices(self, expanded_attr_index: 'int'):
         return list(np.where(self.expanded_causal_graph[:,expanded_attr_index] == 1)[0])
         #return {index: self.expanded_var_names[i] for index in par_indices}
-    
+
     def get_parents(self, attr, name_flag = True):
         expanded_attr_index = self.expanded_var_names.index(attr)
         parent_index_list = list(np.where(self.expanded_causal_graph[:,expanded_attr_index] == 1)[0]); parent_name_list = [self.expanded_var_names[i] for i in parent_index_list]
@@ -294,18 +298,20 @@ class BayesianFitter:
         self.stop_attr_list = stop_attr_list
 
 """Event preprocessing"""
-if DATA_PREPROCESSING:
-    event_preprocessor = evt_proc.Hprocessor(dataset)
-    attr_names, dataframes = event_preprocessor.initiate_data_preprocessing(partition_config=partition_config, training_ratio=0.8)
+event_preprocessor:'Hprocessor' = Hprocessor(dataset)
+event_preprocessor.initiate_data_preprocessing(partition_config=partition_config, training_ratio=0.9)
 
 """Background Generator"""
-if BACKGROUND_GENERATION:
-    background_generator = bk_generator.BackgroundGenerator(dataset, event_preprocessor, partition_config, tau_max)
+background_generator = bk_generator.BackgroundGenerator(dataset, event_preprocessor, partition_config, tau_max)
 
-"""Interaction Miner and Runtime Security Monitor"""
+background_generator.generate_candidate_interactions(apply_bk, 0, event_preprocessor.n_vars, autocorrelation_flag=autocorrelation_flag) # Get candidate interactions
+
+exit()
+
 for frame_id in range(event_preprocessor.frame_count):
-    frame = event_preprocessor.frame_dict[frame_id]; dataframe = frame['training-data']
-    """Causal Graph Skeleton Construction."""
+    """Interaction Miner"""
+    frame: 'DataFrame' = event_preprocessor.frame_dict[frame_id]
+    dataframe = frame.training_dataframe; attr_names = frame.var_names
     start = time.time()
     if not skip_skeleton_estimation_flag:
         T = dataframe.T; N = dataframe.N
@@ -394,8 +400,10 @@ for frame_id in range(event_preprocessor.frame_count):
                     print("##\n## MCI for frame {} finished. Consumed time: {} mins\n##".format(frame_id, (mci_end - mci_start) * 1.0 / 60))
     else:
         pc_result_dict[frame_id] = {'D001': [], 'D002': [('D002', -1), ('M001', -1)], 'LS001': [('LS001', -1), ('D002', -1), ('M008', -1), ('M001', -1)], 'LS002': [('M008', -1), ('M002', -1)], 'LS003': [('M008', -1)], 'LS004': [('LS016', -1), ('M008', -1)], 'LS005': [('M008', -1)], 'LS006': [('LS006', -1), ('M006', -1), ('M003', -1)], 'LS007': [], 'LS008': [('LS013', -1)], 'LS009': [('M008', -1)], 'LS010': [('LS001', -1),      ('M001', -1)], 'LS011': [('M001', -1), ('M008', -1)], 'LS012': [('M008', -1)], 'LS013': [('LS013', -1), ('M008', -1)], 'LS014': [('LS014', -1), ('LS009', -1), ('M009', -1), ('M008', -1)], 'LS015':        [('M011', -1)], 'LS016': [('M002', -1), ('M008', -1)], 'M001': [('D002', -1), ('M001', -1), ('M010', -1), ('M005', -1), ('LS001', -1)], 'M002': [('M002', -1), ('M004', -1), ('LS016', -1), ('LS002', -1),  ('M003', -1)], 'M003': [('LS006', -1), ('LS003', -1), ('M006', -1), ('M003', -1), ('M002', -1), ('M007', -1), ('M004', -1)], 'M004': [('M004', -1), ('M002', -1), ('M008', -1), ('M003', -1), ('LS016', -   1)], 'M005': [('M005', -1), ('M008', -1), ('M001', -1), ('M004', -1), ('M010', -1)], 'M006': [('M006', -1), ('LS006', -1), ('M003', -1)], 'M007': [('M007', -1), ('M003', -1)], 'M008': [('M008', -1),('M004', -1), ('T104', -1), ('M005', -1), ('LS013', -1), ('LS008', -1), ('LS005', -1)], 'M009': [('M009', -1), ('M012', -1), ('LS014', -1), ('LS009', -1)], 'M010': [('M010', -1), ('M001', -1), ('D002', -1), ('M005', -1)], 'M011': [('M011', -1), ('LS015', -1), ('M009', -  1), ('M001', -1)], 'M012': [('M009', -1), ('M012', -1), ('LS014', -1)], 'T101': [('T101', -1)], 'T102': [], 'T103': [], 'T104': [('T104', -1), ('M008', -1)], 'T105': [('T105', -1), ('M008', -1)]}
+    
+    exit()
 
-    """Causal Graph Parameterization."""
+    """CPT Estimator."""
     if COMM.rank == 0:
         print("Skeleton construction completes. Consumed time: {} mins.".format((time.time() - start)*1.0/60))
         start = time.time()

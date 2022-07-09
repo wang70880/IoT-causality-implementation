@@ -92,50 +92,6 @@ class Processor:
 		df = pd.DataFrame(data=mixed_truth_mat.astype(int))
 		df.to_csv(self.priortruth_path_prefix + act_label + '/mixed.mat', sep = ' ', header = devices_list, index = False) # write to truth file
 
-	def generate_interaction_graph(self, act_label, alpha, processes_count_dict, device_dependency_count_dict):
-		'''
-		This function calls the Rscript to infer device interactions, and store the result into adjacency_mat
-		Moreover, this function labels each discovered interactions, and store the result into label_mat
-			* The label code is the following.
-				0: No edge
-				1: Human activity
-				2: Automation rule
-				3: physical channel
-		'''
-		Path(self.adj_path_prefix).mkdir(parents=True, exist_ok=True)
-		Path(self.plot_path_prefix).mkdir(parents=True, exist_ok=True)
-		Path(self.truth_path_prefix).mkdir(parents=True, exist_ok=True)
-		os.system("Rscript pc.R {} {} {}".format(self.dataset, act_label, alpha))
-		df = pd.read_csv("{}{}/{}".format(self.adj_path_prefix, act_label, "mixed.mat"), delim_whitespace=True)
-		device_list = list(df.columns.values)
-		adjacency_mat = df.to_numpy()
-		label_mat = np.zeros( (len(device_list), len(device_list)) )
-		discovered_automation_dict:'dict[str, str]' = {}
-		mu_rule, sigma_rule = 0.05, 0.03 # TODO: Here we need to estimate the execution time of the automation execution.
-		for i in range(len(device_list)): # Traverse each edge 
-			for j in range(len(device_list)):
-				if adjacency_mat[i, j] == 1: # label the edge
-					preceding_device = device_list[i]
-					post_device = device_list[j]
-					mu_edge, sigma_edge = (0, 0)
-					try:
-						connection_interval_list = self.dependency_interval_dict['{} {}'.format(preceding_device, post_device)]
-						mu_edge, sigma_edge = (statistics.mean(connection_interval_list), statistics.stdev(connection_interval_list))
-					except:
-						print('Cannot find the interaction {} {} in the dependency_interval_dict!'.format(preceding_device, post_device))
-						mu_edge, sigma_edge = 10, 1
-					label_mat[device_list.index(preceding_device), device_list.index(post_device)] = 2 if mu_edge == 0 else 1 # Apply three-sigma rule here
-					if mu_edge  == 0:
-						discovered_automation_dict[preceding_device] = post_device
-			# print("For edge ({} -> {}), the edge label is {}".format(precede_sensor, post_sensor, label_mat[device_list.index(precede_sensor), device_list.index(post_sensor)] ))
-		self.interaction_graphs[act_label] = InteractionGraph(self.dataset, act_label, device_list, processes_count_dict, device_dependency_count_dict, adjacency_mat, label_mat,  discovered_automation_dict)
-		return self.interaction_graphs[act_label]
-
-	def interaction_inspection(self, devices, int_graph, label_mat):
-		location_id, rules = asyncio.run(_smartthings_rule_api())
-		print("{}, {}".format(location_id, rules))
-		#TODO: Parse the rule string (json format) here.
-
 	def association_rule_mining(self, act_label_list, min_sup=2, min_conf=0.1):
 		for act_label in act_label_list:
 			sensors = list(pd.read_csv("{}{}/{}".format(self.adj_path_prefix, act_label, "mixed.mat"), delim_whitespace=True).columns.values)
@@ -167,15 +123,16 @@ class Processor:
 
 class Hprocessor(Processor):
 
-	def __init__(self, dataset, verbosity=1):
+	def __init__(self, dataset, verbosity=0):
 		super().__init__(dataset)
-		self.attr_names = None
+		self.attr_names = None; self.n_vars = 0
 		self.name_device_dict = defaultdict(DevAttribute) # The str-DevAttribute dict using the attr name as the dict key
 		self.index_device_dict = defaultdict(DevAttribute) # The str-DevAttribute dict using the attr index as the dict key
 		self.attr_count_dict = defaultdict(int); self.dev_count_dict = defaultdict(int)
 		self.transition_events_states = None # Lists of all (event, state array) tuple
 		self.frame_dict = None # A dict with key, value = (frame_id, dict['number', 'day-interval', 'start-date', 'end-date', 'attr-sequence', 'attr-type-sequence', 'state-sequence'])
 		self.frame_count = None
+		self.tau_max = -1
 		self.verbosity = verbosity
 		# Variables for testing purposes
 		self.discretization_dict:'dict[tuple]' = {}
@@ -246,7 +203,9 @@ class Hprocessor(Processor):
 					The information about the attributes can be also obtained from the dataset readme file.
 				'''
 				# 1. Select interested attributes.
-				if parsed_event.attr not in ['Control4-Motion', 'Control4-LightSensor', 'Control4-Door', 'Control4-Temperature', 'Control4-Light']:
+				# int_attrs = ['Control4-Motion',  'Control4-Door', 'Control4-LightSensor', 'Control4-Temperature', 'Control4-Light']
+				int_attrs = ['Control4-Motion',  'Control4-Door'] # JC NOTE: Adjust interested nodes here
+				if parsed_event.attr not in int_attrs:
 					missed_attr_dicts[parsed_event.attr] += 1
 					continue
 				if self.dataset == 'hh130':
@@ -340,7 +299,7 @@ class Hprocessor(Processor):
 			for tup in transition_events_states: 
 				fout.write(tup[0].__str__() + '\n')
 			fout.close()
-		self.attr_names = attr_names
+		self.attr_names = attr_names; self.n_vars = len(attr_names)
 		return transition_events_states
 	
 	def partition_data_frame(self, transition_events_states, partition_config, training_ratio):
@@ -387,11 +346,30 @@ class Hprocessor(Processor):
 		self.frame_dict = frame_dict
 		self.frame_count = frame_count
 	
+	def select_suitable_tau(self, transition_events_states):
+		transition_events:'list[AttrEvent]' = [tup[0] for tup in transition_events_states]
+		intervals = []
+		act_detected = False; count = 0.0
+		for evt in transition_events:
+			if int(evt.value) == 1: # An activation event is detected.
+				act_detected = True
+				if count > 0:
+					intervals.append(count + 1)
+				count = 1.0
+			elif act_detected:
+				count += 1
+		avg_interval = round(sum(intervals) / len(intervals))
+		print("The average of activation intervals is {}".format(avg_interval))
+
+		self.tau_max = avg_interval - 1 # The tau_max did not count the current timestamp
+
 	def initiate_data_preprocessing(self, partition_config=15, training_ratio=0.9):
-		"""The starting function for preprocessing data
+		"""
+		The entrance function for preprocessing data
 		"""
 		parsed_events = self.sanitize_raw_events()
 		unified_parsed_events = self.unify_value_type(parsed_events)
 		transition_events_states = self.create_data_frame(unified_parsed_events)
 		self.partition_data_frame(transition_events_states, partition_config, training_ratio=training_ratio)
+		#self.select_suitable_tau(transition_events_states)
 		return self.frame_dict
