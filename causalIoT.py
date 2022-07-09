@@ -54,8 +54,9 @@ ABNORMAL = 1
 
 TEST_PARAM_SETTING = True
 PARAM_SETTING = True
-partition_config = int(sys.argv[1])
-apply_bk = int(sys.argv[2])
+dataset = int(sys.argv[1])
+partition_config = int(sys.argv[2])
+apply_bk = int(sys.argv[3])
 
 if TEST_PARAM_SETTING:
     single_frame_test_flag = 1 # Whether only testing single dataframe
@@ -66,7 +67,6 @@ if TEST_PARAM_SETTING:
     max_prop_length = 1
 
 if PARAM_SETTING:
-    dataset = 'hh130'
     training_ratio = 0.9
     stable_only = 1
     cond_ind_test = CMIsymb()
@@ -300,8 +300,6 @@ class BayesianFitter:
 
 """Data loading"""
 event_preprocessor:'Hprocessor' = Hprocessor(dataset)
-if COMM.rank == 0:
-    event_preprocessor.initiate_data_preprocessing()
 frame_dict:'dict[DataFrame]' = event_preprocessor.data_loading(partition_config=partition_config, training_ratio=training_ratio)
 print("{}: Event size is {}".format(COMM.rank, frame_dict[0].n_events))
 

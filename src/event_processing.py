@@ -374,7 +374,7 @@ class Hprocessor(Processor):
 	def data_loading(self, partition_config=30, training_ratio=0.9):
 		unified_parsed_events = []
 		fin = open(self.transition_data, 'r')
-		for line in fin.readlines():
+		for line in fin.readlines(): # Transform each preprocessed line into the AttrEvent
 			inp = line.strip().split(' ')
 			unified_parsed_events.append(AttrEvent(inp[0], inp[1], inp[2], inp[3], int(inp[4])))
 		transition_events_states = self.create_data_frame(unified_parsed_events)
