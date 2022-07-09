@@ -302,7 +302,8 @@ class BayesianFitter:
 event_preprocessor:'Hprocessor' = Hprocessor(dataset)
 if COMM.rank == 0:
     event_preprocessor.initiate_data_preprocessing()
-frame_dict = event_preprocessor.data_loading(partition_config=partition_config, training_ratio=training_ratio)
+frame_dict:'dict[DataFrame]' = event_preprocessor.data_loading(partition_config=partition_config, training_ratio=training_ratio)
+print("{}: Event size is {}".format(COMM.rank, frame_dict[0].n_events))
 
 """Background Generator"""
 background_generator = bk_generator.BackgroundGenerator(dataset, event_preprocessor, partition_config, tau_max)
