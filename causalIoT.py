@@ -301,13 +301,9 @@ class BayesianFitter:
 """Data loading"""
 event_preprocessor:'Hprocessor' = Hprocessor(dataset)
 frame_dict:'dict[DataFrame]' = event_preprocessor.data_loading(partition_config=partition_config, training_ratio=training_ratio)
-print("{}: Event size is {}".format(COMM.rank, frame_dict[0].n_events))
 
 """Background Generator"""
 background_generator = bk_generator.BackgroundGenerator(dataset, event_preprocessor, partition_config, tau_max)
-background_generator.generate_candidate_interactions(apply_bk, 0, event_preprocessor.n_vars, autocorrelation_flag=autocorrelation_flag) # Get candidate interactions
-
-exit()
 
 for frame_id in range(event_preprocessor.frame_count):
     """Interaction Miner"""
