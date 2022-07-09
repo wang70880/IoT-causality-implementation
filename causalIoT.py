@@ -54,7 +54,7 @@ ABNORMAL = 1
 
 TEST_PARAM_SETTING = True
 PARAM_SETTING = True
-dataset = int(sys.argv[1])
+dataset = sys.argv[1]
 partition_config = int(sys.argv[2])
 apply_bk = int(sys.argv[3])
 
