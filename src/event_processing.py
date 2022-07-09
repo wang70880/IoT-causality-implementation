@@ -148,10 +148,6 @@ class Hprocessor(Processor):
 		"""
 		raw_event = ' '.join(raw_event.split())
 		inp = raw_event.strip().split(' ')
-		try:
-			inp[5] = int(inp[5])
-		except:
-			pass
 		return AttrEvent(inp[0], inp[1], inp[2], inp[6], inp[5])
 
 	def _enum_unification(self, val: 'str') -> 'str':
@@ -379,7 +375,8 @@ class Hprocessor(Processor):
 		unified_parsed_events = []
 		fin = open(self.transition_data, 'r')
 		for line in fin.readlines():
-			unified_parsed_events.append(self._parse_raw_events(line))
+			inp = line.strip().split(' ')
+			unified_parsed_events.append(AttrEvent(inp[0], inp[1], inp[2], inp[3], inp[4]))
 		transition_events_states = self.create_data_frame(unified_parsed_events)
 		self.partition_data_frame(transition_events_states, partition_config, training_ratio)
 		return self.frame_dict
