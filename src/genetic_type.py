@@ -6,7 +6,7 @@ class AttrEvent():
     def __init__(self, date, time, dev, attr, value):
         # Event in the format of [date, time, dev, dev_attr, value]
         self.date:'str' = date; self.time:'str' = time; self.dev:'str' = dev
-        self.attr:'str' = attr; self.value:'int' = int(value)
+        self.attr:'str' = attr; self.value:'int' = value
     
     def __str__(self) -> str:
         return ' '.join([self.date, self.time, self.dev, self.attr, str(self.value)])

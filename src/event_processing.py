@@ -376,7 +376,7 @@ class Hprocessor(Processor):
 		fin = open(self.transition_data, 'r')
 		for line in fin.readlines():
 			inp = line.strip().split(' ')
-			unified_parsed_events.append(AttrEvent(inp[0], inp[1], inp[2], inp[3], inp[4]))
+			unified_parsed_events.append(AttrEvent(inp[0], inp[1], inp[2], inp[3], int(inp[4])))
 		transition_events_states = self.create_data_frame(unified_parsed_events)
 		self.partition_data_frame(transition_events_states, partition_config, training_ratio)
 		return self.frame_dict
