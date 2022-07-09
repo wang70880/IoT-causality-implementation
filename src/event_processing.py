@@ -148,6 +148,10 @@ class Hprocessor(Processor):
 		"""
 		raw_event = ' '.join(raw_event.split())
 		inp = raw_event.strip().split(' ')
+		try:
+			inp[5] = int(inp[5])
+		except:
+			pass
 		return AttrEvent(inp[0], inp[1], inp[2], inp[6], inp[5])
 
 	def _enum_unification(self, val: 'str') -> 'str':
@@ -363,13 +367,19 @@ class Hprocessor(Processor):
 
 		self.tau_max = avg_interval - 1 # The tau_max did not count the current timestamp
 
-	def initiate_data_preprocessing(self, partition_config=15, training_ratio=0.9):
+	def initiate_data_preprocessing(self):
 		"""
 		The entrance function for preprocessing data
 		"""
 		parsed_events = self.sanitize_raw_events()
 		unified_parsed_events = self.unify_value_type(parsed_events)
+		self.create_data_frame(unified_parsed_events) # Create transition file
+
+	def data_loading(self, partition_config=30, training_ratio=0.9):
+		unified_parsed_events = []
+		fin = open(self.transition_data, 'r')
+		for line in fin.readlines():
+			unified_parsed_events.append(self._parse_raw_events(line))
 		transition_events_states = self.create_data_frame(unified_parsed_events)
-		self.partition_data_frame(transition_events_states, partition_config, training_ratio=training_ratio)
-		#self.select_suitable_tau(transition_events_states)
+		self.partition_data_frame(transition_events_states, partition_config, training_ratio)
 		return self.frame_dict

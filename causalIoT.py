@@ -67,6 +67,7 @@ if TEST_PARAM_SETTING:
 
 if PARAM_SETTING:
     dataset = 'hh130'
+    training_ratio = 0.9
     stable_only = 1
     cond_ind_test = CMIsymb()
     tau_max = 5; tau_min = 1
@@ -297,13 +298,14 @@ class BayesianFitter:
         self.exogenous_attr_list = exogenous_attr_list
         self.stop_attr_list = stop_attr_list
 
-"""Event preprocessing"""
+"""Data loading"""
 event_preprocessor:'Hprocessor' = Hprocessor(dataset)
-event_preprocessor.initiate_data_preprocessing(partition_config=partition_config, training_ratio=0.9)
+if COMM.rank == 0:
+    event_preprocessor.initiate_data_preprocessing()
+frame_dict = event_preprocessor.data_loading(partition_config=partition_config, training_ratio=training_ratio)
 
 """Background Generator"""
 background_generator = bk_generator.BackgroundGenerator(dataset, event_preprocessor, partition_config, tau_max)
-
 background_generator.generate_candidate_interactions(apply_bk, 0, event_preprocessor.n_vars, autocorrelation_flag=autocorrelation_flag) # Get candidate interactions
 
 exit()
