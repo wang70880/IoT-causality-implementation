@@ -327,7 +327,7 @@ for frame_id in range(event_preprocessor.frame_count):
 
         if COMM.rank == 0: # Assign selected_variables into whatever cores are available.
             splitted_jobs = _split(selected_variables, COMM.size)
-
+        
         scattered_jobs = COMM.scatter(splitted_jobs, root=0)
         pc_start = time()
         for j in scattered_jobs: # Each process calls stable-pc algorithm to infer the edges
@@ -415,8 +415,8 @@ for frame_id in range(event_preprocessor.frame_count):
         for j in scattered_jobs:
             pcmci_object:'PCMCI' = pcmci_objects[j]
             local_val_matrix = pcmci_object.results['val_matrix']; local_p_matrix = pcmci_object.results['p_matrix']; local_graph_matrix = pcmci_object.results['graph']
-            assert(val_matrix[local_val_matrix > 0] == 0); val_matrix += local_val_matrix
-            assert(p_matrix[local_p_matrix > 0] == 0); p_matrix += local_p_matrix
+            assert(all([x == 0 for x in val_matrix[local_val_matrix > 0]])); val_matrix += local_val_matrix
+            assert(all([x == 0 for x in p_matrix[local_p_matrix > 0]])); p_matrix += local_p_matrix
             assert(all([x == '' for x in graph[local_graph_matrix != '']]))
             graph[local_graph_matrix != ''] = local_graph_matrix[local_graph_matrix != '']
         tp.plot_time_series_graph(
