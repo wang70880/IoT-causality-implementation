@@ -417,8 +417,7 @@ for frame_id in range(event_preprocessor.frame_count):
             local_val_matrix = pcmci_object.results['val_matrix']; local_p_matrix = pcmci_object.results['p_matrix']; local_graph_matrix = pcmci_object.results['graph']
             assert(all([x == 0 for x in val_matrix[local_val_matrix > 0]])); val_matrix += local_val_matrix
             assert(all([x == 0 for x in p_matrix[local_p_matrix > 0]])); p_matrix += local_p_matrix
-            assert(all([x == '' for x in graph[local_graph_matrix != '']]))
-            graph[local_graph_matrix != ''] = local_graph_matrix[local_graph_matrix != '']
+            assert(all([x == '' for x in graph[local_graph_matrix != '']])); graph[local_graph_matrix != ''] = local_graph_matrix[local_graph_matrix != '']
         tp.plot_time_series_graph(
             figsize=(6, 4),
             val_matrix=val_matrix,

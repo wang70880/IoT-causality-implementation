@@ -196,7 +196,7 @@ class BackgroundGenerator():
         for tau in range(1, self.tau_max + 1):
             background_array = self.correlation_dict[knowledge_type][frame_id][tau] \
                     if knowledge_type != 'functionality' else self.correlation_dict[knowledge_type]['activity'] + self.correlation_dict[knowledge_type]['physics']
-            background_array[background_array > 1] = 1 # Normalize the background array
+            background_array[background_array >= 1] = 1 # Normalize the background array
             for worker_index, link_dict in selected_links.items():
                 # print("Job id: {}".format(worker_index))
                 for outcome, cause_list in link_dict.items():
@@ -214,6 +214,9 @@ class BackgroundGenerator():
         else:
             selected_links = {n: {m: [(i, -t) for i in range(N) if i != m for \
                 t in range(1, self.tau_max + 1)] if m == n else [] for m in range(N)} for n in range(N)}
+
+        if apply_bk == 0:
+            pass
         if apply_bk >= 1:
             selected_links = self.apply_background_knowledge(selected_links, 'heuristic-temporal', frame_id)
         if apply_bk >= 2:
