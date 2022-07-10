@@ -13,15 +13,13 @@ step and the MCI step.
 # License: GNU General Public License v3.0
 
 
-from mimetypes import init
-from turtle import back
-
 import os, sys, pickle
 import statistics
 import pprint
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
 from time import time
 from collections import defaultdict
@@ -46,7 +44,6 @@ from src.genetic_type import DataFrame, AttrEvent, DevAttribute
 """Parameter Settings"""
 
 # Default communicator
-os.environ['KMP_DUPLICATE_LIB_OK']='True'
 COMM = MPI.COMM_WORLD
 NORMAL = 0
 ABNORMAL = 1

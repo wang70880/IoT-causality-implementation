@@ -60,11 +60,11 @@ class BackgroundGenerator():
                 for lag in range (1, self.tau_max + 1):
                     if i + lag >= len(event_sequence):
                         continue
-                    prior_attr_index = name_device_dict[event_sequence[i].attr].index; con_attr_index = name_device_dict[event_sequence[i + lag]].index
+                    prior_attr_index = name_device_dict[event_sequence[i].dev].index; con_attr_index = name_device_dict[event_sequence[i + lag].dev].index
                     temporal_pair_dict[frame_id][lag][prior_attr_index, con_attr_index] += 1
                     heuristic_temporal_pair_dict[frame_id][lag][prior_attr_index, con_attr_index] += 1
 
-        for frame_id in frame_dict.keys(): # Filter less frequent pairs. JC NOTE: Here the frequency threshold is set empirically (Use partitioning criteria)
+        for frame_id in frame_dict.keys(): # JC NOTE: Here the frequency threshold is set empirically (Use partitioning criteria)
             for lag in range (1, self.tau_max + 1):
                 count_array = temporal_pair_dict[frame_id][lag]
                 heuristic_count_array = heuristic_temporal_pair_dict[frame_id][lag]
@@ -192,19 +192,22 @@ class BackgroundGenerator():
 
     def apply_background_knowledge(self, selected_links=None, knowledge_type='', frame_id=0):
         assert(selected_links is not None)
-        # print(attr_names)
-        for tau in range(1, self.tau_max + 1):
-            background_array = self.correlation_dict[knowledge_type][frame_id][tau] \
-                    if knowledge_type != 'functionality' else self.correlation_dict[knowledge_type]['activity'] + self.correlation_dict[knowledge_type]['physics']
-            background_array[background_array >= 1] = 1 # Normalize the background array
-            for worker_index, link_dict in selected_links.items():
-                # print("Job id: {}".format(worker_index))
-                for outcome, cause_list in link_dict.items():
-                    new_cause_list = []
-                    for (cause, lag) in cause_list:
-                        if abs(lag) == tau and background_array[cause, outcome] > 0:
-                            new_cause_list.append((cause, lag))
-                    selected_links[worker_index][outcome] = new_cause_list
+        n_filtered_edges = 0; n_qualified_edges = 0
+        for worker_index, link_dict in selected_links.items():
+            for outcome, cause_list in link_dict.items():
+                new_cause_list = []
+                for (cause, lag) in cause_list:
+                    background_array = self.correlation_dict[knowledge_type][frame_id][abs(lag)] \
+                        if knowledge_type != 'functionality' else self.correlation_dict[knowledge_type]['activity'] + self.correlation_dict[knowledge_type]['physics']
+                    background_array[background_array >= 1] = 1 # Normalize the background array
+                    if background_array[cause, outcome] > 0:
+                        new_cause_list.append((cause, lag))
+                        n_qualified_edges += 1
+                    else:
+                        n_filtered_edges += 1
+                selected_links[worker_index][outcome] = new_cause_list
+        print("[Background Generator] By applying {} knowledge, CausalIoT filtered {} edges.".format(knowledge_type, n_filtered_edges))
+        print("[Background Generator] # of candidate edges: {}.".format(n_qualified_edges))
         return selected_links
 
     def generate_candidate_interactions(self, apply_bk, frame_id, N, autocorrelation_flag=True):
@@ -214,7 +217,6 @@ class BackgroundGenerator():
         else:
             selected_links = {n: {m: [(i, -t) for i in range(N) if i != m for \
                 t in range(1, self.tau_max + 1)] if m == n else [] for m in range(N)} for n in range(N)}
-
         if apply_bk == 0:
             pass
         if apply_bk >= 1:
