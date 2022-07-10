@@ -130,7 +130,7 @@ class Hprocessor(Processor):
 		self.index_device_dict = defaultdict(DevAttribute) # The str-DevAttribute dict using the attr index as the dict key
 		self.attr_count_dict = defaultdict(int); self.dev_count_dict = defaultdict(int)
 		self.transition_events_states = None # Lists of all (event, state array) tuple
-		self.frame_dict = None # A dict with key, value = (frame_id, dict['number', 'day-interval', 'start-date', 'end-date', 'attr-sequence', 'attr-type-sequence', 'state-sequence'])
+		self.frame_dict:'defaultdict(DataFrame)' = None # A dict with key, value = (frame_id, dict['number', 'day-interval', 'start-date', 'end-date', 'attr-sequence', 'attr-type-sequence', 'state-sequence'])
 		self.frame_count = None
 		self.tau_max = -1
 		self.verbosity = verbosity

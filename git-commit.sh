@@ -1,5 +1,5 @@
 #!/bin/sh
-com="[testing] Test data preprocessing and background generator."
+com="[Implementation] Implement the golden standard constructor."
 git add -A
 git commit -m "$com"
 git push --set-upstream origin breakpoint-theory

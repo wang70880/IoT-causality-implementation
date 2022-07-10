@@ -1,13 +1,15 @@
 from turtle import back
-from src.event_processing import Hprocessor
 import collections
 import itertools
 import numpy as np
 import random
-import src.event_processing as evt_proc
-import src.background_generator as bk_generator
-from src.security_guard import PhantomStateMachine
+from numpy import ndarray
+from src.event_processing import Hprocessor
+from src.background_generator import BackgroundGenerator
+from src.bayesian_fitter import BayesianFitter
+from src.genetic_type import DataFrame, AttrEvent, DevAttribute
 import statistics
+from collections import defaultdict
 
 def _lag_name(attr:'str', lag:'int'):
     assert(lag >= 0)
@@ -19,19 +21,11 @@ class Evaluator():
     def __init__(self, dataset, event_processor, background_generator, bayesian_fitter, tau_max) -> None:
         self.dataset = dataset
         self.tau_max = tau_max
-        self.event_processor = event_processor
-        self.background_generator = background_generator
-        self.bayesian_fitter = bayesian_fitter
+        self.event_processor:'Hprocessor' = event_processor
+        self.background_generator:'BackgroundGenerator' = background_generator
+        self.bayesian_fitter:'BayesianFitter' = bayesian_fitter
 
-        self.user_correlation_dict = self.construct_user_correlation_benchmark()
-        self.physical_correlation_dict = None
-        self.automation_correlation_dict = None
-
-        self.correlation_dict = {
-            'activity': self.user_correlation_dict,
-            'physics': self.physical_correlation_dict,
-            'automation': self.automation_correlation_dict
-        }
+        self.golden_standard_dict = {}
     
     def evaluate_detection_accuracy(self, golden_standard:'list[int]', result:'list[int]'):
         print("Golden standard with number {}: {}".format(len(golden_standard), golden_standard))
@@ -51,17 +45,53 @@ class Evaluator():
                 match_count += 1
         return match_count
 
-    def construct_user_correlation_benchmark(self):
-        user_correlation_dict = {}
-        for frame_id in range(self.event_processor.frame_count):
-            user_correlation_dict[frame_id] = {}
+    def construct_golden_standard(self):
+        # JC NOTE: Currently we only consider hh-series datasets
+        self.golden_standard_dict['user'] = self._identify_user_interactions()
+        self.golden_standard_dict['physics'] = self._identify_physical_interactions()
+        self.golden_standard_dict['automation'] = self._identify_automation_interactions()
+
+    def _identify_user_interactions(self):
+        """
+        In HH-series dataset, the user interaction is in the form of M->M, M->D, or D->M
+
+        Returns:
+            _type_: _description_
+        """
+        # Return variables
+        user_interaction_dict = defaultdict(dict)
+
+        # Auxillary variables
+        name_device_dict = self.event_processor.name_device_dict; n_vars = self.event_processor.n_vars
+        frame_dict:'dict[DataFrame]' = self.event_processor.frame_dict
+
+        for frame_id in frame_dict.keys(): # Initialize the dict
             for tau in range(1, self.tau_max + 1):
-                temporal_array = self.background_generator.temporal_pair_dict[frame_id][tau] # Temporal information
-                spatial_array = self.background_generator.spatial_pair_dict[frame_id][tau] # Spatial information
-                functionality_array =  self.background_generator.functionality_pair_dict['activity'] # Functionality information
-                user_correlation_array = temporal_array * spatial_array * functionality_array
-                user_correlation_dict[frame_id][tau] = user_correlation_array
-        return user_correlation_dict
+                user_interaction_dict[frame_id][tau] = np.zeros((n_vars, n_vars))
+
+        for frame_id in frame_dict.keys():
+            frame: 'DataFrame' = frame_dict[frame_id]
+            training_events:'list[AttrEvent]' = [tup[0] for tup in frame.training_events_states] 
+            last_act_dev = None; interval = 0 # JC NOTE: The interval identification requires that it is better to only keep devices of interest in the dataset. Otherwise, the interval can be enlarged by other devices (e.g., T or LS).
+            for event in training_events:
+                if event.dev.startswith(('M', 'D')) and event.value == 1: # An activation event is detected.
+                    if last_act_dev and interval <= self.tau_max:
+                        user_interaction_dict[frame_id][interval][name_device_dict[last_act_dev].index, name_device_dict[event.dev].index] += 1
+                    last_act_dev = event.dev
+                    interval = 1
+                elif event.dev.startswith(('M', 'D')) and event.value == 0:
+                    interval += 1
+        for tau in range(1, self.tau_max + 1):
+            print(user_interaction_dict[0][tau])
+        return user_interaction_dict
+
+    def _identify_physical_interactions(self):
+        # In HH-series dataset, there is no physical interactions...
+        return {}
+    
+    def _identify_automation_interactions(self):
+        # In HH-series dataset, there is no automation interactions...
+        return {}
 
     def _print_pair_list(self, interested_array):
         attr_names = self.event_processor.attr_names; num_attrs = len(attr_names)
@@ -94,7 +124,7 @@ class Evaluator():
             for (cause_attr, lag) in result[outcome_attr]:
                 pcmci_array[attr_names.index(cause_attr), attr_names.index(outcome_attr)] = 1 if lag == -1 * tau else 0
         #print("[frame_id={}, tau={}] Evaluating accuracy for user-activity correlations".format(frame_id, tau))
-        discovery_array = pcmci_array * self.background_generator.functionality_pair_dict['activity']; truth_array = self.user_correlation_dict[frame_id][tau]
+        discovery_array = pcmci_array * self.background_generator.functionality_pair_dict['activity']; truth_array = self.user_interaction_dict[frame_id][tau]
         n_discovery = np.sum(discovery_array); truth_count = np.sum(truth_array)
         tp = 0; fn = 0; fp = 0
         fn_list = []
@@ -173,7 +203,6 @@ class Evaluator():
                 testing_event_sequence.append((anomalous_attr, anomalous_attr_state)); anomaly_positions.append(testing_count); stable_states_dict[testing_count] = (event, stable_states)
                 testing_count += 1
                 if maximum_length > 1:
-                    # JC TODO: Implement the anomaly propagation scheme.
                     pass
 
         return testing_event_sequence, anomaly_events, anomaly_positions, stable_states_dict
