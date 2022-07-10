@@ -16,17 +16,16 @@ step and the MCI step.
 from mimetypes import init
 from turtle import back
 
-from attr import attr
-from tabnanny import verbose
-from mpi4py import MPI
-import numpy as np
-import pandas as pd
 import os, sys, pickle
 import statistics
 import pprint
-import time
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
 
+from time import time
 from collections import defaultdict
+from mpi4py import MPI
 
 from pgmpy.models import BayesianNetwork 
 from pgmpy.estimators import MaximumLikelihoodEstimator, BayesianEstimator
@@ -35,14 +34,14 @@ from src.tigramite.tigramite import data_processing as pp
 from src.tigramite.tigramite.toymodels import structural_causal_processes as toys
 from src.tigramite.tigramite.pcmci import PCMCI
 from src.tigramite.tigramite.independence_tests import CMIsymb
-
-from src.event_processing import Hprocessor
-from src.genetic_type import DataFrame, AttrEvent, DevAttribute
+from src.tigramite.tigramite import plotting as tp
 
 import src.event_processing as evt_proc
 import src.background_generator as bk_generator
 import src.causal_evaluation as causal_eval
 import src.security_guard as security_guard
+from src.event_processing import Hprocessor
+from src.genetic_type import DataFrame, AttrEvent, DevAttribute
 
 """Parameter Settings"""
 
@@ -61,7 +60,7 @@ apply_bk = int(sys.argv[3])
 if TEST_PARAM_SETTING:
     single_frame_test_flag = 1 # Whether only testing single dataframe
     autocorrelation_flag = True # Whether consider autocorrelations in structure identification
-    skip_skeleton_estimation_flag = 0 # Whether skip the causal structure identification process (For speedup and testing)
+    skip_skeleton_estimation_flag = False # Whether skip the causal structure identification process (For speedup and testing)
     skip_bayesian_fitting_flag = 0
     num_anomalies = 0
     max_prop_length = 1
@@ -70,10 +69,10 @@ if PARAM_SETTING:
     training_ratio = 0.9
     stable_only = 1
     cond_ind_test = CMIsymb()
-    tau_max = 5; tau_min = 1
+    tau_max = 4; tau_min = 1
     verbosity = -1 # -1: No debugging information; 0: Debugging information in this module; 2: Debugging info in PCMCI class; 3: Debugging info in CIT implementations
     ## For stable-pc
-    max_n_edges = 5
+    max_n_edges = 50
     pc_alpha = 0.001
     max_conds_dim = 5
     maximum_comb = 10
@@ -306,34 +305,43 @@ frame_dict:'dict[DataFrame]' = event_preprocessor.data_loading(partition_config=
 background_generator = bk_generator.BackgroundGenerator(dataset, event_preprocessor, partition_config, tau_max)
 
 for frame_id in range(event_preprocessor.frame_count):
-    """Interaction Miner"""
+
+    """Parallel Interaction Miner"""
+    # Result variables
+    all_parents = {}
+    pcmci_objects = {}
+    pc_result_dict = {}
+
+    # Auxillary variables
     frame: 'DataFrame' = event_preprocessor.frame_dict[frame_id]
-    dataframe = frame.training_dataframe; attr_names = frame.var_names
-    start = time.time()
+    dataframe:pp.DataFrame = frame.training_dataframe; attr_names = frame.var_names
+
+    start = time()
     if not skip_skeleton_estimation_flag:
         T = dataframe.T; N = dataframe.N
         record_count_list.append(T)
         selected_variables = list(range(N))
         splitted_jobs = None
-        results = []
         selected_links = background_generator.generate_candidate_interactions(apply_bk, frame_id, N, autocorrelation_flag=autocorrelation_flag) # Get candidate interactions
-        # 1. Paralleled Discovery Engine
+        results = []
+
         if COMM.rank == 0: # Assign selected_variables into whatever cores are available.
             splitted_jobs = _split(selected_variables, COMM.size)
+
         scattered_jobs = COMM.scatter(splitted_jobs, root=0)
-        pc_start = time.time()
+        pc_start = time()
         for j in scattered_jobs: # Each process calls stable-pc algorithm to infer the edges
             (j, pcmci_of_j, parents_of_j) = _run_pc_stable_parallel(j=j, dataframe=dataframe, cond_ind_test=cond_ind_test, selected_links=selected_links,\
                                                                 tau_min=tau_min, tau_max=tau_max, pc_alpha=pc_alpha,\
                                                                 max_conds_dim=max_conds_dim, verbosity=verbosity, maximum_comb=maximum_comb)
             filtered_parents_of_j = parents_of_j.copy()
-            n_edges = min(len(filtered_parents_of_j[j]), max_n_edges) # Only select top 5 causal edges with maximum statistic values (MCI)
+            n_edges = min(len(filtered_parents_of_j[j]), max_n_edges) # Only select top max_n_edges causal edges with maximum MCI
             if n_edges > 0:
                 filtered_parents_of_j[j] = filtered_parents_of_j[j][0: n_edges]
             results.append((j, pcmci_of_j, filtered_parents_of_j))
-            #results.append((j, pcmci_of_j, parents_of_j))
         results = MPI.COMM_WORLD.gather(results, root=0)
-        pc_end = time.time()
+        pc_end = time()
+
         if COMM.rank == 0: # The root node gathers the result and generate the interaction graph.
             all_parents = {}
             pcmci_objects = {}
@@ -347,6 +355,7 @@ for frame_id in range(event_preprocessor.frame_count):
             pc_result_dict[frame_id] = all_parents_with_name; pc_time_list.append((pc_end - pc_start) * 1.0 / 60)
             if verbosity > -1:
                 print("##\n## PC-stable discovery for frame {} finished. Consumed time: {} mins\n##".format(frame_id, (pc_end - pc_start) * 1.0 / 60))
+
         if stable_only == 0: # Each process further calls the MCI procedure (if needed)
             if COMM.rank == 0: # First distribute the gathered pc results to each process
                 for i in range(1, COMM.size):
@@ -355,7 +364,7 @@ for frame_id in range(event_preprocessor.frame_count):
                 (all_parents, pcmci_objects) = COMM.recv(source=0)
             scattered_jobs = COMM.scatter(splitted_jobs, root=0)
             results = []
-            mci_start = time.time()
+            mci_start = time()
             """Each process calls MCI algorithm."""
             for j in scattered_jobs:
                 (j, results_in_j) = _run_mci_parallel(j, pcmci_objects[j], all_parents, selected_links=selected_links,\
@@ -391,19 +400,39 @@ for frame_id in range(event_preprocessor.frame_count):
                     sorted_links_with_name[attr_names[j]] = []
                     for p in sorted_links:
                         sorted_links_with_name[attr_names[j]].append((attr_names[p[0]], p[1]))
-                mci_end = time.time()
+                mci_end = time()
                 mci_result_dict[frame_id] = sorted_links_with_name; mci_time_list.append((mci_end - mci_start) * 1.0 / 60)
                 if verbosity > -1:
                     print("##\n## MCI for frame {} finished. Consumed time: {} mins\n##".format(frame_id, (mci_end - mci_start) * 1.0 / 60))
     else:
-        pc_result_dict[frame_id] = {'D001': [], 'D002': [('D002', -1), ('M001', -1)], 'LS001': [('LS001', -1), ('D002', -1), ('M008', -1), ('M001', -1)], 'LS002': [('M008', -1), ('M002', -1)], 'LS003': [('M008', -1)], 'LS004': [('LS016', -1), ('M008', -1)], 'LS005': [('M008', -1)], 'LS006': [('LS006', -1), ('M006', -1), ('M003', -1)], 'LS007': [], 'LS008': [('LS013', -1)], 'LS009': [('M008', -1)], 'LS010': [('LS001', -1),      ('M001', -1)], 'LS011': [('M001', -1), ('M008', -1)], 'LS012': [('M008', -1)], 'LS013': [('LS013', -1), ('M008', -1)], 'LS014': [('LS014', -1), ('LS009', -1), ('M009', -1), ('M008', -1)], 'LS015':        [('M011', -1)], 'LS016': [('M002', -1), ('M008', -1)], 'M001': [('D002', -1), ('M001', -1), ('M010', -1), ('M005', -1), ('LS001', -1)], 'M002': [('M002', -1), ('M004', -1), ('LS016', -1), ('LS002', -1),  ('M003', -1)], 'M003': [('LS006', -1), ('LS003', -1), ('M006', -1), ('M003', -1), ('M002', -1), ('M007', -1), ('M004', -1)], 'M004': [('M004', -1), ('M002', -1), ('M008', -1), ('M003', -1), ('LS016', -   1)], 'M005': [('M005', -1), ('M008', -1), ('M001', -1), ('M004', -1), ('M010', -1)], 'M006': [('M006', -1), ('LS006', -1), ('M003', -1)], 'M007': [('M007', -1), ('M003', -1)], 'M008': [('M008', -1),('M004', -1), ('T104', -1), ('M005', -1), ('LS013', -1), ('LS008', -1), ('LS005', -1)], 'M009': [('M009', -1), ('M012', -1), ('LS014', -1), ('LS009', -1)], 'M010': [('M010', -1), ('M001', -1), ('D002', -1), ('M005', -1)], 'M011': [('M011', -1), ('LS015', -1), ('M009', -  1), ('M001', -1)], 'M012': [('M009', -1), ('M012', -1), ('LS014', -1)], 'T101': [('T101', -1)], 'T102': [], 'T103': [], 'T104': [('T104', -1), ('M008', -1)], 'T105': [('T105', -1), ('M008', -1)]}
-    
+        pc_result_dict[frame_id] = {}
+    end = time()
+
+    if COMM.rank == 0 and not skip_skeleton_estimation_flag : # Plot the graph if the PC procedure is not skipped.
+        print("Parallel Interaction Mining finished. Consumed time: {} minutes".format((end - start)*1.0/60))
+        answer_shape = (dataframe.N, dataframe.N, tau_max + 1)
+        graph = np.zeros(answer_shape, dtype='<U3'); val_matrix = np.zeros(answer_shape); p_matrix = np.zeros(answer_shape)
+        for j in scattered_jobs:
+            pcmci_object:'PCMCI' = pcmci_objects[j]
+            local_val_matrix = pcmci_object.results['val_matrix']; local_p_matrix = pcmci_object.results['p_matrix']; local_graph_matrix = pcmci_object.results['graph']
+            assert(val_matrix[local_val_matrix > 0] == 0); val_matrix += local_val_matrix
+            assert(p_matrix[local_p_matrix > 0] == 0); p_matrix += local_p_matrix
+            assert(all([x == '' for x in graph[local_graph_matrix != '']]))
+            graph[local_graph_matrix != ''] = local_graph_matrix[local_graph_matrix != '']
+        tp.plot_time_series_graph(
+            figsize=(6, 4),
+            val_matrix=val_matrix,
+            graph=graph,
+            var_names= dataframe.var_names,
+            link_colorbar_label='MCI'
+        )
+        plt.savefig("temp/image/{}cmi_test_tau{}.pdf".format(dataset, tau_max))
     exit()
 
     """CPT Estimator."""
     if COMM.rank == 0:
-        print("Skeleton construction completes. Consumed time: {} mins.".format((time.time() - start)*1.0/60))
-        start = time.time()
+        print("Skeleton construction completes. Consumed time: {} mins.".format((time() - start)*1.0/60))
+        start = time()
         interaction_graph = pc_result_dict[frame_id] if stable_only == 1 else mci_result_dict[frame_id]
         pprint.pprint(interaction_graph)
         print("\n********** Initiate Bayesian Fitting. **********")
@@ -411,7 +440,7 @@ for frame_id in range(event_preprocessor.frame_count):
         bayesian_fitter.analyze_discovery_statistics()
         if not skip_bayesian_fitting_flag:
             bayesian_fitter.construct_bayesian_model()
-        print("Bayesian fitting complete. Consumed time: {} mins.".format((time.time() - start)*1.0/60))
+        print("Bayesian fitting complete. Consumed time: {} mins.".format((time() - start)*1.0/60))
     
     """Security Guard."""
     if COMM.rank == 0:
@@ -426,7 +455,7 @@ for frame_id in range(event_preprocessor.frame_count):
         for i in range(len(anomaly_positions)):
             assert(testing_event_sequence[anomaly_positions[i]] == anomaly_events[i])
         # 2. Initiate anomaly detection
-        start = time.time()
+        start = time()
         event_id = 0
         while event_id < len(testing_event_sequence):
             event = testing_event_sequence[event_id]
@@ -440,7 +469,7 @@ for frame_id in range(event_preprocessor.frame_count):
                 security_guard.calibrate(event_id, stable_states_dict)
             event_id += 1
 
-        print("[Security guarding] Anomaly detection completes for {} runtime events. Consumed time: {} mins.".format(event_id, (time.time() - start)*1.0/60))
+        print("[Security guarding] Anomaly detection completes for {} runtime events. Consumed time: {} mins.".format(event_id, (time() - start)*1.0/60))
         # 3. Evaluate the detection accuracy.
         print("[Security guarding] Evaluating the false positive for state transition violations")
         security_guard.print_debugging_dict(fp_flag=True)
