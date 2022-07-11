@@ -19,7 +19,7 @@ import pprint
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-os.environ['KMP_DUPLICATE_LIB_OK']='True'
+#os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
 from time import time
 from collections import defaultdict
@@ -217,7 +217,6 @@ for frame_id in range(event_preprocessor.frame_count):
 
         if COMM.rank == 0: # The root node gathers the result and generate the interaction graph.
             all_parents = {}
-            pcmci_objects = {}
             for res in results:
                 for (j, pcmci_of_j, parents_of_j) in res:
                     all_parents[j] = parents_of_j[j]
@@ -288,9 +287,11 @@ for frame_id in range(event_preprocessor.frame_count):
         for j in scattered_jobs:
             pcmci_object:'PCMCI' = pcmci_objects[j]
             local_val_matrix = pcmci_object.results['val_matrix']; local_p_matrix = pcmci_object.results['p_matrix']; local_graph_matrix = pcmci_object.results['graph']
+            print("Job {}'s p-matrix: {}".format(j, local_p_matrix))
             assert(all([x == 0 for x in val_matrix[local_val_matrix > 0]])); val_matrix += local_val_matrix
             assert(all([x == 0 for x in p_matrix[local_p_matrix > 0]])); p_matrix += local_p_matrix
             assert(all([x == '' for x in graph[local_graph_matrix != '']])); graph[local_graph_matrix != ''] = local_graph_matrix[local_graph_matrix != '']
+            print("Current summary p-matrix: {}".format(p_matrix))
         tp.plot_time_series_graph(
             figsize=(6, 4),
             val_matrix=val_matrix,

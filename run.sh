@@ -8,7 +8,7 @@ evaluatePartitionAccuracy() {
         python preprocessing.py ${dataset}
         for bk in ${bk_array[@]}; do
             for partition in ${partition_array[@]}; do
-                mpiexec -n 5 python -u causalIoT.py ${dataset} ${partition} ${bk} &>> output.txt </dev/null
+                mpiexec -n 8 python -u causalIoT.py ${dataset} ${partition} ${bk} &>> output.txt </dev/null
             done
         done
     done
