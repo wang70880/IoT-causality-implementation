@@ -1,4 +1,6 @@
 from src.event_processing import Hprocessor
+from src.causal_evaluation import Evaluator
+from src.background_generator import BackgroundGenerator
 from src.tigramite.tigramite.pcmci import PCMCI
 from src.tigramite.tigramite.independence_tests import CMIsymb
 from src.tigramite.tigramite import plotting as tp
@@ -18,17 +20,16 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import os
 
-# PARAM SETTING
-dataset = 'hh130'
-
 class DataDebugger():
 
-    def __init__(self, dataset) -> None:
-        self.dataset = dataset
-        self.preprocessor = Hprocessor(dataset=dataset)
+    def __init__(self, dataset, partition_config=30, training_ratio=1.0, tau_max = 4) -> None:
+        self.dataset = dataset; self.partition_config = partition_config; self.training_ratio = training_ratio; self.tau_max = tau_max
 
-    def initiate_preprocessing(self):
-        self.preprocessor.initiate_data_preprocessing(partition_config=30, training_ratio=1.0)
+        self.preprocessor = Hprocessor(dataset=dataset)
+        self.preprocessor.initiate_data_preprocessing()
+        self.preprocessor.data_loading(partition_config, training_ratio)
+
+        self.background_generator:'BackgroundGenerator' = BackgroundGenerator(dataset, self.preprocessor, partition_config, tau_max)
     
     def validate_discretization(self):
         for dev, tup in self.preprocessor.discretization_dict.items():
@@ -137,6 +138,12 @@ class DataDebugger():
         )
         plt.savefig("temp/image/{}cmi_test_tau{}.pdf".format(self.dataset, int_tau))
     
+    def validate_golden_standard(self, int_type='user'):
+        evaluator = Evaluator(self.dataset, self.preprocessor, self.background_generator, None, self.tau_max)
+        evaluator.construct_golden_standard(filter_threshold=self.partition_config)
+        interaction_dict:'dict[np.ndarray]' = evaluator.golden_standard_dict[int_type]
+        # JC TODO: Estimate the CMI, and plot the interaction graph.
+
     def cpt_testing(self, x:'str', lag:'int', y:'str'):
         assert(lag > 0)
         # Load data and related attributes
@@ -162,9 +169,21 @@ class DataDebugger():
         print(model.get_cpds(devices[0]))
         print(model.get_cpds(devices[1]))
 
+class EvaluationDebugger():
+
+    def __init__(self, dataset) -> None:
+        self.dataset = dataset
+        self.preprocessor = Hprocessor(dataset=dataset)
+
 if __name__ == '__main__':
-    data_debugger = DataDebugger(dataset=dataset)
-    data_debugger.initiate_preprocessing()
-    data_debugger.validate_discretization()
-    data_debugger.validate_ci_testing()
+
+    dataset = 'hh130'; partition_config = 30; training_ratio = 1.0; tau_max = 4
+    data_debugger = DataDebugger(dataset, partition_config, training_ratio, tau_max)
+    data_debugger.validate_golden_standard('user')
+    #data_debugger.initiate_preprocessing()
+    #data_debugger.validate_discretization()
+    #data_debugger.validate_ci_testing()
     #data_debugger.cpt_testing('M001', 2, 'M001')
+
+    #evaluation_debugger = EvaluationDebugger(dataset=dataset)
+    #evaluation_debugger.validate_user_interaction_identification()

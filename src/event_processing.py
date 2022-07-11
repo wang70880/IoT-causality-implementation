@@ -326,6 +326,7 @@ class Hprocessor(Processor):
 				seg_points.append(count)
 				last_timestamp = cur_timestamp
 			count += 1
+		seg_points.append(count - 1)
 
 		last_point = 0; frame_count = 0
 		for seg_point in seg_points: # Get the data frame with range [last_point, seg_point]
@@ -371,9 +372,12 @@ class Hprocessor(Processor):
 		unified_parsed_events = self.unify_value_type(parsed_events)
 		self.create_data_frame(unified_parsed_events) # Create transition file
 
-	def data_loading(self, partition_config=30, training_ratio=0.9):
+	def data_loading(self, partition_config=30, training_ratio=0.9, validation = False):
 		unified_parsed_events = []
-		fin = open(self.transition_data, 'r')
+		if not validation:
+			fin = open(self.transition_data, 'r')
+		else:
+			fin = open('{}/{}/data-validation'.format(self.data_path, self.dataset), 'r')
 		for line in fin.readlines(): # Transform each preprocessed line into the AttrEvent
 			inp = line.strip().split(' ')
 			unified_parsed_events.append(AttrEvent(inp[0], inp[1], inp[2], inp[3], int(inp[4])))

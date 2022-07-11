@@ -90,39 +90,48 @@ class BackgroundGenerator():
                 area_connectivity_array[i, i] = 1
             area_connectivity_array[0, 1] = 1; area_connectivity_array[1, 2] = 1; area_connectivity_array[0, 3] = 1; area_connectivity_array[3, 4] = 1
             area_connectivity_array[1, 0] = 1; area_connectivity_array[2, 1] = 1; area_connectivity_array[3, 0] = 1; area_connectivity_array[4, 3] = 1
+        elif self.dataset == 'hh130':
+            area_list = [['D002', 'T102', 'M001', 'LS001'], \
+                         ['M002', 'LS002', 'T103', 'LS008'], \
+                         ['M003', 'M004', 'LS003', 'LS004', 'T106'], \
+                         ['M005', 'LS005', 'M006', 'LS006', 'LS009', 'LS010'], \
+                         ['M011', 'T104', 'LS011', 'LS007']]
+            num_areas = 5
+            area_connectivity_array = np.zeros(shape=(num_areas, num_areas), dtype=np.int64)
+            for i in range(num_areas):
+                area_connectivity_array[i, i] = 1
+            area_connectivity_array[0, 1] = 1; area_connectivity_array[0, 2] = 1; area_connectivity_array[1, 2] = 1; area_connectivity_array[2, 3] = 1; area_connectivity_array[3, 4] = 1
+            area_connectivity_array[1, 0] = 1; area_connectivity_array[2, 0] = 1; area_connectivity_array[2, 1] = 1; area_connectivity_array[3, 2] = 1; area_connectivity_array[4, 3] = 1
+
         return area_list, area_connectivity_array
 
     def _spatial_pair_identification(self):
-
         # Return variables
         spatial_pair_dict = None
-
         # Auxillary variables
         area_list, area_connectivity_array = self._testbed_area_information()
         name_device_dict:'dict[DevAttribute]' = self.event_processor.name_device_dict
+        frame_dict =self.event_processor.frame_dict
         attr_names = self.event_processor.attr_names; num_attrs = len(attr_names)
 
-        if area_list and area_connectivity_array:
+        if area_list:
             spatial_pair_dict = defaultdict(dict) # frame_id -> lag -> adjacency array of shape num_attrs X num_attrs
-            spatial_array_list = []
+            spatial_array = np.zeros(shape=(num_attrs, num_attrs), dtype=np.int32)
             for lag in range (1, self.tau_max + 1): # The spatial array is only concerned with the lag and the testbed_area_list
-                spatial_array_for_cur_lag = np.zeros(shape=(num_attrs, num_attrs), dtype=np.int32)
-                # Given lags, compute the transitioned coherency, i.e., whether lag steps are enough to move from one area to another
-                transition_area_array_for_cur_lag = area_connectivity_array if lag == 1 else np.linalg.matrix_power(area_connectivity_array, lag)
-                for index, x in np.ndenumerate(transition_area_array_for_cur_lag):
+                #transition_area_array_for_cur_lag = area_connectivity_array if lag == 1 else np.linalg.matrix_power(area_connectivity_array, lag)
+                #transition_area_array_for_cur_lag = area_connectivity_array
+                for index, x in np.ndenumerate(area_connectivity_array):
                     if x == 0:
                         continue
-                    area0 = area_list[index[0]]; area1 = area_list[index[1]]
-                    for element in itertools.product(area0, area1): # Get the cartesian product for devices in these two areas
+                    pre_area = area_list[index[0]]; con_area = area_list[index[1]]
+                    for element in itertools.product(pre_area, con_area): # Get the cartesian product for devices in these two areas
                         if all([element[i] in attr_names for i in range(2)]):
-                            spatial_array_for_cur_lag[name_device_dict[element[0]].index, name_device_dict[element[1]].index] = 1
-                spatial_array_list.append(spatial_array_for_cur_lag)
+                            spatial_array[name_device_dict[element[0]].index, name_device_dict[element[1]].index] = 1
 
-            for frame_id in range(len(self.event_processor.frame_dict.keys())):
-                spatial_pair_dict[frame_id] = {}
+            for frame_id in frame_dict.keys():
                 for lag in range (1, self.tau_max + 1): 
-                    spatial_pair_dict[frame_id][lag] = spatial_array_list[lag-1]
-        
+                    spatial_pair_dict[frame_id][lag] = spatial_array
+            print("Spatial array:\n{}".format(spatial_array))
         return spatial_pair_dict 
 
     def _functionality_pair_identification(self):

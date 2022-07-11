@@ -19,7 +19,7 @@ import pprint
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-#os.environ['KMP_DUPLICATE_LIB_OK']='True'
+os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
 from time import time
 from collections import defaultdict
@@ -175,7 +175,8 @@ background_generator = bk_generator.BackgroundGenerator(dataset, event_preproces
 
 """Causal Evaluator"""
 evaluator = Evaluator(dataset, event_preprocessor, background_generator, None, tau_max)
-evaluator.construct_golden_standard() # JC TODO: Verify Markov conditions using identified user interactions.
+evaluator.construct_golden_standard(filter_threshold=partition_config)
+exit()
 
 for frame_id in range(event_preprocessor.frame_count):
 
@@ -225,8 +226,6 @@ for frame_id in range(event_preprocessor.frame_count):
             for outcome_id, cause_list in all_parents.items():
                 all_parents_with_name[attr_names[outcome_id]] = [(attr_names[cause_id],lag) for (cause_id, lag) in cause_list]
             pc_result_dict[frame_id] = all_parents_with_name; pc_time_list.append((pc_end - pc_start) * 1.0 / 60)
-            if verbosity > -1:
-                print("##\n## PC-stable discovery for frame {} finished. Consumed time: {} mins\n##".format(frame_id, (pc_end - pc_start) * 1.0 / 60))
 
         if stable_only == 0: # Each process further calls the MCI procedure (if needed)
             if COMM.rank == 0: # First distribute the gathered pc results to each process

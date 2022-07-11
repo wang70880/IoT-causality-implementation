@@ -11,11 +11,6 @@ from src.genetic_type import DataFrame, AttrEvent, DevAttribute
 import statistics
 from collections import defaultdict
 
-def _lag_name(attr:'str', lag:'int'):
-    assert(lag >= 0)
-    new_name = '{}({})'.format(attr, -1 * lag) if lag > 0 else '{}'.format(attr)
-    return new_name
-
 class Evaluator():
 
     def __init__(self, dataset, event_processor, background_generator, bayesian_fitter, tau_max) -> None:
@@ -45,18 +40,19 @@ class Evaluator():
                 match_count += 1
         return match_count
 
-    def construct_golden_standard(self):
+    def construct_golden_standard(self, filter_threshold=0):
         # JC NOTE: Currently we only consider hh-series datasets
-        self.golden_standard_dict['user'] = self._identify_user_interactions()
+        self.golden_standard_dict['user'] = self._identify_user_interactions(filter_threshold)
         self.golden_standard_dict['physics'] = self._identify_physical_interactions()
         self.golden_standard_dict['automation'] = self._identify_automation_interactions()
 
-    def _identify_user_interactions(self):
+    def _identify_user_interactions(self, filter_threshold=0):
         """
         In HH-series dataset, the user interaction is in the form of M->M, M->D, or D->M
 
-        Returns:
-            _type_: _description_
+        For any two devices, they have interactions iff (1) they are spatially adjacent, and (2) they are usually sequentially activated.
+            (1) The identification of spatial adjacency is done by the background generator.
+            (2) The identification of sequential activation is done by counting with a filtering mechanism (as specified by the filter_threshold parameter).
         """
         # Return variables
         user_interaction_dict = defaultdict(dict)
@@ -65,10 +61,14 @@ class Evaluator():
         name_device_dict = self.event_processor.name_device_dict; n_vars = self.event_processor.n_vars
         frame_dict:'dict[DataFrame]' = self.event_processor.frame_dict
 
+        # Fetch spatial-adjacency pairs
+        spatial_array:'np.ndarray' = self.background_generator.correlation_dict['spatial'][0][1] # The index does not matter, since for all frames and tau, the adjacency matrix is the same.
+
+        # Analyze activation intervals to determine tau for each spatial adjacency pair
+        activation_adjacency_dict = defaultdict(dict)
         for frame_id in frame_dict.keys(): # Initialize the dict
             for tau in range(1, self.tau_max + 1):
-                user_interaction_dict[frame_id][tau] = np.zeros((n_vars, n_vars))
-
+                activation_adjacency_dict[frame_id][tau] = np.zeros((n_vars, n_vars), dtype=np.int32)
         for frame_id in frame_dict.keys():
             frame: 'DataFrame' = frame_dict[frame_id]
             training_events:'list[AttrEvent]' = [tup[0] for tup in frame.training_events_states] 
@@ -76,13 +76,25 @@ class Evaluator():
             for event in training_events:
                 if event.dev.startswith(('M', 'D')) and event.value == 1: # An activation event is detected.
                     if last_act_dev and interval <= self.tau_max:
-                        user_interaction_dict[frame_id][interval][name_device_dict[last_act_dev].index, name_device_dict[event.dev].index] += 1
+                        activation_adjacency_dict[frame_id][interval][name_device_dict[last_act_dev].index, name_device_dict[event.dev].index] += 1
                     last_act_dev = event.dev
                     interval = 1
                 elif event.dev.startswith(('M', 'D')) and event.value == 0:
                     interval += 1
-        for tau in range(1, self.tau_max + 1):
-            print(user_interaction_dict[0][tau])
+        for frame_id in frame_dict.keys(): # Normalize the frequency dict using the filter_threshold parameter
+            for tau in range(1, self.tau_max + 1):
+                activation_adjacency_dict[frame_id][tau][activation_adjacency_dict[frame_id][tau] < filter_threshold] = 0
+                activation_adjacency_dict[frame_id][tau][activation_adjacency_dict[frame_id][tau] >= filter_threshold] = 1
+        
+        user_interaction_dict:'dict[np.ndarray]' = {}
+        for frame_id in frame_dict.keys(): # Finally, generate the user_interaction_dict (which should be spatially adjacent and have legitimate activation orders)
+            golden_standard_array = np.zeros((n_vars, n_vars, self.tau_max + 1), dtype=np.int8)
+            for tau in range(1, self.tau_max + 1):
+                activation_adjacency_dict[frame_id][tau][spatial_array == 0] = 0 # Combine spatial knowledge with sequential activation knowledge
+                for i in range(n_vars):
+                    for j in range(n_vars):
+                        golden_standard_array[i, j, tau] = activation_adjacency_dict[frame_id][tau][i, j]
+            user_interaction_dict[frame_id] = golden_standard_array
         return user_interaction_dict
 
     def _identify_physical_interactions(self):
@@ -124,7 +136,7 @@ class Evaluator():
             for (cause_attr, lag) in result[outcome_attr]:
                 pcmci_array[attr_names.index(cause_attr), attr_names.index(outcome_attr)] = 1 if lag == -1 * tau else 0
         #print("[frame_id={}, tau={}] Evaluating accuracy for user-activity correlations".format(frame_id, tau))
-        discovery_array = pcmci_array * self.background_generator.functionality_pair_dict['activity']; truth_array = self.user_interaction_dict[frame_id][tau]
+        discovery_array = pcmci_array * self.background_generator.functionality_pair_dict['activity']; truth_array = None
         n_discovery = np.sum(discovery_array); truth_count = np.sum(truth_array)
         tp = 0; fn = 0; fp = 0
         fn_list = []
