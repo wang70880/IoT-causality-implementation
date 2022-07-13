@@ -67,7 +67,7 @@ if PARAM_SETTING:
     training_ratio = 0.9
     stable_only = 1
     cond_ind_test = CMIsymb()
-    tau_max = 4; tau_min = 1
+    tau_max = 3; tau_min = 1
     verbosity = -1 # -1: No debugging information; 0: Debugging information in this module; 2: Debugging info in PCMCI class; 3: Debugging info in CIT implementations
     ## For stable-pc
     max_n_edges = 50
@@ -176,18 +176,18 @@ background_generator = bk_generator.BackgroundGenerator(dataset, event_preproces
 """Causal Evaluator"""
 evaluator = Evaluator(dataset, event_preprocessor, background_generator, None, tau_max)
 evaluator.construct_golden_standard(filter_threshold=partition_config)
-exit()
 
-for frame_id in range(event_preprocessor.frame_count):
+for frame_id in frame_dict.keys():
 
     """Parallel Interaction Miner"""
     # Result variables
-    all_parents = {}
+    all_parents = {}; all_parents_with_name = {}
     pcmci_objects = {}
     pc_result_dict = {}
 
     # Auxillary variables
     frame: 'DataFrame' = event_preprocessor.frame_dict[frame_id]
+    index_device_dict:'dict[DevAttribute]' = event_preprocessor.index_device_dict
     dataframe:pp.DataFrame = frame.training_dataframe; attr_names = frame.var_names
 
     start = time()
@@ -198,10 +198,8 @@ for frame_id in range(event_preprocessor.frame_count):
         splitted_jobs = None
         selected_links = background_generator.generate_candidate_interactions(apply_bk, frame_id, N, autocorrelation_flag=autocorrelation_flag) # Get candidate interactions
         results = []
-
         if COMM.rank == 0: # Assign selected_variables into whatever cores are available.
             splitted_jobs = _split(selected_variables, COMM.size)
-        
         scattered_jobs = COMM.scatter(splitted_jobs, root=0)
         pc_start = time()
         for j in scattered_jobs: # Each process calls stable-pc algorithm to infer the edges
@@ -215,7 +213,6 @@ for frame_id in range(event_preprocessor.frame_count):
             results.append((j, pcmci_of_j, filtered_parents_of_j))
         results = MPI.COMM_WORLD.gather(results, root=0)
         pc_end = time()
-
         if COMM.rank == 0: # The root node gathers the result and generate the interaction graph.
             all_parents = {}
             for res in results:
@@ -224,7 +221,7 @@ for frame_id in range(event_preprocessor.frame_count):
                     pcmci_objects[j] = pcmci_of_j
             all_parents_with_name = {}
             for outcome_id, cause_list in all_parents.items():
-                all_parents_with_name[attr_names[outcome_id]] = [(attr_names[cause_id],lag) for (cause_id, lag) in cause_list]
+                all_parents_with_name[index_device_dict[outcome_id].name] = [(index_device_dict[cause_id].name,lag) for (cause_id, lag) in cause_list]
             pc_result_dict[frame_id] = all_parents_with_name; pc_time_list.append((pc_end - pc_start) * 1.0 / 60)
 
         if stable_only == 0: # Each process further calls the MCI procedure (if needed)
@@ -282,15 +279,20 @@ for frame_id in range(event_preprocessor.frame_count):
     if COMM.rank == 0 and not skip_skeleton_estimation_flag : # Plot the graph if the PC procedure is not skipped.
         print("Parallel Interaction Mining finished. Consumed time: {} minutes".format((end - start)*1.0/60))
         answer_shape = (dataframe.N, dataframe.N, tau_max + 1)
-        graph = np.zeros(answer_shape, dtype='<U3'); val_matrix = np.zeros(answer_shape); p_matrix = np.zeros(answer_shape)
+        graph = np.zeros(answer_shape, dtype='<U3'); val_matrix = np.zeros(answer_shape); p_matrix = np.ones(answer_shape)
         for j in scattered_jobs:
             pcmci_object:'PCMCI' = pcmci_objects[j]
             local_val_matrix = pcmci_object.results['val_matrix']; local_p_matrix = pcmci_object.results['p_matrix']; local_graph_matrix = pcmci_object.results['graph']
             print("Job {}'s p-matrix: {}".format(j, local_p_matrix))
             assert(all([x == 0 for x in val_matrix[local_val_matrix > 0]])); val_matrix += local_val_matrix
-            assert(all([x == 0 for x in p_matrix[local_p_matrix > 0]])); p_matrix += local_p_matrix
+            assert(all([x == 1 for x in p_matrix[local_p_matrix < 1]])); p_matrix[local_p_matrix < 1] = local_p_matrix[local_p_matrix < 1]
             assert(all([x == '' for x in graph[local_graph_matrix != '']])); graph[local_graph_matrix != ''] = local_graph_matrix[local_graph_matrix != '']
             print("Current summary p-matrix: {}".format(p_matrix))
+        print("parents dict:\n{}".format(all_parents_with_name))
+        for lag in range(tau_max + 1):
+            print("p-matrix for lag = {}:\n".format(lag))
+            print(p_matrix[:,:,lag])
+        print("Final graph:\n{}".format(graph))
         tp.plot_time_series_graph(
             figsize=(6, 4),
             val_matrix=val_matrix,

@@ -131,7 +131,6 @@ class BackgroundGenerator():
             for frame_id in frame_dict.keys():
                 for lag in range (1, self.tau_max + 1): 
                     spatial_pair_dict[frame_id][lag] = spatial_array
-            print("Spatial array:\n{}".format(spatial_array))
         return spatial_pair_dict 
 
     def _functionality_pair_identification(self):

@@ -28,8 +28,10 @@ class DataDebugger():
         self.preprocessor = Hprocessor(dataset=dataset)
         self.preprocessor.initiate_data_preprocessing()
         self.preprocessor.data_loading(partition_config, training_ratio)
-
         self.background_generator:'BackgroundGenerator' = BackgroundGenerator(dataset, self.preprocessor, partition_config, tau_max)
+        
+        # Assigned after draw_golden_standard() function is called.
+        self.golden_p_matrix = None; self.golden_val_matrix = None; self.golden_graph = None
     
     def validate_discretization(self):
         for dev, tup in self.preprocessor.discretization_dict.items():
@@ -49,7 +51,6 @@ class DataDebugger():
         tested_frame:'DataFrame' = self.preprocessor.frame_dict[0]
         int_device_indices = [k for k in index_device_dict.keys() if index_device_dict[k].name.startswith('M')]
         n_vars = len(int_device_indices)
-
         # Initialize the conditional independence tester
         pc_alpha = 0.01
         tau_max = 4; int_tau = 4
@@ -59,23 +60,19 @@ class DataDebugger():
             dataframe=tested_frame.training_dataframe,
             cond_ind_test=CMIsymb(),
             verbosity=-1)
-
         # Test the dependency relationship among motion sensors
         all_parents = defaultdict(dict); all_vals = defaultdict(dict); all_pvals = defaultdict(dict)
-
-        var_parent = 'M001'; tau = -2
-        var_child = 'M003'
-        cond = True
-
-        val, pval = pcmci.cond_ind_test.run_test(
-            X = [(name_device_dict[var_parent].index, tau)],
-            Y = [(name_device_dict[var_child].index, 0)],
-            #Z = [],
-            Z = [(name_device_dict[var_parent].index, tau+1)] if cond else [],
-            tau_max = tau_max
-        )
-        print("{} {} {}".format(val, pval, pval <= pc_alpha))
-        exit()
+        #var_parent = 'M001'; tau = -2
+        #var_child = 'M003'
+        #cond = True
+        #val, pval = pcmci.cond_ind_test.run_test(
+        #    X = [(name_device_dict[var_parent].index, tau)],
+        #    Y = [(name_device_dict[var_child].index, 0)],
+        #    #Z = [],
+        #    Z = [(name_device_dict[var_parent].index, tau+1)] if cond else [],
+        #    tau_max = tau_max
+        #)
+        #print("{} {} {}".format(val, pval, pval <= pc_alpha))
 
         for i in int_device_indices: # Calculate the statistic values and the p value
             parents = []
@@ -117,7 +114,6 @@ class DataDebugger():
         final_graph = p_matrix + selected_links_matrix # Adjust graph according to the selected links: For non-selected links, penalize its p-value by adding 1.1
         final_graph = final_graph <= pc_alpha # Adjust graph according to hypothesis testing
         graph = pcmci.convert_to_string_graph(final_graph)
-
         # Sorting all parents according to the CMI value
         for dev_index in int_device_indices:
             print("Sorted parents for device {}:".format(index_device_dict[dev_index].name))
@@ -126,7 +122,6 @@ class DataDebugger():
                                  for x in parents]
             parent_vals.sort(key=lambda tup: tup[1], reverse=True)
             print(" -> ".join( [index_device_dict[x[0]].name for x in parent_vals] ))
-        
         # Plotting
         var_names = [index_device_dict[k].name for k in int_device_indices]
         tp.plot_time_series_graph(
@@ -138,11 +133,62 @@ class DataDebugger():
         )
         plt.savefig("temp/image/{}cmi_test_tau{}.pdf".format(self.dataset, int_tau))
     
-    def validate_golden_standard(self, int_type='user'):
+    def analyze_golden_standard(self, int_type='user', alpha=0.01):
+
+        # Auxillary variables
+        int_frame_id = 0
+        tested_frame:'DataFrame' = self.preprocessor.frame_dict[int_frame_id]
+        var_names = tested_frame.var_names; n_vars = tested_frame.n_vars
+        name_device_dict:'dict[DevAttribute]' = self.preprocessor.name_device_dict; index_device_dict:'dict[DevAttribute]' = self.preprocessor.index_device_dict
+
+        # 1. Derive the golden standard matrix (with expert knowledge).
+        interaction_matrix:'np.ndarray' = np.zeros((n_vars, n_vars, self.tau_max + 1))
         evaluator = Evaluator(self.dataset, self.preprocessor, self.background_generator, None, self.tau_max)
         evaluator.construct_golden_standard(filter_threshold=self.partition_config)
         interaction_dict:'dict[np.ndarray]' = evaluator.golden_standard_dict[int_type]
-        # JC TODO: Estimate the CMI, and plot the interaction graph.
+        interaction_matrix = interaction_dict[int_frame_id]
+        str = "[Picturing Golden Standard] Number of edges for each tau:\n"
+        for lag in range(1, self.tau_max + 1):
+            total = np.sum(interaction_matrix[:,:,lag])
+            str += 'tau = {}, count = {}\n'.format(lag, total)
+        print(str)
+
+        # 2. Calculate the p-value and CMI value for each edge.
+        val_matrix:'np.ndarray' = np.zeros((n_vars, n_vars, self.tau_max + 1)); p_matrix:'np.ndarray' = np.ones((n_vars, n_vars, self.tau_max + 1))
+        p_matrix *= 10 # Initially we set a large number
+        pcmci = PCMCI(dataframe=tested_frame.training_dataframe, cond_ind_test=CMIsymb(), verbosity=-1)
+        for index, x in np.ndenumerate(interaction_matrix):
+            if x == 1:
+                i, j, lag = index
+                val, pval = pcmci.cond_ind_test.run_test(X=[(i, int(-lag))],
+                            Y=[(j, 0)],
+                            Z=[],
+                            tau_max=self.tau_max)
+                val_matrix[i, j, lag] = val; p_matrix[i, j, lag] = pval
+                #print("For index {}, val = {}, pval = {}".format(index, val ,pval))
+        final_graph = p_matrix < 10
+        graph = pcmci.convert_to_string_graph(final_graph)
+        tp.plot_time_series_graph( # Plot the graph
+            figsize=(6, 4),
+            val_matrix=val_matrix,
+            graph=graph,
+            var_names=var_names,
+            link_colorbar_label='MCI'
+        )
+        plt.savefig("temp/image/golden_standard_{}.pdf".format(int_type))
+
+        # 3. Verify the causal assumptions
+        ## 3.1 Verify causal minimality assumptions
+        assert(interaction_matrix.shape == val_matrix.shape == p_matrix.shape)
+        n_violation = 0
+        for index, x in np.ndenumerate(interaction_matrix):
+            i, j, lag = index
+            if x == 1 and p_matrix[index] > alpha:
+                n_violation += 1
+                print("The edge {}({}) -> {} violates minimality assumption! p-value = {}, CMI = {}"\
+                                    .format(index_device_dict[i].name, lag, index_device_dict[j].name, p_matrix[index], val_matrix[index]))
+
+        return interaction_matrix, p_matrix, val_matrix
 
     def cpt_testing(self, x:'str', lag:'int', y:'str'):
         assert(lag > 0)
@@ -177,9 +223,10 @@ class EvaluationDebugger():
 
 if __name__ == '__main__':
 
-    dataset = 'hh130'; partition_config = 30; training_ratio = 1.0; tau_max = 4
+    dataset = 'hh130'; partition_config = 30; training_ratio = 1.0; tau_max = 7
+    alpha = 0.01
     data_debugger = DataDebugger(dataset, partition_config, training_ratio, tau_max)
-    data_debugger.validate_golden_standard('user')
+    interaction_matrix, p_matrix, val_matrix = data_debugger.analyze_golden_standard('user')
     #data_debugger.initiate_preprocessing()
     #data_debugger.validate_discretization()
     #data_debugger.validate_ci_testing()
