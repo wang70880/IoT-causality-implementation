@@ -200,6 +200,7 @@ for frame_id in frame_dict.keys():
         results = []
         if COMM.rank == 0: # Assign selected_variables into whatever cores are available.
             splitted_jobs = _split(selected_variables, COMM.size)
+            print("Prepare to parallel discover links. For COMM.size = {}, splitted_jobs =\n{}".format(COMM.size, splitted_jobs))
         scattered_jobs = COMM.scatter(splitted_jobs, root=0)
         pc_start = time()
         for j in scattered_jobs: # Each process calls stable-pc algorithm to infer the edges
@@ -219,7 +220,6 @@ for frame_id in frame_dict.keys():
                 for (j, pcmci_of_j, parents_of_j) in res:
                     all_parents[j] = parents_of_j[j]
                     pcmci_objects[j] = pcmci_of_j
-            all_parents_with_name = {}
             for outcome_id, cause_list in all_parents.items():
                 all_parents_with_name[index_device_dict[outcome_id].name] = [(index_device_dict[cause_id].name,lag) for (cause_id, lag) in cause_list]
             pc_result_dict[frame_id] = all_parents_with_name; pc_time_list.append((pc_end - pc_start) * 1.0 / 60)
@@ -273,26 +273,34 @@ for frame_id in frame_dict.keys():
                 if verbosity > -1:
                     print("##\n## MCI for frame {} finished. Consumed time: {} mins\n##".format(frame_id, (mci_end - mci_start) * 1.0 / 60))
     else:
-        pc_result_dict[frame_id] = {}
+        pc_result_dict[frame_id] = {'D002': [('D002', -1), ('D002', -2), ('M001', -1), ('M001', -2), ('D002', -3), ('M001', -3)],\
+                                    'M001': [('M001', -1), ('M001', -2), ('D002', -2), ('D002', -1), ('M005', -2), ('D002', -3), ('M004', -1), ('M001', -3), ('M003', -1), ('M005', -1), ('M002', -1), ('M006', -2), ('M006', -1), ('M005', -3), ('M006', -3)],\
+                                    'M002': [('M002', -2), ('M002', -1), ('M001', -1), ('M004', -1), ('M005', -2), ('M005', -1), ('M003', -1), ('M006', -1)],\
+                                    'M003': [('M003', -2), ('M003', -1), ('M005', -1), ('M004', -1), ('M004', -2), ('M001', -1), ('M002', -1), ('M006', -1), ('M002', -2)],\
+                                    'M004': [('M004', -2), ('M005', -1), ('M002', -1), ('M001', -1), ('M004', -1), ('M006', -1), ('M005', -3)],\
+                                    'M005': [('M005', -2), ('M005', -3), ('M005', -1), ('M004', -1), ('M003', -2), ('M001', -1), ('M003', -1), ('M002', -2), ('M002', -1), ('M006', -1), ('M001', -3), ('M002', -3), ('D002', -1), ('D002', -3), ('M006', -3), ('M004', -2), ('M001', -2), ('D002', -2)],\
+                                    'M006': [('M006', -2), ('M005', -1), ('M001', -1), ('M011', -2), ('M003', -1), ('M004', -1), ('M002', -3), ('M001', -2), ('M002', -1), ('M002', -2), ('M001', -3)],\
+                                    'M011': [('M011', -2), ('M006', -2), ('M011', -1)]}
     end = time()
 
     if COMM.rank == 0 and not skip_skeleton_estimation_flag : # Plot the graph if the PC procedure is not skipped.
         print("Parallel Interaction Mining finished. Consumed time: {} minutes".format((end - start)*1.0/60))
+        print("parents dict:\n{}".format(all_parents_with_name))
         answer_shape = (dataframe.N, dataframe.N, tau_max + 1)
         graph = np.zeros(answer_shape, dtype='<U3'); val_matrix = np.zeros(answer_shape); p_matrix = np.ones(answer_shape)
-        for j in scattered_jobs:
+        for j in pcmci_objects.keys():
             pcmci_object:'PCMCI' = pcmci_objects[j]
             local_val_matrix = pcmci_object.results['val_matrix']; local_p_matrix = pcmci_object.results['p_matrix']; local_graph_matrix = pcmci_object.results['graph']
-            print("Job {}'s p-matrix: {}".format(j, local_p_matrix))
             assert(all([x == 0 for x in val_matrix[local_val_matrix > 0]])); val_matrix += local_val_matrix
             assert(all([x == 1 for x in p_matrix[local_p_matrix < 1]])); p_matrix[local_p_matrix < 1] = local_p_matrix[local_p_matrix < 1]
             assert(all([x == '' for x in graph[local_graph_matrix != '']])); graph[local_graph_matrix != ''] = local_graph_matrix[local_graph_matrix != '']
-            print("Current summary p-matrix: {}".format(p_matrix))
-        print("parents dict:\n{}".format(all_parents_with_name))
-        for lag in range(tau_max + 1):
-            print("p-matrix for lag = {}:\n".format(lag))
-            print(p_matrix[:,:,lag])
-        print("Final graph:\n{}".format(graph))
+            for lag in range(tau_max + 1):
+                print("Job {}'s val-matrix for lag = {}:\n{}\n".format(j, lag, local_val_matrix[:,:,lag]))
+                print("Job {}'s graph for lag = {}:\n{}\n".format(j, lag, local_graph_matrix[:,:,lag]))
+                print("Job {}'s p-matrix for lag = {}:\n{}\n".format(j, lag, local_p_matrix[:,:,lag]))
+                print("Current summarized p-matrix for lag = {}:\n{}\n".format(lag, p_matrix[:,:,lag]))
+
+        print("Final graph:\n{}\n".format(graph))
         tp.plot_time_series_graph(
             figsize=(6, 4),
             val_matrix=val_matrix,
