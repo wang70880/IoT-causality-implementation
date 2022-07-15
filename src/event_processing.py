@@ -303,7 +303,7 @@ class Hprocessor(Processor):
 		return transition_events_states
 	
 	def partition_data_frame(self, transition_events_states, partition_config, training_ratio):
-		"""Partition the data frame according to the set of triggered attributes
+		"""Partition the data frame into training and testing datasets
 
 		Args:
 			transition_events_states (list, optional): _description_. Defaults to [].
@@ -336,6 +336,7 @@ class Hprocessor(Processor):
 			training_data = states_array[last_point:testing_start_point, ]; testing_data = states_array[testing_start_point: seg_point, ]
 			dataframe = pp.DataFrame(data=training_data, var_names=self.attr_names); testing_dataframe = pp.DataFrame(data=testing_data, var_names=self.attr_names)
 			dframe = DataFrame(id=frame_count, var_names=self.attr_names, n_events=seg_point-last_point)
+			dframe.set_device_info(self.name_device_dict, self.index_device_dict)
 			dframe.set_training_data(transition_events_states[last_point:testing_start_point], dataframe)
 			dframe.set_testing_data(transition_events_states[testing_start_point:seg_point], testing_dataframe)
 			frame_dict[frame_count] = dframe

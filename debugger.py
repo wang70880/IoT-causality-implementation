@@ -10,7 +10,6 @@ from pgmpy.models import BayesianNetwork
 from pgmpy.estimators import MaximumLikelihoodEstimator
 
 from collections import defaultdict
-from torch import var_mean
 from pprint import pprint
 from time import time
 
@@ -20,11 +19,13 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import os
 
+from src.bayesian_fitter import BayesianFitter
+from src.tigramite.tigramite import data_processing as pp
+
 class DataDebugger():
 
-    def __init__(self, dataset, partition_config=30, training_ratio=1.0, tau_max = 4) -> None:
-        self.dataset = dataset; self.partition_config = partition_config; self.training_ratio = training_ratio; self.tau_max = tau_max
-
+    def __init__(self, dataset, partition_config=30, training_ratio=1.0, tau_max = 4, alpha=0.001) -> None:
+        self.dataset = dataset; self.partition_config = partition_config; self.training_ratio = training_ratio; self.tau_max = tau_max; self.alpha = alpha
         self.preprocessor = Hprocessor(dataset=dataset)
         self.preprocessor.initiate_data_preprocessing()
         self.preprocessor.data_loading(partition_config, training_ratio)
@@ -43,18 +44,14 @@ class DataDebugger():
             plt.ylabel('Frequency')
             plt.savefig("temp/image/{}_{}_states.pdf".format(self.dataset, dev))
 
-    def validate_ci_testing(self):
+    def validate_ci_testing(self, tau_max=3, int_tau=3):
 
         # Load data and related attributes
         index_device_dict:'dict[DevAttribute]' = self.preprocessor.index_device_dict
-        name_device_dict:'dict[DevAttribute]' = self.preprocessor.name_device_dict
         tested_frame:'DataFrame' = self.preprocessor.frame_dict[0]
         int_device_indices = [k for k in index_device_dict.keys() if index_device_dict[k].name.startswith('M')]
         n_vars = len(int_device_indices)
         # Initialize the conditional independence tester
-        pc_alpha = 0.01
-        tau_max = 4; int_tau = 4
-        assert(int_tau <= tau_max)
         selected_links = {n: [(i, int(-int_tau)) for i in int_device_indices] for n in int_device_indices}
         pcmci = PCMCI(
             dataframe=tested_frame.training_dataframe,
@@ -62,17 +59,6 @@ class DataDebugger():
             verbosity=-1)
         # Test the dependency relationship among motion sensors
         all_parents = defaultdict(dict); all_vals = defaultdict(dict); all_pvals = defaultdict(dict)
-        #var_parent = 'M001'; tau = -2
-        #var_child = 'M003'
-        #cond = True
-        #val, pval = pcmci.cond_ind_test.run_test(
-        #    X = [(name_device_dict[var_parent].index, tau)],
-        #    Y = [(name_device_dict[var_child].index, 0)],
-        #    #Z = [],
-        #    Z = [(name_device_dict[var_parent].index, tau+1)] if cond else [],
-        #    tau_max = tau_max
-        #)
-        #print("{} {} {}".format(val, pval, pval <= pc_alpha))
 
         for i in int_device_indices: # Calculate the statistic values and the p value
             parents = []
@@ -112,7 +98,7 @@ class DataDebugger():
                 k, tau = link
                 selected_links_matrix[int_device_indices.index(k), int_device_indices.index(j), abs(tau)] = 0.
         final_graph = p_matrix + selected_links_matrix # Adjust graph according to the selected links: For non-selected links, penalize its p-value by adding 1.1
-        final_graph = final_graph <= pc_alpha # Adjust graph according to hypothesis testing
+        final_graph = final_graph <= self.alpha # Adjust graph according to hypothesis testing
         graph = pcmci.convert_to_string_graph(final_graph)
         # Sorting all parents according to the CMI value
         for dev_index in int_device_indices:
@@ -133,16 +119,13 @@ class DataDebugger():
         )
         plt.savefig("temp/image/{}cmi_test_tau{}.pdf".format(self.dataset, int_tau))
     
-    def analyze_golden_standard(self, int_type='user', alpha=0.01):
-
+    def derive_golden_standard(self, int_frame_id, int_type):
         # Auxillary variables
-        int_frame_id = 0
         tested_frame:'DataFrame' = self.preprocessor.frame_dict[int_frame_id]
-        var_names = tested_frame.var_names; n_vars = tested_frame.n_vars
-        name_device_dict:'dict[DevAttribute]' = self.preprocessor.name_device_dict; index_device_dict:'dict[DevAttribute]' = self.preprocessor.index_device_dict
+        n_vars = tested_frame.n_vars
+        matrix_shape = (n_vars, n_vars, self.tau_max + 1)
 
-        # 1. Derive the golden standard matrix (with expert knowledge).
-        interaction_matrix:'np.ndarray' = np.zeros((n_vars, n_vars, self.tau_max + 1))
+        interaction_matrix:'np.ndarray' = np.zeros(matrix_shape)
         evaluator = Evaluator(self.dataset, self.preprocessor, self.background_generator, None, self.tau_max)
         evaluator.construct_golden_standard(filter_threshold=self.partition_config)
         interaction_dict:'dict[np.ndarray]' = evaluator.golden_standard_dict[int_type]
@@ -151,10 +134,22 @@ class DataDebugger():
         for lag in range(1, self.tau_max + 1):
             total = np.sum(interaction_matrix[:,:,lag])
             str += 'tau = {}, count = {}\n'.format(lag, total)
-        print(str)
+        #print(str)
+        return interaction_matrix
+
+    def analyze_golden_standard(self, int_frame_id=0, int_type='user'):
+
+        # Auxillary variables
+        tested_frame:'DataFrame' = self.preprocessor.frame_dict[int_frame_id]
+        var_names = tested_frame.var_names; n_vars = tested_frame.n_vars
+        matrix_shape = (n_vars, n_vars, self.tau_max + 1)
+        index_device_dict:'dict[DevAttribute]' = self.preprocessor.index_device_dict
+
+        # 1. Derive the golden standard matrix (with expert knowledge).
+        interaction_matrix:'np.ndarray' = self.derive_golden_standard(int_frame_id, int_type)
 
         # 2. Calculate the p-value and CMI value for each edge.
-        val_matrix:'np.ndarray' = np.zeros((n_vars, n_vars, self.tau_max + 1)); p_matrix:'np.ndarray' = np.ones((n_vars, n_vars, self.tau_max + 1))
+        val_matrix:'np.ndarray' = np.zeros(matrix_shape); p_matrix:'np.ndarray' = np.ones(matrix_shape)
         p_matrix *= 10 # Initially we set a large number
         pcmci = PCMCI(dataframe=tested_frame.training_dataframe, cond_ind_test=CMIsymb(), verbosity=-1)
         for index, x in np.ndenumerate(interaction_matrix):
@@ -166,7 +161,7 @@ class DataDebugger():
                             tau_max=self.tau_max)
                 val_matrix[i, j, lag] = val; p_matrix[i, j, lag] = pval
                 #print("For index {}, val = {}, pval = {}".format(index, val ,pval))
-        final_graph = p_matrix < 10
+        p_matrix[p_matrix >= 1] = 1; final_graph = p_matrix < 1
         graph = pcmci.convert_to_string_graph(final_graph)
         tp.plot_time_series_graph( # Plot the graph
             figsize=(6, 4),
@@ -175,6 +170,7 @@ class DataDebugger():
             var_names=var_names,
             link_colorbar_label='MCI'
         )
+        print("Total # of golden edges: {}\n".format(np.sum(interaction_matrix)))
         plt.savefig("temp/image/golden_standard_{}.pdf".format(int_type))
 
         # 3. Verify the causal assumptions
@@ -183,54 +179,130 @@ class DataDebugger():
         n_violation = 0
         for index, x in np.ndenumerate(interaction_matrix):
             i, j, lag = index
-            if x == 1 and p_matrix[index] > alpha:
+            if x == 1 and p_matrix[index] > self.alpha:
                 n_violation += 1
-                print("The edge {}({}) -> {} violates minimality assumption! p-value = {}, CMI = {}"\
+                print("The edge {}(-{}) -> {} violates minimality assumption! p-value = {}, CMI = {}"\
                                     .format(index_device_dict[i].name, lag, index_device_dict[j].name, p_matrix[index], val_matrix[index]))
-
+        print("Total # of violations: {}\n".format(n_violation))
         return interaction_matrix, p_matrix, val_matrix
 
-    def cpt_testing(self, x:'str', lag:'int', y:'str'):
-        assert(lag > 0)
-        # Load data and related attributes
-        tested_frame:'DataFrame' = self.preprocessor.frame_dict[0]
-        name_device_dict = self.preprocessor.name_device_dict
-        x_index = name_device_dict[x].index; y_index = name_device_dict[y].index
+class MinerDebugger():
+    
+    def __init__(self, alpha = 0.001, data_debugger = None) -> None:
+        assert(data_debugger is not None)
+        self.alpha = alpha 
+        self.data_debugger:'DataDebugger' = data_debugger
 
-        # We hope to get the result of CPT Pr(y|(x,lag))
-        devices = ['{}-{}'.format(x, lag), y]
-        data_array, xyz = tested_frame.training_dataframe.construct_array(
-            X=[(x_index, int(-lag))],
-            Y=[(y_index, 0)],
-            Z=[],
-            tau_max=lag,
-            mask_type=None,
-            return_cleaned_xyz=False,
-            do_checks=True,
-            cut_off='2xtau_max'
-        )
-        df = pd.DataFrame(data=np.transpose(data_array), columns=devices)
-        model = BayesianNetwork([(devices[0], devices[1])])
-        model.fit(df, estimator=MaximumLikelihoodEstimator)
-        print(model.get_cpds(devices[0]))
-        print(model.get_cpds(devices[1]))
+    def initiate_discovery_algorithm(self, int_frame_id):
+        # Auxillary variables
+        name_device_dict = self.data_debugger.preprocessor.name_device_dict; tested_frame:'DataFrame' = self.data_debugger.preprocessor.frame_dict[int_frame_id]
+        tau_max = self.data_debugger.tau_max; n_vars = tested_frame.n_vars
+        matrix_shape = (n_vars, n_vars, tau_max + 1)
+        # Return variables
+        interaction_matrix:'np.ndarray' = np.zeros(matrix_shape); p_matrix:'np.ndarray' = np.ones(matrix_shape); val_matrix:'np.ndarray' = np.zeros(matrix_shape)
 
-class EvaluationDebugger():
+        # 1. Call pc algorithm to get the answer
+        # JC TODO: Implement the discovery logic here.
+        #all_parents_with_name = {'D002': [('D002', -1), ('D002', -2), ('M001', -1), ('M001', -2), ('D002', -3), ('M001', -3)],\
+        #                        'M001': [('M001', -1), ('M001', -2), ('D002', -2), ('D002', -1), ('M005', -2), ('D002', -3), ('M004', -1), ('M001', -3), ('M003', -1), ('M005', -1), ('M002', -1), ('M006', -2), ('M006', -1), ('M005', -3), ('M006', -3)],\
+        #                        'M002': [('M002', -2), ('M002', -1), ('M001', -1), ('M004', -1), ('M005', -2), ('M005', -1), ('M003', -1), ('M006', -1)],\
+        #                        'M003': [('M003', -2), ('M003', -1), ('M005', -1), ('M004', -1), ('M004', -2), ('M001', -1), ('M002', -1), ('M006', -1), ('M002', -2)],\
+        #                        'M004': [('M004', -2), ('M005', -1), ('M002', -1), ('M001', -1), ('M004', -1), ('M006', -1), ('M005', -3)],\
+        #                        'M005': [('M005', -2), ('M005', -3), ('M005', -1), ('M004', -1), ('M003', -2), ('M001', -1), ('M003', -1), ('M002', -2), ('M002', -1), ('M006', -1), ('M001', -3), ('M002', -3), ('D002', -1), ('D002', -3), ('M006', -3), ('M004', -2), ('M001', -2), ('D002', -2)],\
+        #                        'M006': [('M006', -2), ('M005', -1), ('M001', -1), ('M011', -2), ('M003', -1), ('M004', -1), ('M002', -3), ('M001', -2), ('M002', -1), ('M002', -2), ('M001', -3)],\
+        #                        'M011': [('M011', -2), ('M006', -2), ('M011', -1)]} # With alpha = 0.001 and bk = 0
+        all_parents_with_name = {'D002': [('D002', -1), ('D002', -2), ('M001', -1), ('M001', -2), ('D002', -3), ('M001', -3)],\
+                                'M001': [('M001', -1), ('M001', -2), ('D002', -2), ('D002', -1), ('M005', -2), ('D002', -3), ('M004', -1), ('M001', -3), ('M003', -1), ('M005', -1), ('M002', -1), ('M006', -3), ('M005', -3)],\
+                                'M002': [('M002', -2), ('M002', -1), ('M001', -1), ('M004', -1), ('M005', -2), ('M005', -1), ('M003', -1), ('M006', -1)],\
+                                'M003': [('M003', -2), ('M003', -1), ('M005', -1), ('M004', -1), ('M004', -2), ('M001', -1), ('M002', -1), ('M006', -1), ('M002', -2)],\
+                                'M004': [('M004', -2), ('M005', -1), ('M002', -1), ('M001', -1), ('M004', -1), ('M006', -1), ('M005', -3)],\
+                                'M005': [('M005', -2), ('M005', -3), ('M005', -1), ('M004', -1), ('M003', -2), ('M001', -1), ('M003', -1), ('M002', -2), ('M002', -1), ('M006', -1), ('M001', -3), ('M002', -3), ('D002', -1), ('D002', -3), ('M006', -3), ('M004', -2), ('M001', -2), ('D002', -2)],\
+                                'M006': [('M006', -2), ('M005', -1), ('M011', -2), ('M003', -1), ('M004', -1), ('M001', -3), ('M002', -1)],\
+                                'M011': [('M011', -2), ('M006', -2), ('M011', -1)]} # With alpha = 0.001 and bk = 1
+        
+        # 2. Construct the interaction matrix given the pc-returned dict
+        for outcome in all_parents_with_name:
+            for (cause, lag) in all_parents_with_name[outcome]:
+                interaction_matrix[name_device_dict[cause].index, name_device_dict[outcome].index, abs(lag)] = 1
 
-    def __init__(self, dataset) -> None:
-        self.dataset = dataset
-        self.preprocessor = Hprocessor(dataset=dataset)
+        return interaction_matrix
+    
+    def analyze_discovery_result(self, int_frame_id=0):
+
+        # 1. Fetch the golden interaction matrix
+        golden_interaction_matrix:'np.ndarray' = self.data_debugger.derive_golden_standard(int_frame_id, 'user')
+
+        # 2. Initiate PC discovery algorithm and get the discovered graph
+        discovered_interaction_matrix:'np.ndarray' = self.initiate_discovery_algorithm(int_frame_id)
+
+        total_count = np.sum(golden_interaction_matrix)
+        tp = np.sum(discovered_interaction_matrix[golden_interaction_matrix == 1])
+        fn = total_count - tp
+        fp = np.sum(discovered_interaction_matrix[golden_interaction_matrix == 0])
+
+        precision = 0. if (tp + fp) == 0 else 1.0 * tp / (tp + fp)
+        recall = 0. if (tp + fn) == 0 else 1.0 * tp / (tp + fn)
+
+        print("For alpha = {}, the discovered result statistics:\n\
+                * tp = {}, fp = {}, fn = {}\n\
+                * precision = {}, recall = {}\n".format(self.alpha, tp, fp, fn, precision, recall))
+
+class BayesianDebugger():
+
+    def __init__(self, data_debugger = None) -> None:
+        assert(data_debugger is not None)
+        self.data_debugger:'DataDebugger' = data_debugger
+    
+    def analyze_fitting_result(self, int_frame_id=0):
+        # Auxillary variables
+        tested_frame:'DataFrame' = self.data_debugger.preprocessor.frame_dict[int_frame_id]
+        var_names = tested_frame.var_names; tau_max = self.data_debugger.tau_max
+        index_device_dict:'dict[DevAttribute]' = self.data_debugger.preprocessor.index_device_dict
+
+        # 1. Fetch the golden interaction matrix, and transform to link dict
+        golden_interaction_matrix:'np.ndarray' = self.data_debugger.derive_golden_standard(int_frame_id, 'user')
+        link_dict = defaultdict(list)
+        for (i, j, lag), x in np.ndenumerate(golden_interaction_matrix):
+            if x == 1:
+                link_dict[var_names[j]].append((var_names[i],-lag))
+        #link_dict = {'D002': [('D002', -1), ('D002', -2), ('M001', -1), ('M001', -2), ('D002', -3), ('M001', -3)],\
+        #            'M001': [('M001', -1), ('M001', -2), ('D002', -2), ('D002', -1), ('M005', -2), ('D002', -3), ('M004', -1), ('M001', -3), ('M003', -1), ('M005', -1), ('M002', -1), ('M006', -3), ('M005', -3)],\
+        #            'M002': [('M002', -2), ('M002', -1), ('M001', -1), ('M004', -1), ('M005', -2), ('M005', -1), ('M003', -1), ('M006', -1)],\
+        #            'M003': [('M003', -2), ('M003', -1), ('M005', -1), ('M004', -1), ('M004', -2), ('M001', -1), ('M002', -1), ('M006', -1), ('M002', -2)],\
+        #            'M004': [('M004', -2), ('M005', -1), ('M002', -1), ('M001', -1), ('M004', -1), ('M006', -1), ('M005', -3)],\
+        #            'M005': [('M005', -2), ('M005', -3), ('M005', -1), ('M004', -1), ('M003', -2), ('M001', -1), ('M003', -1), ('M002', -2), ('M002', -1), ('M006', -1), ('M001', -3), ('M002', -3), ('D002', -1), ('D002', -3), ('M006', -3), ('M004', -2), ('M001', -2), ('D002', -2)],\
+        #            'M006': [('M006', -2), ('M005', -1), ('M011', -2), ('M003', -1), ('M004', -1), ('M001', -3), ('M002', -1)],\
+        #            'M011': [('M011', -2), ('M006', -2), ('M011', -1)]} # With alpha = 0.001 and bk = 1
+        pprint(link_dict)
+
+        # 2. Initiate BayesianFitter class and estimate models
+
+        bayesian_fitter = BayesianFitter(tested_frame, tau_max, link_dict)
+        for outcome, cause_list in link_dict.items(): 
+            for (cause, lag) in cause_list: # Traverse each edge and estimate its cpds
+                cause_name = bayesian_fitter._lag_name(cause, lag)
+                # Check the correctness of BayesianFitter's _transform_materials function
+                assert(bayesian_fitter.expanded_causal_graph[bayesian_fitter.extended_name_device_dict[cause_name].index,\
+                                                             bayesian_fitter.extended_name_device_dict[outcome].index] == 1)
+                model = BayesianNetwork([(cause_name, outcome)])
+                model.fit(pd.DataFrame(data=bayesian_fitter.expanded_data_array, columns=bayesian_fitter.expanded_var_names),\
+                            estimator=MaximumLikelihoodEstimator)
+                print(model.get_cpds(outcome))
+
+        bayesian_fitter.construct_bayesian_model()
 
 if __name__ == '__main__':
 
-    dataset = 'hh130'; partition_config = 30; training_ratio = 1.0; tau_max = 7
-    alpha = 0.01
-    data_debugger = DataDebugger(dataset, partition_config, training_ratio, tau_max)
-    interaction_matrix, p_matrix, val_matrix = data_debugger.analyze_golden_standard('user')
-    #data_debugger.initiate_preprocessing()
-    #data_debugger.validate_discretization()
-    #data_debugger.validate_ci_testing()
-    #data_debugger.cpt_testing('M001', 2, 'M001')
+    dataset = 'hh130'; partition_config = 30; training_ratio = 1.0; tau_max = 3
+    alpha = 0.001; int_frame_id = 0
+    data_debugger = DataDebugger(dataset, partition_config, training_ratio, tau_max, alpha)
+    #data_debugger.analyze_golden_standard()
+
+    #miner_debugger = MinerDebugger(alpha, data_debugger)
+    #miner_debugger.analyze_discovery_result(int_frame_id)
+
+    bayesian_debugger = BayesianDebugger(data_debugger)
+    bayesian_debugger.analyze_fitting_result(int_frame_id)
 
     #evaluation_debugger = EvaluationDebugger(dataset=dataset)
     #evaluation_debugger.validate_user_interaction_identification()

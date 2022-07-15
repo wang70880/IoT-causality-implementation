@@ -1,5 +1,6 @@
 from numpy import ndarray
 from src.tigramite.tigramite import data_processing as pp
+from collections import defaultdict
 
 class AttrEvent():
 
@@ -14,10 +15,12 @@ class AttrEvent():
 class DataFrame():
 
     def __init__(self, id, var_names, n_events) -> None:
-        self.id = id; self.var_names = var_names; self.n_events = n_events
-        self.n_vars = len(self.var_names)
+        self.id = id; self.n_events = n_events
+        self.var_names = var_names; self.n_vars = len(self.var_names)
         self.training_events_states:'list[tuple(AttrEvent, ndarray)]' = None
         self.testing_events_states:'list[tuple(AttrEvent, ndarray)]' = None
+        self.name_device_dict:'dict[DevAttribute]' = None # The str-DevAttribute dict using the attr name as the dict key
+        self.index_device_dict:'dict[DevAttribute]' = None # The str-DevAttribute dict using the attr index as the dict key
         self.training_dataframe:'pp.DataFrame' = None
         self.testing_dataframe:'pp.DataFrame' = None
     
@@ -32,10 +35,15 @@ class DataFrame():
         self.testing_dataframe:'pp.DataFrame' = dataframe
         assert(self.testing_dataframe.T == len(self.testing_events_states))
         assert(self.training_dataframe.N == self.n_vars)
+    
+    def set_device_info(self, name_device_dict, index_device_dict):
+        self.name_device_dict:'dict[DevAttribute]' = name_device_dict
+        self.index_device_dict:'dict[DevAttribute]' = index_device_dict
+        assert(set(self.name_device_dict.keys()) == set(self.var_names) == set([dev.name for dev in self.index_device_dict.values()]))
 
 class DevAttribute():
 
     def __init__(self, attr_name=None, attr_index=None, lag=0):
         self.index = attr_index
         self.name = attr_name
-        self.lag = lag
+        self.lag = abs(lag)

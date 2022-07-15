@@ -214,8 +214,8 @@ class BackgroundGenerator():
                     else:
                         n_filtered_edges += 1
                 selected_links[worker_index][outcome] = new_cause_list
-        print("[Background Generator] By applying {} knowledge, CausalIoT filtered {} edges.".format(knowledge_type, n_filtered_edges))
-        print("[Background Generator] # of candidate edges: {}.".format(n_qualified_edges))
+        #print("[Background Generator] By applying {} knowledge, CausalIoT filtered {} edges.".format(knowledge_type, n_filtered_edges))
+        #print("[Background Generator] # of candidate edges: {}.".format(n_qualified_edges))
         return selected_links
 
     def generate_candidate_interactions(self, apply_bk, frame_id, N, autocorrelation_flag=True):

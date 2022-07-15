@@ -183,7 +183,7 @@ for frame_id in frame_dict.keys():
     # Result variables
     all_parents = {}; all_parents_with_name = {}
     pcmci_objects = {}
-    pc_result_dict = {}
+    pc_result_dict = {}; mci_result_dict = {}
 
     # Auxillary variables
     frame: 'DataFrame' = event_preprocessor.frame_dict[frame_id]
@@ -214,7 +214,7 @@ for frame_id in frame_dict.keys():
             results.append((j, pcmci_of_j, filtered_parents_of_j))
         results = MPI.COMM_WORLD.gather(results, root=0)
         pc_end = time()
-        if COMM.rank == 0: # The root node gathers the result and generate the interaction graph.
+        if COMM.rank == 0: # The root node gathers the result and generate the interaction graph: all_parents, all_parents_with_name, pcmci_objects
             all_parents = {}
             for res in results:
                 for (j, pcmci_of_j, parents_of_j) in res:
@@ -274,13 +274,14 @@ for frame_id in frame_dict.keys():
                     print("##\n## MCI for frame {} finished. Consumed time: {} mins\n##".format(frame_id, (mci_end - mci_start) * 1.0 / 60))
     else:
         pc_result_dict[frame_id] = {'D002': [('D002', -1), ('D002', -2), ('M001', -1), ('M001', -2), ('D002', -3), ('M001', -3)],\
-                                    'M001': [('M001', -1), ('M001', -2), ('D002', -2), ('D002', -1), ('M005', -2), ('D002', -3), ('M004', -1), ('M001', -3), ('M003', -1), ('M005', -1), ('M002', -1), ('M006', -2), ('M006', -1), ('M005', -3), ('M006', -3)],\
+                                    'M001': [('M001', -1), ('M001', -2), ('D002', -2), ('D002', -1), ('M005', -2), ('D002', -3), ('M004', -1), ('M001', -3), ('M003', -1), ('M005', -1), ('M002', -1), ('M006', -3), ('M005', -3)],\
                                     'M002': [('M002', -2), ('M002', -1), ('M001', -1), ('M004', -1), ('M005', -2), ('M005', -1), ('M003', -1), ('M006', -1)],\
                                     'M003': [('M003', -2), ('M003', -1), ('M005', -1), ('M004', -1), ('M004', -2), ('M001', -1), ('M002', -1), ('M006', -1), ('M002', -2)],\
                                     'M004': [('M004', -2), ('M005', -1), ('M002', -1), ('M001', -1), ('M004', -1), ('M006', -1), ('M005', -3)],\
                                     'M005': [('M005', -2), ('M005', -3), ('M005', -1), ('M004', -1), ('M003', -2), ('M001', -1), ('M003', -1), ('M002', -2), ('M002', -1), ('M006', -1), ('M001', -3), ('M002', -3), ('D002', -1), ('D002', -3), ('M006', -3), ('M004', -2), ('M001', -2), ('D002', -2)],\
-                                    'M006': [('M006', -2), ('M005', -1), ('M001', -1), ('M011', -2), ('M003', -1), ('M004', -1), ('M002', -3), ('M001', -2), ('M002', -1), ('M002', -2), ('M001', -3)],\
-                                    'M011': [('M011', -2), ('M006', -2), ('M011', -1)]}
+                                    'M006': [('M006', -2), ('M005', -1), ('M011', -2), ('M003', -1), ('M004', -1), ('M001', -3), ('M002', -1)],\
+                                    'M011': [('M011', -2), ('M006', -2), ('M011', -1)]} # With alpha = 0.001 and bk = 1
+        mci_result_dict[frame_id] = {}
     end = time()
 
     if COMM.rank == 0 and not skip_skeleton_estimation_flag : # Plot the graph if the PC procedure is not skipped.

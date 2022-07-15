@@ -1,22 +1,31 @@
 import numpy as np
+import pandas as pd
+from collections import defaultdict
+from pgmpy.models import BayesianNetwork 
+from pgmpy.estimators import MaximumLikelihoodEstimator, BayesianEstimator
+
+from src.tigramite.tigramite import data_processing as pp
+from src.genetic_type import DevAttribute, AttrEvent, DataFrame
 
 class BayesianFitter:
 
     def __init__(self, frame, tau_max, link_dict) -> None:
-        self.frame = frame
-        self.tau_max = tau_max
-        self.dataframe = self.frame['training-data']; self.var_names = self.dataframe.var_names; self.n_vars = len(self.var_names)
-        self.expanded_var_names, self.expanded_causal_graph, self.expanded_data_array =\
-                     self._transform_materials(tau_max, link_dict)
-        self.n_expanded_vars = len(self.expanded_var_names)
+        self.frame:'DataFrame' = frame; self.tau_max = tau_max
+        self.dataframe:'pp.DataFrame' = self.frame.training_dataframe
+        self.extended_name_device_dict:'dict[DevAttribute]' = defaultdict(DevAttribute) # The str-DevAttribute dict using the attr name as the dict key
+        self.extended_index_device_dict:'dict[DevAttribute]' = defaultdict(DevAttribute) # The str-DevAttribute dict using the attr index as the dict key
+        self.var_names = self.frame.var_names; self.n_vars = len(self.var_names)
+        self.expanded_var_names, self.n_expanded_vars, self.expanded_causal_graph, self.expanded_data_array =\
+                     self._transform_materials(self.frame.var_names, link_dict)
+
         self.model = None
 
-    def _lag_name(self, attr:'str', lag:'int'):
-        assert(lag >= 0)
-        new_name = '{}({})'.format(attr, -1 * lag) if lag > 0 else '{}'.format(attr)
+    def _lag_name(self, attr:'str', lag:'int'): # Helper function to generate lagged names
+        lag = -abs(lag)
+        new_name = '{}({})'.format(attr, lag) if lag != 0 else '{}'.format(attr)
         return new_name
 
-    def _transform_materials(self, tau_max, link_dict):
+    def _transform_materials(self, var_names, link_dict):
         """
         This function transforms the original N variables into N(tau_max + 1) variables
         As a result,
@@ -30,17 +39,27 @@ class BayesianFitter:
         Returns:
             expanded_var_names (list[str]): Record the name of expanded variables (starting from t-tau_max to t)
         """ 
-        expanded_var_names = []; expanded_causal_graph = None; expanded_data_array = None
-        for tau in range(0, tau_max + 1): # Construct expanded_var_names
-            expanded_var_names = [*[self._lag_name(x, tau) for x in self.var_names], *expanded_var_names]
-        expanded_causal_graph = np.zeros(shape=(len(expanded_var_names), len(expanded_var_names)), dtype=np.uint8)
+        expanded_var_names = []; dev_count = 0
+        expanded_causal_graph:'np.ndarray' = None; expanded_data_array:'np.ndarray' = None
+
+        for tau in range(0, self.tau_max + 1): # Construct expanded_var_names and device info dict: Device with large lags are in the low indices
+            lag = self.tau_max - tau
+            for dev in var_names:
+                extended_dev = DevAttribute(attr_name=self._lag_name(dev, lag), attr_index=dev_count, lag=lag)
+                self.extended_name_device_dict[extended_dev.name] = extended_dev; self.extended_index_device_dict[extended_dev.index] = extended_dev
+                expanded_var_names.append(extended_dev.name); dev_count += 1
+        
+        expanded_causal_graph = np.zeros((dev_count, dev_count), dtype=np.uint8)
         for outcome, cause_list in link_dict.items(): # Construct expanded causal graph (a binary array)
             for (cause, lag) in cause_list:
-                expanded_causal_graph[expanded_var_names.index(self._lag_name(cause, abs(lag))), expanded_var_names.index(outcome)] = 1
-        expanded_data_array = np.zeros(shape=(self.dataframe.T - tau_max, len(expanded_var_names)), dtype=np.uint8)
-        for i in range(0, self.dataframe.T - tau_max): # Construct expanded data array
-            expanded_data_array[i] = np.concatenate([self.dataframe.values[i+tau] for tau in range(0, tau_max+1)])
-        return expanded_var_names, expanded_causal_graph, expanded_data_array
+                cause_name = self._lag_name(cause, lag)
+                expanded_causal_graph[self.extended_name_device_dict[cause_name].index, self.extended_name_device_dict[outcome].index] = 1
+
+        expanded_data_array = np.zeros(shape=(self.dataframe.T - self.tau_max, dev_count), dtype=np.uint8)
+        for i in range(0, self.dataframe.T - self.tau_max): # Construct expanded data array: The concatenation guarantees that device with large lags are in the low indices
+            expanded_data_array[i] = np.concatenate([self.dataframe.values[i+tau] for tau in range(0, self.tau_max+1)])
+
+        return expanded_var_names, dev_count, expanded_causal_graph, expanded_data_array
 
     def construct_bayesian_model(self):
         """Construct a parameterized causal graph (i.e., a bayesian model)
@@ -48,11 +67,13 @@ class BayesianFitter:
         Returns:
             model: A pgmpy.model object
         """
-        edge_list = [(self.expanded_var_names[i], self.expanded_var_names[j])\
+        edge_list = [(self.extended_index_device_dict[i].name, self.extended_index_device_dict[j].name)\
                         for (i, j), x in np.ndenumerate(self.expanded_causal_graph) if x == 1]
-        in_degrees = [sum(self.expanded_causal_graph[:, i]) for i in range(0, self.n_expanded_vars)]; max_degree = max(in_degrees); corrs_attr = self.expanded_var_names[in_degrees.index(max_degree)]
+        in_degrees = [sum(self.expanded_causal_graph[:, self.extended_name_device_dict[var_name].index]) for var_name in self.var_names]
+        avg_degree = 0 if len(in_degrees)==0 else sum(in_degrees)*1.0/len(in_degrees); max_degree = max(in_degrees); max_attr = self.extended_index_device_dict[in_degrees.index(max_degree)].name
+        print("[Bayesian Fitting] Total, Average, Max = {}, {}, {}".format(sum(in_degrees), avg_degree, max_degree))
         if max_degree > 10:
-            print("[Bayesian Fitting] ALERT! The variable {} owns the maximum in-degree {} (larger than 10). This variable may slow down the fitting process!".format(corrs_attr, max_degree))
+            print("[Bayesian Fitting] ALERT! The variable {} owns the maximum in-degree {} (larger than 10). This variable may slow down the fitting process!".format(max_attr, max_degree))
         self.model = BayesianNetwork(edge_list)
         df = pd.DataFrame(data=self.expanded_data_array, columns=self.expanded_var_names)
         #cpd = MaximumLikelihoodEstimator(self.model, df).estimate_cpd(corrs_attr) # JC TEST: The bayesian fitting consumes much time. Let's test the exact consumed time here..
