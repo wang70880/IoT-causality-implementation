@@ -12,13 +12,13 @@ class BayesianFitter:
     def __init__(self, frame, tau_max, link_dict) -> None:
         self.frame:'DataFrame' = frame; self.tau_max = tau_max
         self.dataframe:'pp.DataFrame' = self.frame.training_dataframe
-        self.extended_name_device_dict:'dict[DevAttribute]' = defaultdict(DevAttribute) # The str-DevAttribute dict using the attr name as the dict key
-        self.extended_index_device_dict:'dict[DevAttribute]' = defaultdict(DevAttribute) # The str-DevAttribute dict using the attr index as the dict key
+        self.extended_name_device_dict:'dict[str, DevAttribute]' = defaultdict(DevAttribute) # The str-DevAttribute dict using the attr name as the dict key
+        self.extended_index_device_dict:'dict[int, DevAttribute]' = defaultdict(DevAttribute) # The str-DevAttribute dict using the attr index as the dict key
         self.var_names = self.frame.var_names; self.n_vars = len(self.var_names)
         self.expanded_var_names, self.n_expanded_vars, self.expanded_causal_graph, self.expanded_data_array =\
                      self._transform_materials(self.frame.var_names, link_dict)
-
         self.model = None
+        self.nointeraction_attr_list = []
 
     def _lag_name(self, attr:'str', lag:'int'): # Helper function to generate lagged names
         lag = -abs(lag)
@@ -53,7 +53,8 @@ class BayesianFitter:
         for outcome, cause_list in link_dict.items(): # Construct expanded causal graph (a binary array)
             for (cause, lag) in cause_list:
                 cause_name = self._lag_name(cause, lag)
-                expanded_causal_graph[self.extended_name_device_dict[cause_name].index, self.extended_name_device_dict[outcome].index] = 1
+                expanded_causal_graph[self.extended_name_device_dict[cause_name].index,\
+                                    self.extended_name_device_dict[outcome].index] = 1
 
         expanded_data_array = np.zeros(shape=(self.dataframe.T - self.tau_max, dev_count), dtype=np.uint8)
         for i in range(0, self.dataframe.T - self.tau_max): # Construct expanded data array: The concatenation guarantees that device with large lags are in the low indices
@@ -80,29 +81,20 @@ class BayesianFitter:
         #print(cpd)
         self.model.fit(df, estimator= BayesianEstimator) 
     
-    def predict_attr_state(self, attr, parent_state_dict, verbose=0):
-        """ Predict the value of the target attribute given its parent states, i.e., E[attr|par(attr)]
-
-        Args:
-            attr (str): The target attribute
-            parent_state_dict (dict[str, int]): The dictionary recording the name and state for each parent of attr
-
-        Returns:
-            val: The estimated state of the attribute
+    def estimate_cond_probability(self, event:'AttrEvent', device_states:'list[str, int]'):
         """
-        val = 0.0
-        if verbose == 1:
-            print(self.model.get_cpds(attr))
-        phi = self.model.get_cpds(attr).to_factor()
-        state_dict = parent_state_dict.copy()
-        for possible_val in [0, 1]: # In our case, each attribute is a binary variable. Therefore the state space is [0, 1]
-            state_dict[attr] = possible_val
-            val += possible_val * phi.get_value(**state_dict) * 1.0
-        return val
+        Predict the value of the target attribute given its parent states, i.e., E[attr|par(attr)]
+        """
+        cpd = self.model.get_cpds(event.dev).copy()
+        return cpd.get_value(**{dev: value for (dev, value) in device_states})
 
-    def get_expanded_parent_indices(self, expanded_attr_index: 'int'):
-        return list(np.where(self.expanded_causal_graph[:,expanded_attr_index] == 1)[0])
-        #return {index: self.expanded_var_names[i] for index in par_indices}
+    def get_expanded_parents(self, child_device: 'DevAttribute'):
+        # Return variables
+        parents = []
+        for (i,), x in np.ndenumerate(self.expanded_causal_graph[:,child_device.index]):
+            if x == 1:
+                parents.append(self.extended_index_device_dict[i])
+        return parents 
 
     def get_parents(self, attr, name_flag = True):
         expanded_attr_index = self.expanded_var_names.index(attr)

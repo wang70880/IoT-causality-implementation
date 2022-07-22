@@ -7,7 +7,7 @@ from src.tigramite.tigramite import plotting as tp
 from src.genetic_type import DevAttribute, AttrEvent, DataFrame
 
 from pgmpy.models import BayesianNetwork
-from pgmpy.estimators import MaximumLikelihoodEstimator
+from pgmpy.estimators import MaximumLikelihoodEstimator, BayesianEstimator
 
 from collections import defaultdict
 from pprint import pprint
@@ -20,12 +20,25 @@ import matplotlib.pyplot as plt
 import os
 
 from src.bayesian_fitter import BayesianFitter
+from src.security_guard import SecurityGuard
 from src.tigramite.tigramite import data_processing as pp
+
+class Drawer():
+
+    def __init__(self) -> None:
+        pass
+
+    def draw_1d_distribution(self, val_list, xlabel='', ylabel='', title='', fname='default'):
+        sns.displot(val_list, kde=False, color='red', bins=1000)
+        plt.title(title)
+        plt.xlabel(xlabel)
+        plt.ylabel(ylabel)
+        plt.savefig("temp/image/{}.pdf".format(fname))
 
 class DataDebugger():
 
-    def __init__(self, dataset, partition_config=30, training_ratio=1.0, tau_max = 4, alpha=0.001) -> None:
-        self.dataset = dataset; self.partition_config = partition_config; self.training_ratio = training_ratio; self.tau_max = tau_max; self.alpha = alpha
+    def __init__(self, dataset, partition_config=30, filter_threshold=30, training_ratio=1.0, tau_max = 4, alpha=0.001) -> None:
+        self.dataset = dataset; self.partition_config = partition_config; self.filter_threshold = filter_threshold; self.training_ratio = training_ratio; self.tau_max = tau_max; self.alpha = alpha
         self.preprocessor = Hprocessor(dataset=dataset)
         self.preprocessor.initiate_data_preprocessing()
         self.preprocessor.data_loading(partition_config, training_ratio)
@@ -124,10 +137,9 @@ class DataDebugger():
         tested_frame:'DataFrame' = self.preprocessor.frame_dict[int_frame_id]
         n_vars = tested_frame.n_vars
         matrix_shape = (n_vars, n_vars, self.tau_max + 1)
-
         interaction_matrix:'np.ndarray' = np.zeros(matrix_shape)
         evaluator = Evaluator(self.dataset, self.preprocessor, self.background_generator, None, self.tau_max)
-        evaluator.construct_golden_standard(filter_threshold=self.partition_config)
+        evaluator.construct_golden_standard(filter_threshold=self.filter_threshold)
         interaction_dict:'dict[np.ndarray]' = evaluator.golden_standard_dict[int_type]
         interaction_matrix = interaction_dict[int_frame_id]
         str = "[Picturing Golden Standard] Number of edges for each tau:\n"
@@ -249,60 +261,113 @@ class MinerDebugger():
 
 class BayesianDebugger():
 
-    def __init__(self, data_debugger = None) -> None:
+    def __init__(self, data_debugger = None, verbosity=1) -> None:
+
         assert(data_debugger is not None)
         self.data_debugger:'DataDebugger' = data_debugger
+        self.verbosity = verbosity
     
-    def analyze_fitting_result(self, int_frame_id=0):
+    def analyze_fitting_result(self, int_frame_id=0, analyze_golden_standard=True):
         # Auxillary variables
         tested_frame:'DataFrame' = self.data_debugger.preprocessor.frame_dict[int_frame_id]
         var_names = tested_frame.var_names; tau_max = self.data_debugger.tau_max
         index_device_dict:'dict[DevAttribute]' = self.data_debugger.preprocessor.index_device_dict
 
-        # 1. Fetch the golden interaction matrix, and transform to link dict
-        golden_interaction_matrix:'np.ndarray' = self.data_debugger.derive_golden_standard(int_frame_id, 'user')
+        # 1. Get the interaction matrix and transform to link dict
+        if analyze_golden_standard:
+            interaction_matrix:'np.ndarray' = self.data_debugger.derive_golden_standard(int_frame_id, 'user')
+        else:
+            # JC TODO: Insert PC discovery here to get the discovered matrix
+            interaction_matrix:'np.ndarray' = None
         link_dict = defaultdict(list)
-        for (i, j, lag), x in np.ndenumerate(golden_interaction_matrix):
+        for (i, j, lag), x in np.ndenumerate(interaction_matrix):
             if x == 1:
                 link_dict[var_names[j]].append((var_names[i],-lag))
-        #link_dict = {'D002': [('D002', -1), ('D002', -2), ('M001', -1), ('M001', -2), ('D002', -3), ('M001', -3)],\
-        #            'M001': [('M001', -1), ('M001', -2), ('D002', -2), ('D002', -1), ('M005', -2), ('D002', -3), ('M004', -1), ('M001', -3), ('M003', -1), ('M005', -1), ('M002', -1), ('M006', -3), ('M005', -3)],\
-        #            'M002': [('M002', -2), ('M002', -1), ('M001', -1), ('M004', -1), ('M005', -2), ('M005', -1), ('M003', -1), ('M006', -1)],\
-        #            'M003': [('M003', -2), ('M003', -1), ('M005', -1), ('M004', -1), ('M004', -2), ('M001', -1), ('M002', -1), ('M006', -1), ('M002', -2)],\
-        #            'M004': [('M004', -2), ('M005', -1), ('M002', -1), ('M001', -1), ('M004', -1), ('M006', -1), ('M005', -3)],\
-        #            'M005': [('M005', -2), ('M005', -3), ('M005', -1), ('M004', -1), ('M003', -2), ('M001', -1), ('M003', -1), ('M002', -2), ('M002', -1), ('M006', -1), ('M001', -3), ('M002', -3), ('D002', -1), ('D002', -3), ('M006', -3), ('M004', -2), ('M001', -2), ('D002', -2)],\
-        #            'M006': [('M006', -2), ('M005', -1), ('M011', -2), ('M003', -1), ('M004', -1), ('M001', -3), ('M002', -1)],\
-        #            'M011': [('M011', -2), ('M006', -2), ('M011', -1)]} # With alpha = 0.001 and bk = 1
-        pprint(link_dict)
+        #print("[Bayesian Debugger] Interaction dict to be analyzed:")
+        #pprint(dict(link_dict))
 
         # 2. Initiate BayesianFitter class and estimate models
-
         bayesian_fitter = BayesianFitter(tested_frame, tau_max, link_dict)
+        bayesian_fitter.construct_bayesian_model()
+
+        # 3. For each edge, calculate its average activation-activation frequency
+        activation_ratios = []; deactivation_ratios = []
+        average_cpds = np.zeros((2, 2)); count = 0
         for outcome, cause_list in link_dict.items(): 
-            for (cause, lag) in cause_list: # Traverse each edge and estimate its cpds
+            for (cause, lag) in cause_list: # For each edge, estimate its cpt
                 cause_name = bayesian_fitter._lag_name(cause, lag)
-                # Check the correctness of BayesianFitter's _transform_materials function
                 assert(bayesian_fitter.expanded_causal_graph[bayesian_fitter.extended_name_device_dict[cause_name].index,\
                                                              bayesian_fitter.extended_name_device_dict[outcome].index] == 1)
                 model = BayesianNetwork([(cause_name, outcome)])
                 model.fit(pd.DataFrame(data=bayesian_fitter.expanded_data_array, columns=bayesian_fitter.expanded_var_names),\
                             estimator=MaximumLikelihoodEstimator)
-                print(model.get_cpds(outcome))
+                cpd = model.get_cpds(outcome)
+                activation_ratio = cpd.values[(-1,) * len(cpd.variables)]; deactivation_ratio = cpd.values[(0,) * len(cpd.variables)]
+                activation_ratios.append(activation_ratio); deactivation_ratios.append(deactivation_ratio)
+                average_cpds += cpd.values
+                count += 1
+        average_cpds /= count
+        if self.verbosity > 0:
+            print("[Bayesian Debugger] Average cpds for golden standard edges:\n{}".format(average_cpds))
+        drawer = Drawer()
+        drawer.draw_1d_distribution(activation_ratios, fname='activation-cpt-threshold{}'.format(self.data_debugger.filter_threshold))
+        drawer.draw_1d_distribution(deactivation_ratios, fname='deactivation-cpt-threshold{}'.format(self.data_debugger.filter_threshold))
 
-        bayesian_fitter.construct_bayesian_model()
+        return bayesian_fitter
+
+class GuardDebugger():
+
+    def __init__(self, data_debugger=None, bayesian_debugger=None) -> None:
+        self.data_debugger:'DataDebugger' = data_debugger
+        self.bayesian_debugger:'BayesianDebugger' = bayesian_debugger
+        self.drawer:'Drawer' = Drawer()
+
+    def analyze_anomaly_threshold(self, int_frame_id=0, sig_level=1):
+        frame = self.data_debugger.preprocessor.frame_dict[int_frame_id]
+        bayesian_fitter = self.bayesian_debugger.analyze_fitting_result(int_frame_id)
+        # 1. Initialize the security guard, and calculate anomaly scores
+        security_guard = SecurityGuard(frame=frame, bayesian_fitter=bayesian_fitter, sig_level=sig_level)
+        training_anomaly_scores = security_guard.training_anomaly_scores
+        #print("[Guard Debugger] large-pscore-dict:"); pprint(dict(security_guard.large_pscore_dict))
+        filterd_large_pscore_dict = {k:v for k, v in dict(security_guard.large_pscore_dict).items() if v > 1000}
+        print("[Guard Debugger] filtered large-pscore-dict:"); pprint(filterd_large_pscore_dict)
+        #print("[Guard Debugger] small-pscore-dict:"); pprint(dict(security_guard.small_pscore_dict))
+        print("Average anomaly score = {}".format(sum(training_anomaly_scores)*1.0/len(training_anomaly_scores)))
+        
+        self.drawer.draw_1d_distribution(training_anomaly_scores, xlabel='Score', ylabel='Occurrence', title='Training event detection using golden standard model', fname='prediction-probability-distribution-threshold{}'.format(self.data_debugger.filter_threshold))
+        return security_guard
 
 if __name__ == '__main__':
 
-    dataset = 'hh130'; partition_config = 30; training_ratio = 1.0; tau_max = 3
-    alpha = 0.001; int_frame_id = 0
-    data_debugger = DataDebugger(dataset, partition_config, training_ratio, tau_max, alpha)
-    #data_debugger.analyze_golden_standard()
+    dataset = 'hh130'; partition_config = 30; filter_threshold = 1 * partition_config; training_ratio = 1.0; tau_max = 3
+    alpha = 0.001; int_frame_id = 0; sig_level = 0.95
+    data_debugger = DataDebugger(dataset, partition_config, filter_threshold, training_ratio, tau_max, alpha)
+    bayesian_debugger = BayesianDebugger(data_debugger, verbosity=0)
+    bayesian_fitter = bayesian_debugger.analyze_fitting_result(int_frame_id)
 
-    #miner_debugger = MinerDebugger(alpha, data_debugger)
-    #miner_debugger.analyze_discovery_result(int_frame_id)
+    # ad-hoc codes here
+    int_variable = ('M005', 1)
+    original_parent_list = [('M005(-3)', 1), ('M003(-3)', 0),\
+                       ('M004(-3)', 0), ('M003(-2)', 0),\
+                       ('M004(-2)', 0), ('M005(-2)', 0), ('M006(-2)', 0), ('M004(-1)', 0), ('M006(-1)', 0)]
 
-    bayesian_debugger = BayesianDebugger(data_debugger)
-    bayesian_debugger.analyze_fitting_result(int_frame_id)
+    marginalized_list = [
+                        #'M005(-3)', 'M005(-2)',\
+                        #'M004(-3)', 'M004(-2)', 'M004(-1)',\
+                        #'M003(-3)', 'M003(-2)',\
+                        #'M006(-2)', 'M006(-1)',\
+                        ]
+    parent_list = [tup for tup in original_parent_list if tup[0] not in marginalized_list]
+    # 1. Get the CPT for interested variable
+    m005_cpd = bayesian_fitter.model.get_cpds(int_variable[0]).copy()
+    parent_name_list = m005_cpd.get_evidence()
+    assert(len(parent_name_list) == len(original_parent_list))
+    # 2. Marginalize over identified variables
+    m005_cpd.marginalize(marginalized_list)
+    #print(m005_cpd)
+    # 3. Get the conditional probability
+    val_dict = {k:v for (k,v) in parent_list + [int_variable]}
+    print(m005_cpd.get_value(**val_dict))
 
-    #evaluation_debugger = EvaluationDebugger(dataset=dataset)
-    #evaluation_debugger.validate_user_interaction_identification()
+    #guard_debugger = GuardDebugger(data_debugger, bayesian_debugger)
+    #guard_debugger.analyze_anomaly_threshold(int_frame_id, sig_level)

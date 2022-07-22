@@ -1,33 +1,32 @@
-from itertools import chain
+from tkinter import W
+from numpy import ndarray
 import numpy as np
 from pprint import pprint
-from tabulate import tabulate
 from statistics import mean
+from collections import defaultdict
+
+from src.genetic_type import DevAttribute, AttrEvent, DataFrame
+from src.bayesian_fitter import BayesianFitter
 
 NORMAL = 0
 TYPE1_ANOMALY = 1
 TYPE2_ANOMALY = 2
 
 class PhantomStateMachine():
-    """
-    The phantom state machine stores the history device states (with respect to the time lag)
-    That is, suppose there is n attributes and time lag is l, the length of phantom_states is n * l
-    """
 
     def __init__(self, var_names, expanded_var_names) -> None:
         self.var_names = var_names; self.expanded_var_names = expanded_var_names
         self.n_vars = len(var_names); self.n_expanded_vars = len(self.expanded_var_names)
-        self.phantom_states = [0] * (self.n_expanded_vars - self.n_vars) # The phantom state machine stores devices' history states.
+        assert(self.n_expanded_vars > self.n_vars and self.n_expanded_vars % self.n_vars == 0)
+        self.phantom_states = [0] * (self.n_expanded_vars - self.n_vars) # suppose there is n attributes and time lag is l, the length of phantom_states is n * l
 
-    def set_states(self, state_vector):
+    def set_states(self, state_vector:'list[int]'):
         """
         Update the latest history state vectors (i.e., the vector for lag = -1).
-
         Args:
             state_vector (list[int]): The state vector to be renewed.
         """
         assert(len(state_vector) == self.n_vars)
-        # Push the state machine backwards
         self.phantom_states = [*self.phantom_states[self.n_vars:], *state_vector]
     
     def get_lagged_states(self, lag = 1):
@@ -55,21 +54,9 @@ class PhantomStateMachine():
         renewed_state_vector[self.var_names.index(attr)] = state
         self.set_states(renewed_state_vector)
 
-    def get_attr_states(self, expanded_attr_indices, name_type = False):
-        """
-        Fetch the state of specified lagged attributes
-
-        Args:
-            expanded_attr_indices (list[int]): The attribute indices which are of interest
-            name_type (bool, optional): Whether the key of returned state dict is the attribute name (Otherwise it is the index). Defaults to False.
-
-        Returns:
-            result_dict (dict[int:int] or dict[str:int]): The name-state dict
-        """
-        assert(all([x < self.n_expanded_vars - self.n_vars for x in expanded_attr_indices])) # Since phantom state machine does not store the current state, the function cannot help to fetch the current state.
-        result_dict = {index: self.phantom_states[index] for index in expanded_attr_indices} if not name_type else \
-                            {self.expanded_var_names[index]: self.phantom_states[index] for index in expanded_attr_indices}
-        return result_dict
+    def get_device_states(self, expanded_devices:'list[DevAttribute]'):
+        assert(all([device.index < self.n_expanded_vars - self.n_vars for device in expanded_devices])) # Since phantom state machine does not store the current state, the function cannot help to fetch the current state.
+        return {device: self.phantom_states[device.index] for device in expanded_devices}
     
     def __str__(self):
         return tabulate(\
@@ -141,26 +128,25 @@ class ChainManager():
 
 class SecurityGuard():
 
-    def __init__(self, frame=None, bayesian_fitter=None, verbosity=0, sig_level = 0.9) -> None:
-        self.frame = frame
+    def __init__(self, frame=None, bayesian_fitter:'BayesianFitter'=None, sig_level=0.9, verbosity=0) -> None:
+        self.frame:'DataFrame' = frame
         self.verbosity = verbosity
-        self.var_names: 'list[str]' = bayesian_fitter.var_names; self.expanded_var_names: 'list[str]' = bayesian_fitter.expanded_var_names
-        self.tau_max = bayesian_fitter.tau_max
         self.last_processed_event = ()
         # The parameterized causal graph
-        self.bayesian_fitter = bayesian_fitter
+        self.bayesian_fitter:'BayesianFitter' = bayesian_fitter
         # Phantom state machine
         self.phantom_state_machine = PhantomStateMachine(bayesian_fitter.var_names, bayesian_fitter.expanded_var_names)
         # Chain manager
         self.chain_manager = ChainManager(bayesian_fitter.var_names, bayesian_fitter.expanded_var_names, bayesian_fitter.expanded_causal_graph)
-        # The score threshold
-        self.score_threshold = 0.0
-        self._compute_anomaly_score_cutoff(sig_level=sig_level)
         # Anomaly analyzer
         self.violation_dict = {}
         self.type1_debugging_dict = {}
         self.fn_debugging_dict = {}
         self.fp_debugging_dict = {}
+        self.large_pscore_dict = defaultdict(int)
+        self.small_pscore_dict = defaultdict(int)
+        # The score threshold
+        self.training_anomaly_scores, self.score_threshold = self._compute_anomaly_score_cutoff(sig_level=sig_level)
     
     def initialize(self, event_id, event, state_vector):
         self.phantom_state_machine.set_states(state_vector) # Initialize the phantom state machine
@@ -262,36 +248,46 @@ class SecurityGuard():
         #print(self.phantom_state_machine)
         self.chain_manager.create(event_id, expanded_attr_index, NORMAL)
 
-    def compute_event_anomaly_score(self, event, phantom_state_machine):
-        anomaly_score = 0
-        attr = event[0]; observed_state = event[1]; expanded_attr_index = self.expanded_var_names.index(attr)
-        expanded_parent_indices = self.bayesian_fitter.get_expanded_parent_indices(expanded_attr_index)
-        #print(" [Score Computation] Now handling attr {} with parents ({})".format(attr, ','.join([self.expanded_var_names[i] for i in expanded_parent_indices])))
-        parent_state_dict = phantom_state_machine.get_attr_states(expanded_parent_indices, True)
-        if attr not in self.bayesian_fitter.nointeraction_attr_list: # JC NOTE: For all attributes which have no interactions or only aturocorrelations, they are not our focus and we assume they are benign.
-            estimated_state = self.bayesian_fitter.predict_attr_state(attr, parent_state_dict)
-            anomaly_score = 1.0 * (estimated_state - observed_state)**2
-            if self.score_threshold > 0 and anomaly_score > self.score_threshold and event[0] == 'M001' and False: # JC DEBUGGING
-                print("[Anomaly Detection] Event {} is an anomaly!".format(event))
-                pprint(parent_state_dict)
-                print("     (Estimated state, Observed state) = ({}, {})".format(estimated_state, observed_state))
-                print("     (Abnormal score > threshold) = ({} > {})".format(anomaly_score, self.score_threshold))
+    def compute_event_anomaly_score(self, event:'AttrEvent', phantom_state_machine:'PhantomStateMachine'):
+        # Return variables
+        anomaly_score = 0.
+        # Auxillary variables
+        extended_name_device_dict:'dict[str, DevAttribute]' = self.bayesian_fitter.extended_name_device_dict
+        # 1. Get the list of parents
+        expanded_parents:'list[DevAttribute]' = self.bayesian_fitter.get_expanded_parents(extended_name_device_dict[event.dev])
+        if self.verbosity > 0:
+            print("[Score Computation] Now handling device {} with parents ({})".format(event.dev,\
+                    ','.join([parent.name for parent in expanded_parents])))
+        # 2. Fetch the parents' states
+        parent_state_dict:'dict[DevAttribute, int]' = phantom_state_machine.get_device_states(expanded_parents)
+        device_states:'list[str, int]' = [(k.name, v) for k, v in parent_state_dict.items()]
+        device_states.append((event.dev, event.value))
+        # 3. Estimate the anomaly score for current event
+        cond_prob = self.bayesian_fitter.estimate_cond_probability(event, device_states)
+        anomaly_score = 1 - cond_prob
+        if anomaly_score >= 0.9:
+            self.large_pscore_dict['{}={} under {}'.format(event.dev, event.value, ",".join(['{}={}'.format(k.name, v) for k, v in parent_state_dict.items()]))] += 1
+        else:
+            self.small_pscore_dict['{}:{}'.format(event.dev, event.value)] += 1
         return anomaly_score
 
     def _compute_anomaly_score_cutoff(self, sig_level = 0.9):
-        computed_anomaly_scores = []
-        training_phantom_machine = PhantomStateMachine(self.var_names, self.expanded_var_names)
-        training_events = list(zip(self.frame['attr-sequence'], self.frame['state-sequence']))
-        training_frame = self.frame['training-data'] # A pp.dataframe object
-        assert(len(training_events) == training_frame.T)
-        for i in range(training_frame.T):
-            cur_event = training_events[i]; cur_state_vector = training_frame.values[i]
-            training_phantom_machine.set_states(cur_state_vector)
-            if i > self.tau_max:
-                anomaly_score = self.compute_event_anomaly_score(cur_event, training_phantom_machine)
-                computed_anomaly_scores.append(anomaly_score)
-        self.score_threshold = np.percentile(np.array(computed_anomaly_scores), sig_level * 100)
-        return self.score_threshold
+        # Return variables
+        self.score_threshold = 0.
+        # Auxillary variables
+        var_names = self.bayesian_fitter.var_names; expanded_var_names = self.bayesian_fitter.expanded_var_names
+        tau_max = self.bayesian_fitter.tau_max
+        training_events_states:'list[tuple(AttrEvent, ndarray)]' = self.frame.training_events_states
+
+        anomaly_scores = []
+        training_phantom_machine = PhantomStateMachine(var_names, expanded_var_names)
+        for index, (event, states) in enumerate(training_events_states):
+            training_phantom_machine.set_states(states)
+            if index > tau_max:
+                anomaly_score = self.compute_event_anomaly_score(event, training_phantom_machine)
+                anomaly_scores.append(anomaly_score)
+        score_threshold = np.percentile(np.array(anomaly_scores), sig_level * 100)
+        return anomaly_scores, score_threshold
 
     def breakpoint_detection(self, event=()):
         attr = event[0]; expanded_attr_index = self.expanded_var_names.index(attr)

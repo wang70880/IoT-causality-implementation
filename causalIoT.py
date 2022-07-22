@@ -281,6 +281,14 @@ for frame_id in frame_dict.keys():
                                     'M005': [('M005', -2), ('M005', -3), ('M005', -1), ('M004', -1), ('M003', -2), ('M001', -1), ('M003', -1), ('M002', -2), ('M002', -1), ('M006', -1), ('M001', -3), ('M002', -3), ('D002', -1), ('D002', -3), ('M006', -3), ('M004', -2), ('M001', -2), ('D002', -2)],\
                                     'M006': [('M006', -2), ('M005', -1), ('M011', -2), ('M003', -1), ('M004', -1), ('M001', -3), ('M002', -1)],\
                                     'M011': [('M011', -2), ('M006', -2), ('M011', -1)]} # With alpha = 0.001 and bk = 1
+        pc_result_dict[frame_id] = {'D002': [('D002', -2), ('M001', -1), ('M001', -2), ('M001', -3)],
+                                    'M001': [('D002', -1), ('D002', -2), ('M001', -2), ('M001', -3), ('M002', -1), ('M002', -2), ('M002', -3), ('M003', -2), ('M003', -3), ('M004', -2), ('M004', -3)],
+                                    'M002': [('M001', -1), ('M001', -2), ('M001', -3), ('M002', -2), ('M002', -3), ('M004', -2)],
+                                    'M003': [('M001', -2), ('M003', -2), ('M003', -3), ('M004', -1), ('M004', -2), ('M004', -3), ('M005', -2)],
+                                    'M004': [('M001', -2), ('M001', -3), ('M002', -2), ('M003', -1), ('M003', -2), ('M003', -3), ('M004', -2), ('M004', -3), ('M005', -1), ('M005', -2), ('M006', -2)],
+                                    'M005': [('M003', -2), ('M003', -3), ('M004', -2), ('M004', -3), ('M005', -2), ('M005', -3), ('M006', -2)],
+                                    'M006': [('M004', -2), ('M005', -2), ('M006', -2), ('M011', -2)],
+                                    'M011': [('M006', -2), ('M011', -2)]} # Golden standard with filter_threshold = 3 * partition_config
         mci_result_dict[frame_id] = {}
     end = time()
 
@@ -310,7 +318,6 @@ for frame_id in frame_dict.keys():
             link_colorbar_label='MCI'
         )
         plt.savefig("temp/image/{}cmi_test_tau{}.pdf".format(dataset, tau_max))
-    exit()
 
     """CPT Estimator."""
     if COMM.rank == 0:
@@ -324,7 +331,7 @@ for frame_id in frame_dict.keys():
         if not skip_bayesian_fitting_flag:
             bayesian_fitter.construct_bayesian_model()
         print("Bayesian fitting complete. Consumed time: {} mins.".format((time() - start)*1.0/60))
-    
+
     """Security Guard."""
     if COMM.rank == 0:
         print("\n********** Initiate Security Guarding. **********")
@@ -364,6 +371,7 @@ for frame_id in frame_dict.keys():
         #pprint.pprint(violation_count_dict)
         print("[Security guarding] Evaluating the false negative for state transition violations")
         security_guard.print_debugging_dict(fp_flag=False)
+    exit()
 
         #print("[Security guarding] Evaluating the detection accuracy for state transition violations")
         #violation_interaction_dict = {}; violation_count_dict = {}
