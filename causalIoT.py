@@ -336,7 +336,7 @@ for frame_id in frame_dict.keys():
     if COMM.rank == 0:
         print("\n********** Initiate Security Guarding. **********")
         security_guard = security_guard.SecurityGuard(frame=frame, bayesian_fitter=bayesian_fitter, sig_level=sig_level)
-        evaluator = Evaluator(dataset=dataset, event_processor=event_preprocessor, background_generator=background_generator,\
+        evaluator = Evaluator(event_processor=event_preprocessor, background_generator=background_generator,\
                                              bayesian_fitter = bayesian_fitter, tau_max=tau_max)
         print("[Security guarding] Testing log starting positions {} with score threshold {}.".format(frame['testing-start-index'] + 1, security_guard.score_threshold))
         # 1. Inject device anomalies

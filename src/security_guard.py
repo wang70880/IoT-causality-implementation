@@ -131,7 +131,6 @@ class SecurityGuard():
     def __init__(self, frame=None, bayesian_fitter:'BayesianFitter'=None, sig_level=0.9, verbosity=0) -> None:
         self.frame:'DataFrame' = frame
         self.verbosity = verbosity
-        self.last_processed_event = ()
         # The parameterized causal graph
         self.bayesian_fitter:'BayesianFitter' = bayesian_fitter
         # Phantom state machine
@@ -248,7 +247,7 @@ class SecurityGuard():
         #print(self.phantom_state_machine)
         self.chain_manager.create(event_id, expanded_attr_index, NORMAL)
 
-    def compute_event_anomaly_score(self, event:'AttrEvent', phantom_state_machine:'PhantomStateMachine'):
+    def compute_event_anomaly_score(self, event:'AttrEvent', phantom_state_machine:'PhantomStateMachine', recent_devices:'list[str]'):
         # Return variables
         anomaly_score = 0.
         # Auxillary variables
@@ -260,10 +259,9 @@ class SecurityGuard():
                     ','.join([parent.name for parent in expanded_parents])))
         # 2. Fetch the parents' states
         parent_state_dict:'dict[DevAttribute, int]' = phantom_state_machine.get_device_states(expanded_parents)
-        device_states:'list[str, int]' = [(k.name, v) for k, v in parent_state_dict.items()]
-        device_states.append((event.dev, event.value))
+        parent_states:'list[str, int]' = [(k.name, v) for k, v in parent_state_dict.items()]
         # 3. Estimate the anomaly score for current event
-        cond_prob = self.bayesian_fitter.estimate_cond_probability(event, device_states)
+        cond_prob = self.bayesian_fitter.estimate_cond_probability(event, parent_states, recent_devices)
         anomaly_score = 1 - cond_prob
         if anomaly_score >= 0.9:
             self.large_pscore_dict['{}={} under {}'.format(event.dev, event.value, ",".join(['{}={}'.format(k.name, v) for k, v in parent_state_dict.items()]))] += 1
@@ -274,18 +272,23 @@ class SecurityGuard():
     def _compute_anomaly_score_cutoff(self, sig_level = 0.9):
         # Return variables
         self.score_threshold = 0.
+        anomaly_scores = []
         # Auxillary variables
         var_names = self.bayesian_fitter.var_names; expanded_var_names = self.bayesian_fitter.expanded_var_names
         tau_max = self.bayesian_fitter.tau_max
         training_events_states:'list[tuple(AttrEvent, ndarray)]' = self.frame.training_events_states
-
-        anomaly_scores = []
+        
+        recent_devices = []
         training_phantom_machine = PhantomStateMachine(var_names, expanded_var_names)
         for index, (event, states) in enumerate(training_events_states):
             training_phantom_machine.set_states(states)
             if index > tau_max:
-                anomaly_score = self.compute_event_anomaly_score(event, training_phantom_machine)
+                anomaly_score = self.compute_event_anomaly_score(event, training_phantom_machine, recent_devices)
                 anomaly_scores.append(anomaly_score)
+            if len(recent_devices) < tau_max:
+                recent_devices.append(event.dev)
+            else:
+                recent_devices = [*recent_devices[1:], event.dev]
         score_threshold = np.percentile(np.array(anomaly_scores), sig_level * 100)
         return anomaly_scores, score_threshold
 

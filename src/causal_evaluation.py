@@ -13,8 +13,7 @@ from collections import defaultdict
 
 class Evaluator():
 
-    def __init__(self, dataset, event_processor, background_generator, bayesian_fitter, tau_max) -> None:
-        self.dataset = dataset
+    def __init__(self, event_processor, background_generator, bayesian_fitter, tau_max) -> None:
         self.tau_max = tau_max
         self.event_processor:'Hprocessor' = event_processor
         self.background_generator:'BackgroundGenerator' = background_generator
@@ -170,7 +169,7 @@ class Evaluator():
             truth_count_list.append(truth_count); precision_list.append(precision); recall_list.append(recall)
         return statistics.mean(truth_count_list), statistics.mean(precision_list), statistics.mean(recall_list)
 
-    def simulate_malicious_control(self, frame, n_anomaly, maximum_length):
+    def simulate_malicious_control(self, int_frame_id, n_anomaly, maximum_length):
         """
         The function injects anomalous events to the benign testing data, and generates the testing event sequences (simulating Malicious Control Attack).
         1. Randomly select n_anomaly positions.
@@ -192,32 +191,33 @@ class Evaluator():
             anomaly_positions: The list of injection positions in testing sequences
             stable_states_dict: Dict of {Key: position in testing log; Value: stable roll-back (event, states) pair}
         """
-        testing_event_sequence = []; anomaly_positions = []; anomaly_events = []; stable_states_dict = {}
-        benign_event_sequence = list(zip(frame['testing-attr-sequence'], frame['testing-state-sequence']))
+        # Return variables
+        testing_event_states:'list[tuple(AttrEvent,ndarray)]' = []; anomaly_positions = []; testing_benign_dict:'dict[int]' = {}
+        # Auxillary variables
+        frame:'DataFrame' = self.event_processor.frame_dict[int_frame_id]
+        name_device_dict:'dict[DevAttribute]' = frame.name_device_dict
+        benign_event_states:'list[tuple(AttrEvent,ndarray)]' = frame.testing_events_states
         candidate_positions = sorted(random.sample(\
-                                    range(self.tau_max, len(benign_event_sequence) - 1, self.tau_max + maximum_length),\
+                                    range(self.tau_max, len(benign_event_states) - 1, self.tau_max + maximum_length),\
                                     n_anomaly))
 
-        benign_count = 0; testing_count = 0
-        for benign_count in range(len(benign_event_sequence)):
-            # First update the list according to the benign events and the corresponding stable_states vector
-            event = benign_event_sequence[benign_count]; stable_states = frame['testing-data'].values[benign_count].copy() 
-            testing_event_sequence.append(event); stable_states_dict[testing_count] = (event, stable_states); testing_count += 1 
-            # Reach the anomaly position: inject the anomaly after the benign events.
-            if benign_count in candidate_positions:
+        testing_count = 0
+        for i, (event, stable_states) in enumerate(benign_event_states):
+            testing_event_states.append((event, stable_states))
+            testing_benign_dict[testing_count] = i; testing_count += 1
+            if i in candidate_positions: # If reaching the anomaly position.
                 # Determine the abnormal attribute
-                candidate_anomalous_attrs = frame['var-name'].copy()
-                anomalous_attr = random.choice(candidate_anomalous_attrs)
+                anomalous_attr = random.choice(frame.var_names)
                 while anomalous_attr in self.bayesian_fitter.nointeraction_attr_list: # JC NOTE: We assume that the nointeraction attr will not be anomalous.
-                    anomalous_attr = random.choice(candidate_anomalous_attrs)
-                anomalous_attr_state = int(1 - stable_states[frame['var-name'].index(event[0])]) # Flip the state
-                anomaly_events.append((anomalous_attr, anomalous_attr_state))
-                testing_event_sequence.append((anomalous_attr, anomalous_attr_state)); anomaly_positions.append(testing_count); stable_states_dict[testing_count] = (event, stable_states)
-                testing_count += 1
+                    anomalous_attr = random.choice(frame.var_names)
+                anomalous_attr_state = int(1 - stable_states[name_device_dict[anomalous_attr].index]) # Flip the state
+                anomalous_event = AttrEvent(date=event.date, time=event.time, dev=anomalous_attr, value=anomalous_attr_state)
+                testing_event_states.append((anomalous_event, anomalous_attr_state)); anomaly_positions.append(testing_count)
+                testing_benign_dict[testing_count] = i; testing_count += 1
                 if maximum_length > 1:
                     pass
 
-        return testing_event_sequence, anomaly_events, anomaly_positions, stable_states_dict
+        return testing_event_states, anomaly_positions, testing_benign_dict 
 
     def inject_anomalies(self, frame_id, n_anomalies, maximum_length):
         """

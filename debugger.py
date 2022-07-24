@@ -337,37 +337,48 @@ class GuardDebugger():
         self.drawer.draw_1d_distribution(training_anomaly_scores, xlabel='Score', ylabel='Occurrence', title='Training event detection using golden standard model', fname='prediction-probability-distribution-threshold{}'.format(self.data_debugger.filter_threshold))
         return security_guard
 
+    def generate_anomalies(self, int_frame_id, n_anomalies=50, maximum_length=1):
+        # Auxillary variables
+        event_preprocessor = self.data_debugger.preprocessor; tau = event_preprocessor.tau_max
+        background_generator = self.data_debugger.background_generator
+        bayesian_fitter = self.bayesian_debugger.analyze_fitting_result(int_frame_id)
+
+        evaluator = Evaluator(event_processor=event_preprocessor, background_generator=background_generator,\
+                                             bayesian_fitter = bayesian_fitter, tau_max=tau)
+        
+        testing_event_states, anomaly_positions, testing_benign_dict = evaluator.simulate_malicious_control(int_frame_id, n_anomalies, maximum_length)
+
 if __name__ == '__main__':
 
-    dataset = 'hh130'; partition_config = 30; filter_threshold = 1 * partition_config; training_ratio = 1.0; tau_max = 3
+    dataset = 'hh130'; partition_config = 30; filter_threshold = 1 * partition_config; training_ratio = 0.8; tau_max = 3
     alpha = 0.001; int_frame_id = 0; sig_level = 0.95
     data_debugger = DataDebugger(dataset, partition_config, filter_threshold, training_ratio, tau_max, alpha)
+
     bayesian_debugger = BayesianDebugger(data_debugger, verbosity=0)
-    bayesian_fitter = bayesian_debugger.analyze_fitting_result(int_frame_id)
+#    bayesian_fitter = bayesian_debugger.analyze_fitting_result(int_frame_id)
+#    # ad-hoc codes here for testing partial evidence
+#    int_variable = ('M005', 1)
+#    original_parent_list = [('M005(-3)', 1), ('M003(-3)', 0),\
+#                       ('M004(-3)', 0), ('M003(-2)', 0),\
+#                       ('M004(-2)', 0), ('M005(-2)', 0), ('M006(-2)', 0), ('M004(-1)', 0), ('M006(-1)', 0)]
+#
+#    marginalized_list = [
+#                        #'M005(-3)', 'M005(-2)',\
+#                        #'M004(-3)', 'M004(-2)', 'M004(-1)',\
+#                        #'M003(-3)', 'M003(-2)',\
+#                        #'M006(-2)', 'M006(-1)',\
+#                        ]
+#    parent_list = [tup for tup in original_parent_list if tup[0] not in marginalized_list]
+#    # 1. Get the CPT for interested variable
+#    m005_cpd = bayesian_fitter.model.get_cpds(int_variable[0]).copy()
+#    parent_name_list = m005_cpd.get_evidence()
+#    assert(len(parent_name_list) == len(original_parent_list))
+#    # 2. Marginalize over identified variables
+#    m005_cpd.marginalize(marginalized_list)
+#    #print(m005_cpd)
+#    # 3. Get the conditional probability
+#    val_dict = {k:v for (k,v) in parent_list + [int_variable]}
+#    print(m005_cpd.get_value(**val_dict))
 
-    # ad-hoc codes here
-    int_variable = ('M005', 1)
-    original_parent_list = [('M005(-3)', 1), ('M003(-3)', 0),\
-                       ('M004(-3)', 0), ('M003(-2)', 0),\
-                       ('M004(-2)', 0), ('M005(-2)', 0), ('M006(-2)', 0), ('M004(-1)', 0), ('M006(-1)', 0)]
-
-    marginalized_list = [
-                        #'M005(-3)', 'M005(-2)',\
-                        #'M004(-3)', 'M004(-2)', 'M004(-1)',\
-                        #'M003(-3)', 'M003(-2)',\
-                        #'M006(-2)', 'M006(-1)',\
-                        ]
-    parent_list = [tup for tup in original_parent_list if tup[0] not in marginalized_list]
-    # 1. Get the CPT for interested variable
-    m005_cpd = bayesian_fitter.model.get_cpds(int_variable[0]).copy()
-    parent_name_list = m005_cpd.get_evidence()
-    assert(len(parent_name_list) == len(original_parent_list))
-    # 2. Marginalize over identified variables
-    m005_cpd.marginalize(marginalized_list)
-    #print(m005_cpd)
-    # 3. Get the conditional probability
-    val_dict = {k:v for (k,v) in parent_list + [int_variable]}
-    print(m005_cpd.get_value(**val_dict))
-
-    #guard_debugger = GuardDebugger(data_debugger, bayesian_debugger)
-    #guard_debugger.analyze_anomaly_threshold(int_frame_id, sig_level)
+    guard_debugger = GuardDebugger(data_debugger, bayesian_debugger)
+    guard_debugger.analyze_anomaly_threshold(int_frame_id, sig_level)

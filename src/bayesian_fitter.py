@@ -18,7 +18,8 @@ class BayesianFitter:
         self.expanded_var_names, self.n_expanded_vars, self.expanded_causal_graph, self.expanded_data_array =\
                      self._transform_materials(self.frame.var_names, link_dict)
         self.model = None
-        self.nointeraction_attr_list = []
+        self.isolated_attr_list = []; self.exogenous_attr_list = []; self.stop_attr_list = []
+        self._analyze_discovery_statistics()
 
     def _lag_name(self, attr:'str', lag:'int'): # Helper function to generate lagged names
         lag = -abs(lag)
@@ -81,12 +82,27 @@ class BayesianFitter:
         #print(cpd)
         self.model.fit(df, estimator= BayesianEstimator) 
     
-    def estimate_cond_probability(self, event:'AttrEvent', device_states:'list[str, int]'):
+    def estimate_cond_probability(self, event:'AttrEvent', parent_states:'list[tuple(str, int)]', selected_evidences:'list[str]'):
         """
         Predict the value of the target attribute given its parent states, i.e., E[attr|par(attr)]
         """
+        # 1. Get the CPT for the interested variable
         cpd = self.model.get_cpds(event.dev).copy()
-        return cpd.get_value(**{dev: value for (dev, value) in device_states})
+        parents = cpd.get_evidence()
+        assert(len(parents) == len(parent_states))
+        # 2. Get the list of variables to be marginalized, and marginalized the CPT
+        marginalized_list = []
+        for parent in parents:
+            if not parent.startswith(tuple(set(selected_evidences))):
+                marginalized_list.append(parent)
+        cpd.marginalize(marginalized_list)
+        # 3. Get the conditional probability (with only selected evidences)
+        selected_parents = [parent for parent in parents if parent not in marginalized_list]
+        val_dict = {k:v for (k,v) in parent_states if k in selected_parents}; val_dict[event.dev] = event.value
+        cond_prob = cpd.get_value(**val_dict)
+        if len(selected_parents) == 0:#or all([parent.startswith(event.dev) for parent in selected_parents]):
+            cond_prob = 0
+        return cond_prob
 
     def get_expanded_parents(self, child_device: 'DevAttribute'):
         # Return variables
@@ -101,43 +117,37 @@ class BayesianFitter:
         parent_index_list = list(np.where(self.expanded_causal_graph[:,expanded_attr_index] == 1)[0]); parent_name_list = [self.expanded_var_names[i] for i in parent_index_list]
         return parent_index_list if not name_flag else parent_name_list
 
-    def analyze_discovery_statistics(self):
-        print("[Bayesian Fitting] Analyzing discovery statistics.")
-        incoming_degree_dict = {var_name: sum(self.expanded_causal_graph[:,self.expanded_var_names.index(var_name)])\
+    def _analyze_discovery_statistics(self):
+        incoming_degree_dict = {var_name: sum(self.expanded_causal_graph[:,self.extended_name_device_dict[var_name].index])\
                                 for var_name in self.var_names}
         outcoming_degree_dict = {}
         for var_name in self.var_names:
             outcoming_degree = 0
             for tau in range(1, self.tau_max + 1):
-                outcoming_degree += sum(self.expanded_causal_graph[self.expanded_var_names.index(self._lag_name(var_name, tau))])
+                extended_dev = self._lag_name(var_name, tau)
+                outcoming_degree += sum(self.expanded_causal_graph[self.extended_name_device_dict[extended_dev].index])
             outcoming_degree_dict[var_name] = outcoming_degree
         
-        nointeraction_attr_list = []
-        for var_name in self.var_names:
-            var_index =  self.expanded_var_names.index(var_name)
-            parents_index = [k for k in range(self.n_expanded_vars) if self.expanded_causal_graph[k, var_index] > 0]
-            if all([ (p - var_index) % self.n_vars == 0 for p in parents_index]):
-                nointeraction_attr_list.append(var_name)
-
+        #nointeraction_attr_list = []
+        #for var_name in self.var_names:
+        #    var_index = self.extended_name_device_dict[var_name].index
+        #    parents_index = [k for k in range(self.n_expanded_vars) if self.expanded_causal_graph[k, var_index] > 0]
+        #    if all([(p - var_index) % self.n_vars == 0 for p in parents_index]): # If the current variable only contains autocorrelated parents
+        #        nointeraction_attr_list.append(var_name)
         
         isolated_attr_list = [var_name for var_name in self.var_names if incoming_degree_dict[var_name] + outcoming_degree_dict[var_name] == 0]
-        exogenous_attr_list = [var_name for (var_name, count) in incoming_degree_dict.items() if count == 0 and var_name not in isolated_attr_list]
-        stop_attr_list = [var_name for (var_name, count) in outcoming_degree_dict.items() if count == 0 and var_name not in isolated_attr_list]
-        
+        exogenous_attr_list = [var_name for var_name in self.var_names if incoming_degree_dict[var_name] == 0 and outcoming_degree_dict[var_name] > 0]
+        stop_attr_list = [var_name for var_name in self.var_names if incoming_degree_dict[var_name] > 0 and outcoming_degree_dict[var_name] == 0]
         outcoming_degree_list = list(outcoming_degree_dict.values()); incomming_degree_list = list(incoming_degree_dict.values())
 
         str = " * isolated attrs, #: {}, {}\n".format(isolated_attr_list, len(isolated_attr_list))\
             + " * stop attrs, #: {}, {}\n".format(stop_attr_list, len(stop_attr_list))\
             + " * exogenous attrs, #: {}, {}\n".format(exogenous_attr_list, len(exogenous_attr_list))\
-            + " * no-interaction attrs, #: {}, {}\n".format(nointeraction_attr_list, len(nointeraction_attr_list))\
             + " * # edges: {}\n".format(np.sum(self.expanded_causal_graph))\
             + " * (max, mean, min) for outcoming degrees: ({}, {}, {})\n".format(max(outcoming_degree_list),\
                         sum(outcoming_degree_list)*1.0/(self.n_vars - len(isolated_attr_list)), min(outcoming_degree_list))\
             + " * (max, mean, min) for incoming degrees: ({}, {}, {})\n".format(max(incomming_degree_list),\
-                        sum(incomming_degree_list)*1.0/(self.n_vars - len(isolated_attr_list)), min(incomming_degree_list))
-        print(str)
+                        sum(incomming_degree_list)*1.0/(self.n_vars - len(isolated_attr_list)), min(incomming_degree_list))\
+            #+ " * no-interaction attrs, #: {}, {}\n".format(nointeraction_attr_list, len(nointeraction_attr_list))\
 
-        self.nointeraction_attr_list = nointeraction_attr_list
-        self.isolated_attr_list = isolated_attr_list
-        self.exogenous_attr_list = exogenous_attr_list
-        self.stop_attr_list = stop_attr_list
+        self.isolated_attr_list = isolated_attr_list; self.exogenous_attr_list = exogenous_attr_list; self.stop_attr_list = stop_attr_list
