@@ -203,6 +203,9 @@ class SecurityGuard():
     def score_anomaly_detection(self, event_id, event:'AttrEvent', debugging_id_list = []):
         parent_states, anomaly_score = self._compute_event_anomaly_score(event, self.phantom_state_machine, self.recent_devices)
         anomalous_score_flag = True if anomaly_score > self.score_threshold else False
+        #if event_id in debugging_id_list:
+        #    print("Detection meets anomaly event {} with recent devices {}.".format(event, self.recent_devices))
+        #    print("Anomaly score: {}".format(anomaly_score))
 
         int_dict = None
         if anomalous_score_flag and event_id in debugging_id_list: # A tp is detected
@@ -222,12 +225,12 @@ class SecurityGuard():
         sorted_tps = dict(sorted(self.tp_debugging_dict.items(), key=lambda x: len(x[1]), reverse=True))
         sorted_fps = dict(sorted(self.fp_debugging_dict.items(), key=lambda x: len(x[1]), reverse=True))
         sorted_fns = dict(sorted(self.fn_debugging_dict.items(), key=lambda x: len(x[1]), reverse=True))
-        #print("************* # of FPs = {} *************".format(fps))
+        print("************* # of FPs = {} *************".format(fps))
         #for fp_case in sorted_fps.keys():
         #    n_cases = len(sorted_fps[fp_case])
         #    if n_cases > 10:
         #        print("{} ---- Occurrence: {}, Avg score: {}".format(fp_case, n_cases, mean([sorted_fps[fp_case][x][1] for x in range(n_cases)])))
-        #print("************* # of FNs = {} *************".format(fns))
+        print("************* # of FNs = {} *************".format(fns))
         #for fn_case in sorted_fns.keys():
         #    n_cases = len(sorted_fns[fn_case])
         #    if n_cases > 10:
@@ -237,8 +240,8 @@ class SecurityGuard():
         for tp_case in sorted_tps.keys():
             n_cases = len(sorted_tps[tp_case])
             #if n_cases > 10:
-            print("{} ---- Occurrence: {}, Avg score: {}".format(tp_case, n_cases, mean([sorted_tps[tp_case][x][1] for x in range(n_cases)])))
-        return fps, fns
+            #print("{} ---- Occurrence: {}, Avg score: {}".format(tp_case, n_cases, mean([sorted_tps[tp_case][x][1] for x in range(n_cases)])))
+        return tps, fps, fns
 
     def calibrate(self, event_id:'int', testing_benign_dict:'dict[int]'):
         # Auxillary variables
@@ -269,10 +272,10 @@ class SecurityGuard():
         # Return variables
         anomaly_score = 0.
         # 1. Get the list of parents for event.dev, and fetch their states from the phantom state machine
-        parent_states:'list[tuple(str, int)]' = self._fetch_parent_states(event, self.phantom_state_machine)
+        parent_states:'list[tuple(str, int)]' = self._fetch_parent_states(event, phantom_state_machine)
         # 2. Estimate the anomaly score for current event
         cond_prob = self.bayesian_fitter.estimate_cond_probability(event, parent_states, recent_devices)
-        anomaly_score = 1. - cond_prob
+        anomaly_score = (1. - cond_prob)
         if verbosity:
             print("Event: {}\n\
                    Phantom state machine: {}\n\

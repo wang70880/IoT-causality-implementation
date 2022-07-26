@@ -77,6 +77,8 @@ if PARAM_SETTING:
     ## For MCI
     alpha_level = 0.01
     max_conds_px = 5; max_conds_py= 5
+    ## For golden standard construction
+    filter_threshold = 0.95
     ## For anomaly detection
     sig_level = 0.95
     ## Resulting dict
@@ -174,7 +176,7 @@ frame_dict:'dict[DataFrame]' = event_preprocessor.data_loading(partition_config=
 background_generator = bk_generator.BackgroundGenerator(dataset, event_preprocessor, partition_config, tau_max)
 
 """Causal Evaluator"""
-evaluator = Evaluator(dataset, event_preprocessor, background_generator, None, tau_max)
+evaluator = Evaluator(dataset, event_preprocessor, background_generator, None, tau_max, filter_threshold)
 evaluator.construct_golden_standard(filter_threshold=partition_config)
 
 for frame_id in frame_dict.keys():
@@ -338,7 +340,7 @@ for frame_id in frame_dict.keys():
         print("\n********** Initiate Security Guarding. **********")
         security_guard = security_guard.SecurityGuard(frame=frame, bayesian_fitter=bayesian_fitter, sig_level=sig_level)
         evaluator = Evaluator(event_processor=event_preprocessor, background_generator=background_generator,\
-                                             bayesian_fitter = bayesian_fitter, tau_max=tau_max)
+                                             bayesian_fitter = bayesian_fitter, tau_max=tau_max, filter_threshold=filter_threshold)
         print("[Security guarding] Testing log starting positions {} with score threshold {}.".format(frame['testing-start-index'] + 1, security_guard.score_threshold))
         # 1. Inject device anomalies
         testing_event_states, anomaly_positions, testing_benign_dict = evaluator.simulate_malicious_control(frame=frame, n_anomaly=num_anomalies, maximum_length=max_prop_length)

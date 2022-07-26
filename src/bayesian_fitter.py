@@ -99,9 +99,7 @@ class BayesianFitter:
         # 3. Get the conditional probability (with only selected evidences)
         selected_parents = [parent for parent in parents if parent not in marginalized_list]
         val_dict = {k:v for (k,v) in parent_states if k in selected_parents}; val_dict[event.dev] = event.value
-        cond_prob = cpd.get_value(**val_dict)
-        if len(selected_parents) == 0:#or all([parent.startswith(event.dev) for parent in selected_parents]):
-            cond_prob = 0
+        cond_prob = 0 if len(selected_parents) == 0 else cpd.get_value(**val_dict)
         return cond_prob
 
     def get_expanded_parents(self, child_device: 'DevAttribute'):
@@ -112,10 +110,14 @@ class BayesianFitter:
                 parents.append(self.extended_index_device_dict[i])
         return parents 
 
-    def get_parents(self, attr, name_flag = True):
-        expanded_attr_index = self.expanded_var_names.index(attr)
-        parent_index_list = list(np.where(self.expanded_causal_graph[:,expanded_attr_index] == 1)[0]); parent_name_list = [self.expanded_var_names[i] for i in parent_index_list]
-        return parent_index_list if not name_flag else parent_name_list
+    def get_expanded_children(self, parents:'list[str]'):
+        children = set()
+        for parent in parents:
+            for lag in range(1, self.tau_max + 1):
+                lagged_parent = self._lag_name(parent, lag); lagged_parent_index = self.extended_name_device_dict[lagged_parent].index
+                its_children_names = set([self.extended_index_device_dict[x].name for x in range(self.n_expanded_vars) if self.expanded_causal_graph[lagged_parent_index, x] == 1])
+                children = children.union(its_children_names)
+        return list(children)
 
     def _analyze_discovery_statistics(self):
         incoming_degree_dict = {var_name: sum(self.expanded_causal_graph[:,self.extended_name_device_dict[var_name].index])\

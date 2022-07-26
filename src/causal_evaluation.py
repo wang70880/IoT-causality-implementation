@@ -13,13 +13,15 @@ from collections import defaultdict
 
 class Evaluator():
 
-    def __init__(self, event_processor, background_generator, bayesian_fitter, tau_max) -> None:
+    def __init__(self, event_processor, background_generator, bayesian_fitter, tau_max, filter_threshold) -> None:
         self.tau_max = tau_max
+        self.filter_threshold = filter_threshold
         self.event_processor:'Hprocessor' = event_processor
         self.background_generator:'BackgroundGenerator' = background_generator
         self.bayesian_fitter:'BayesianFitter' = bayesian_fitter
 
         self.golden_standard_dict = {}
+        self._construct_golden_standard()
     
     def evaluate_detection_accuracy(self, golden_standard:'list[int]', result:'list[int]'):
         print("Golden standard with number {}: {}".format(len(golden_standard), golden_standard))
@@ -39,9 +41,9 @@ class Evaluator():
                 match_count += 1
         return match_count
 
-    def construct_golden_standard(self, filter_threshold=0):
+    def _construct_golden_standard(self):
         # JC NOTE: Currently we only consider hh-series datasets
-        self.golden_standard_dict['user'] = self._identify_user_interactions(filter_threshold)
+        self.golden_standard_dict['user'] = self._identify_user_interactions(self.filter_threshold)
         self.golden_standard_dict['physics'] = self._identify_physical_interactions()
         self.golden_standard_dict['automation'] = self._identify_automation_interactions()
 
@@ -104,13 +106,19 @@ class Evaluator():
         # In HH-series dataset, there is no automation interactions...
         return {}
 
-    def _print_pair_list(self, interested_array):
-        attr_names = self.event_processor.attr_names; num_attrs = len(attr_names)
-        pair_list = []
-        for index, x in np.ndenumerate(interested_array):
+    def construct_golden_standard_bayesian_fitter(self, int_frame_id=0, int_type='user'):
+        # Auxillary variables
+        int_frame:'DataFrame' = self.event_processor.frame_dict[int_frame_id]
+        var_names = self.bayesian_fitter.var_names
+
+        golden_standard_interaction_matrix:'np.ndarray' = self.golden_standard_dict[int_type][int_frame_id]
+        link_dict = defaultdict(list)
+        for (i, j, lag), x in np.ndenumerate(golden_standard_interaction_matrix):
             if x == 1:
-                pair_list.append((attr_names[index[0]], attr_names[index[1]]))
-        print("Pair list with lens {}: {}".format(len(pair_list), pair_list))
+                link_dict[var_names[j]].append((var_names[i],-lag))
+        golden_bayesian_fitter = BayesianFitter(int_frame, self.tau_max, link_dict)
+        golden_bayesian_fitter.construct_bayesian_model()
+        return golden_bayesian_fitter
 
     def print_benchmark_info(self,frame_id= 0, tau= 1, type = ''):
         """Print out the identified device correlations.
@@ -169,7 +177,7 @@ class Evaluator():
             truth_count_list.append(truth_count); precision_list.append(precision); recall_list.append(recall)
         return statistics.mean(truth_count_list), statistics.mean(precision_list), statistics.mean(recall_list)
 
-    def simulate_malicious_control(self, int_frame_id, n_anomaly, maximum_length):
+    def simulate_malicious_control(self, int_frame_id, n_anomaly, maximum_length, anomaly_case):
         """
         The function injects anomalous events to the benign testing data, and generates the testing event sequences (simulating Malicious Control Attack).
         1. Randomly select n_anomaly positions.
@@ -179,13 +187,10 @@ class Evaluator():
             * Generate an anomalous event and insert it to the testing sequence.
             * If maximum_length > 1, propagate the anomaly according to the golden standard interaction.
         4. Record the nearest stable benign states for each testing sequence.
-            
-
         Parameters:
             frame: The dataframe storing benign testing sequences
             n_anomaly: The number of injected anomalies
             maximum_length: The maximum length of the anomaly chain. If 0, the function injects single point anomalies.
-
         Returns:
             testing_event_sequence: The list of testing events (with injected anomalies)
             anomaly_positions: The list of injection positions in testing sequences
@@ -197,22 +202,41 @@ class Evaluator():
         frame:'DataFrame' = self.event_processor.frame_dict[int_frame_id]
         name_device_dict:'dict[DevAttribute]' = frame.name_device_dict
         benign_event_states:'list[tuple(AttrEvent,ndarray)]' = frame.testing_events_states
-        candidate_positions = sorted(random.sample(\
+
+        # 1. Determine the set of anomaly events according to the anomaly case
+        candidate_positions = []; anomalous_event_states = []; real_candidate_positions = []
+        if anomaly_case == 1: # Outlier Intrusion: Ghost motion sensor activation event
+            golden_bayesian_fitter = self.construct_golden_standard_bayesian_fitter(int_frame_id, 'user')
+            motion_devices = [dev for dev in frame.var_names if dev.startswith('M')]
+            candidate_positions = sorted(random.sample(\
                                     range(self.tau_max, len(benign_event_states) - 1, self.tau_max + maximum_length),\
                                     n_anomaly))
+            recent_devices = []
+            for i, (event, stable_states) in enumerate(benign_event_states):
+                recent_devices.append(event.dev)
+                if i in candidate_positions:  # Determine the anomaly event
+                    recent_tau_devices = list(set(recent_devices[-(self.tau_max):].copy()))
+                    children_devices = golden_bayesian_fitter.get_expanded_children(recent_tau_devices) # Avoid child devices in the golden standard
+                    potentially_anomaly_devices = [x for x in motion_devices if x not in children_devices and stable_states[name_device_dict[x].index] == 0]
+                    if len(potentially_anomaly_devices) == 0:
+                        continue
+                    real_candidate_positions.append(i)
+                    anomalous_device = random.choice(potentially_anomaly_devices); anomalous_device_index = name_device_dict[anomalous_device].index; anomalous_device_state = 1
+                    anomalous_event = AttrEvent(date=event.date, time=event.time, dev=anomalous_device, attr='Case1-Anomaly', value=anomalous_device_state)
+                    anomaly_states = stable_states.copy(); anomaly_states[anomalous_device_index] = anomalous_device_state
+                    anomalous_event_states.append((anomalous_event, anomaly_states))
+        else:
+            pass
 
-        testing_count = 0
+        # 2. Insert these anomaly events into the dataset
+        testing_count = 0; anomaly_count = 0
         for i, (event, stable_states) in enumerate(benign_event_states):
             testing_event_states.append((event, stable_states))
             testing_benign_dict[testing_count] = i; testing_count += 1
-            if i in candidate_positions: # If reaching the anomaly position.
-                anomalous_attr = random.choice(frame.var_names) # Determine the abnormal attribute
-                anomalous_attr_state = int(1 - stable_states[name_device_dict[anomalous_attr].index]) # Flip the state
-                anomalous_event = AttrEvent(date=event.date, time=event.time, dev=anomalous_attr, attr='Anomaly', value=anomalous_attr_state)
+            if i in real_candidate_positions: # If reaching the anomaly position.
+                anomalous_event, anomalous_attr_state = anomalous_event_states[anomaly_count]
                 testing_event_states.append((anomalous_event, anomalous_attr_state)); anomaly_positions.append(testing_count)
-                testing_benign_dict[testing_count] = i; testing_count += 1
-                if maximum_length > 1:
-                    pass
+                testing_benign_dict[testing_count] = i; testing_count += 1; anomaly_count += 1
 
         return testing_event_states, anomaly_positions, testing_benign_dict
 
