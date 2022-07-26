@@ -279,14 +279,14 @@ class BayesianDebugger():
         self.verbosity = verbosity
         self.analyze_golden_standard = analyze_golden_standard
     
-    def analyze_fitting_result(self, int_frame_id=0, analyze_golden_standard=True):
+    def analyze_fitting_result(self, int_frame_id=0):
         # Auxillary variables
         tested_frame:'DataFrame' = self.data_debugger.preprocessor.frame_dict[int_frame_id]
         var_names = tested_frame.var_names; tau_max = self.data_debugger.tau_max
         index_device_dict:'dict[DevAttribute]' = self.data_debugger.preprocessor.index_device_dict
 
         # 1. Get the interaction matrix and transform to link dict
-        if analyze_golden_standard:
+        if self.analyze_golden_standard:
             interaction_matrix:'np.ndarray' = self.data_debugger.derive_golden_standard(int_frame_id, 'user')
         else:
             miner_debugger:'MinerDebugger' = MinerDebugger(alpha=0.001, data_debugger=self.data_debugger)
@@ -386,7 +386,7 @@ if __name__ == '__main__':
     data_debugger = DataDebugger(dataset, partition_config, filter_threshold, training_ratio, tau_max, alpha)
     bayesian_debugger = BayesianDebugger(data_debugger, verbosity=0, analyze_golden_standard=analyze_golden_standard)
 
-    n_anomalies = 500; maximum_length = 1; anomaly_case = 1
+    n_anomalies = 50; maximum_length = 1; anomaly_case = 1
     sig_levels = list(np.arange(0.1, 1., 0.1)); sig_levels = [0.95]
     precisions = []; recalls = []; f1_scores = []
     for sig_level in sig_levels:
