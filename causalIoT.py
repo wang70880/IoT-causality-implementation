@@ -167,7 +167,7 @@ def _run_mci_parallel(j, pcmci_of_j, all_parents, selected_links,\
     return j, results_in_j
 
 """Data loading"""
-event_preprocessor:'Hprocessor' = Hprocessor(dataset)
+event_preprocessor:'Hprocessor' = Hprocessor(dataset, tau_max)
 frame_dict:'dict[DataFrame]' = event_preprocessor.data_loading(partition_config=partition_config, training_ratio=training_ratio)
 
 """Background Generator"""
@@ -318,6 +318,7 @@ for frame_id in frame_dict.keys():
             link_colorbar_label='MCI'
         )
         plt.savefig("temp/image/{}cmi_test_tau{}.pdf".format(dataset, tau_max))
+        plt.close('all')
 
     """CPT Estimator."""
     if COMM.rank == 0:
@@ -340,23 +341,20 @@ for frame_id in frame_dict.keys():
                                              bayesian_fitter = bayesian_fitter, tau_max=tau_max)
         print("[Security guarding] Testing log starting positions {} with score threshold {}.".format(frame['testing-start-index'] + 1, security_guard.score_threshold))
         # 1. Inject device anomalies
-        testing_event_sequence, anomaly_events, anomaly_positions, stable_states_dict = evaluator.simulate_malicious_control(frame=frame, n_anomaly=num_anomalies, maximum_length=max_prop_length)
-        assert(len(anomaly_events) == len(anomaly_positions))
-        for i in range(len(anomaly_positions)):
-            assert(testing_event_sequence[anomaly_positions[i]] == anomaly_events[i])
+        testing_event_states, anomaly_positions, testing_benign_dict = evaluator.simulate_malicious_control(frame=frame, n_anomaly=num_anomalies, maximum_length=max_prop_length)
         # 2. Initiate anomaly detection
         start = time()
         event_id = 0
-        while event_id < len(testing_event_sequence):
-            event = testing_event_sequence[event_id]
-            report_to_user = False
+        while event_id < len(testing_event_states):
+            event, states = testing_event_states[event_id]
+            anomaly_flag = False
             if event_id < tau_max:
-                security_guard.initialize(event_id, event, frame['testing-data'].values[event_id])
+                security_guard.initialize(event_id, event, states)
             else:
-                report_to_user = security_guard.score_anomaly_detection(event_id=event_id, event=event, debugging_id_list=anomaly_positions)
-            # JC NOTE: Here we simulate a user involvement, which handles the reported anomalies as soon as it is reported.
-            if event_id in anomaly_positions or report_to_user is True:
-                security_guard.calibrate(event_id, stable_states_dict)
+                anomaly_flag = security_guard.score_anomaly_detection(event_id=event_id, event=event, debugging_id_list=anomaly_positions)
+            #if event_id in anomaly_positions or report_to_user is True:
+            # JC NOTE: By default, we simulate a user involvement which calibrates the detection system and handles fps and fns automatically.
+            security_guard.calibrate(event_id, testing_benign_dict)
             event_id += 1
 
         print("[Security guarding] Anomaly detection completes for {} runtime events. Consumed time: {} mins.".format(event_id, (time() - start)*1.0/60))
@@ -372,18 +370,6 @@ for frame_id in frame_dict.keys():
         print("[Security guarding] Evaluating the false negative for state transition violations")
         security_guard.print_debugging_dict(fp_flag=False)
     exit()
-
-        #print("[Security guarding] Evaluating the detection accuracy for state transition violations")
-        #violation_interaction_dict = {}; violation_count_dict = {}
-        #violation_event_ids = list(security_guard.violation_dict.keys())
-        #for violation_event_id, violation_point in security_guard.violation_dict.items():
-        #    #print(" * Violation (event id, interaction, score) = ({}, {}, {})".format(violation_event_id, violation_point['interaction'], violation_point['anomaly-score']))
-        #    violation_count_dict[violation_point['interaction'][1]] = 0 if violation_point['interaction'][1] not in violation_count_dict.keys() else  violation_count_dict[violation_point['interaction'][1]] + 1
-        #    violation_interaction_dict['->'.join(violation_point['interaction'])] = 1 if '->'.join(violation_point['interaction']) not in violation_interaction_dict.keys() else violation_interaction_dict['->'.join(violation_point['interaction'])] + 1
-        #    violation_count_dict = dict(sorted(violation_count_dict.items(), key=lambda item: item[1]))
-        #pprint.pprint(violation_count_dict)
-        #pprint.pprint(violation_interaction_dict)
-        #evaluator.evaluate_detection_accuracy(anomaly_starting_positions, violation_event_ids)
 
     frame_id += 1
 

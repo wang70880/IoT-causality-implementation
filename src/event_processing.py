@@ -123,7 +123,7 @@ class Processor:
 
 class Hprocessor(Processor):
 
-	def __init__(self, dataset, verbosity=0):
+	def __init__(self, dataset, tau_max, verbosity=0):
 		super().__init__(dataset)
 		self.attr_names = None; self.n_vars = 0
 		self.name_device_dict = defaultdict(DevAttribute) # The str-DevAttribute dict using the attr name as the dict key
@@ -132,7 +132,7 @@ class Hprocessor(Processor):
 		self.transition_events_states = None # Lists of all (event, state array) tuple
 		self.frame_dict:'defaultdict(DataFrame)' = None # A dict with key, value = (frame_id, dict['number', 'day-interval', 'start-date', 'end-date', 'attr-sequence', 'attr-type-sequence', 'state-sequence'])
 		self.frame_count = None
-		self.tau_max = -1
+		self.tau_max = tau_max
 		self.verbosity = verbosity
 		# Variables for testing purposes
 		self.discretization_dict:'dict[tuple]' = {}

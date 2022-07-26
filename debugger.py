@@ -34,12 +34,25 @@ class Drawer():
         plt.xlabel(xlabel)
         plt.ylabel(ylabel)
         plt.savefig("temp/image/{}.pdf".format(fname))
+        plt.close('all')
+    
+    def draw_2d_distribution(self, x_list, y_lists, label_list, x_label, y_label, title, fname):
+        assert(len(label_list) == len(y_lists))
+        for i, (label, y_list) in enumerate(list(zip(label_list, y_lists))):
+            col = (np.random.random(), np.random.random(), np.random.random())
+            plt.plot(x_list, y_list, label=label, c=col)
+        plt.xlabel(x_label)
+        plt.ylabel(y_label)
+        plt.legend(loc='best')
+        plt.title(title)
+        plt.savefig('temp/image/{}.pdf'.format(fname))
+        plt.close('all')
 
 class DataDebugger():
 
     def __init__(self, dataset, partition_config=30, filter_threshold=30, training_ratio=1.0, tau_max = 4, alpha=0.001) -> None:
         self.dataset = dataset; self.partition_config = partition_config; self.filter_threshold = filter_threshold; self.training_ratio = training_ratio; self.tau_max = tau_max; self.alpha = alpha
-        self.preprocessor = Hprocessor(dataset=dataset)
+        self.preprocessor = Hprocessor(dataset=dataset,tau_max=tau_max)
         self.preprocessor.initiate_data_preprocessing()
         self.preprocessor.data_loading(partition_config, training_ratio)
         self.background_generator:'BackgroundGenerator' = BackgroundGenerator(dataset, self.preprocessor, partition_config, tau_max)
@@ -138,7 +151,7 @@ class DataDebugger():
         n_vars = tested_frame.n_vars
         matrix_shape = (n_vars, n_vars, self.tau_max + 1)
         interaction_matrix:'np.ndarray' = np.zeros(matrix_shape)
-        evaluator = Evaluator(self.dataset, self.preprocessor, self.background_generator, None, self.tau_max)
+        evaluator = Evaluator(self.preprocessor, self.background_generator, None, self.tau_max)
         evaluator.construct_golden_standard(filter_threshold=self.filter_threshold)
         interaction_dict:'dict[np.ndarray]' = evaluator.golden_standard_dict[int_type]
         interaction_matrix = interaction_dict[int_frame_id]
@@ -261,11 +274,11 @@ class MinerDebugger():
 
 class BayesianDebugger():
 
-    def __init__(self, data_debugger = None, verbosity=1) -> None:
-
+    def __init__(self, data_debugger = None, verbosity=1, analyze_golden_standard=True) -> None:
         assert(data_debugger is not None)
         self.data_debugger:'DataDebugger' = data_debugger
         self.verbosity = verbosity
+        self.analyze_golden_standard = analyze_golden_standard
     
     def analyze_fitting_result(self, int_frame_id=0, analyze_golden_standard=True):
         # Auxillary variables
@@ -278,7 +291,8 @@ class BayesianDebugger():
             interaction_matrix:'np.ndarray' = self.data_debugger.derive_golden_standard(int_frame_id, 'user')
         else:
             # JC TODO: Insert PC discovery here to get the discovered matrix
-            interaction_matrix:'np.ndarray' = None
+            miner_debugger:'MinerDebugger' = MinerDebugger(alpha=0.001, data_debugger=self.data_debugger)
+            interaction_matrix:'np.ndarray' = miner_debugger.initiate_discovery_algorithm(int_frame_id)
         link_dict = defaultdict(list)
         for (i, j, lag), x in np.ndenumerate(interaction_matrix):
             if x == 1:
@@ -337,7 +351,7 @@ class GuardDebugger():
         self.drawer.draw_1d_distribution(training_anomaly_scores, xlabel='Score', ylabel='Occurrence', title='Training event detection using golden standard model', fname='prediction-probability-distribution-threshold{}'.format(self.data_debugger.filter_threshold))
         return security_guard
 
-    def generate_anomalies(self, int_frame_id, n_anomalies=50, maximum_length=1):
+    def analyze_generated_anomalies(self, int_frame_id, n_anomalies=50, maximum_length=1):
         # Auxillary variables
         event_preprocessor = self.data_debugger.preprocessor; tau = event_preprocessor.tau_max
         background_generator = self.data_debugger.background_generator
@@ -347,38 +361,50 @@ class GuardDebugger():
                                              bayesian_fitter = bayesian_fitter, tau_max=tau)
         
         testing_event_states, anomaly_positions, testing_benign_dict = evaluator.simulate_malicious_control(int_frame_id, n_anomalies, maximum_length)
+    
+    def score_anomaly_detection(self, int_frame_id, sig_level=None, n_anomalies=None, maximum_length=None):
+        frame = self.data_debugger.preprocessor.frame_dict[int_frame_id]
+        event_preprocessor = self.data_debugger.preprocessor; tau_max = event_preprocessor.tau_max
+        background_generator = self.data_debugger.background_generator
+        bayesian_fitter = self.bayesian_debugger.analyze_fitting_result(int_frame_id)
+
+        # 1. Initialize the security guard, and derive the anomaly score threshold
+        security_guard = SecurityGuard(frame=frame, bayesian_fitter=bayesian_fitter, sig_level=sig_level)
+        print("The anomaly score threshold is {}".format(security_guard.score_threshold))
+        # 2. Inject anomalies and generate testing event sequences
+        evaluator = Evaluator(event_processor=event_preprocessor, background_generator=background_generator,\
+                                             bayesian_fitter = bayesian_fitter, tau_max=tau_max)
+        testing_event_states, anomaly_positions, testing_benign_dict = evaluator.simulate_malicious_control(int_frame_id, n_anomalies, maximum_length)
+        print("# of testing events: {}".format(len(testing_event_states)))
+        # 3. initialize the testing
+        anomaly_flag = False
+        for event_id in range(len(testing_event_states)):
+            event, states = testing_event_states[event_id]
+            if event_id < tau_max:
+                security_guard.initialize(event_id, event, states)
+            else:
+                anomaly_flag = security_guard.score_anomaly_detection(event_id=event_id, event=event, debugging_id_list=anomaly_positions)
+            security_guard.calibrate(event_id, testing_benign_dict)
+
+        fps, fns = security_guard.analyze_detection_results(); tps = n_anomalies - fns
+        precision = 1.0 * tps / (fps + tps); recall = 1.0 * tps / (fns + tps)
+        f1_score = 2.0 * precision * recall / (precision + recall)
+        return precision, recall, f1_score
 
 if __name__ == '__main__':
 
-    dataset = 'hh130'; partition_config = 30; filter_threshold = 1 * partition_config; training_ratio = 0.8; tau_max = 3
-    alpha = 0.001; int_frame_id = 0; sig_level = 0.95
+    dataset = 'hh130'; partition_config = 30; filter_threshold = .5 * partition_config; training_ratio = 0.8; tau_max = 3
+    alpha = 0.001; int_frame_id = 4; analyze_golden_standard=True
     data_debugger = DataDebugger(dataset, partition_config, filter_threshold, training_ratio, tau_max, alpha)
+    bayesian_debugger = BayesianDebugger(data_debugger, verbosity=0, analyze_golden_standard=analyze_golden_standard)
 
-    bayesian_debugger = BayesianDebugger(data_debugger, verbosity=0)
-#    bayesian_fitter = bayesian_debugger.analyze_fitting_result(int_frame_id)
-#    # ad-hoc codes here for testing partial evidence
-#    int_variable = ('M005', 1)
-#    original_parent_list = [('M005(-3)', 1), ('M003(-3)', 0),\
-#                       ('M004(-3)', 0), ('M003(-2)', 0),\
-#                       ('M004(-2)', 0), ('M005(-2)', 0), ('M006(-2)', 0), ('M004(-1)', 0), ('M006(-1)', 0)]
-#
-#    marginalized_list = [
-#                        #'M005(-3)', 'M005(-2)',\
-#                        #'M004(-3)', 'M004(-2)', 'M004(-1)',\
-#                        #'M003(-3)', 'M003(-2)',\
-#                        #'M006(-2)', 'M006(-1)',\
-#                        ]
-#    parent_list = [tup for tup in original_parent_list if tup[0] not in marginalized_list]
-#    # 1. Get the CPT for interested variable
-#    m005_cpd = bayesian_fitter.model.get_cpds(int_variable[0]).copy()
-#    parent_name_list = m005_cpd.get_evidence()
-#    assert(len(parent_name_list) == len(original_parent_list))
-#    # 2. Marginalize over identified variables
-#    m005_cpd.marginalize(marginalized_list)
-#    #print(m005_cpd)
-#    # 3. Get the conditional probability
-#    val_dict = {k:v for (k,v) in parent_list + [int_variable]}
-#    print(m005_cpd.get_value(**val_dict))
+    n_anomalies = 500; maximum_length = 1
+    sig_levels = list(np.arange(0.1, 1., 0.1)); sig_levels = [0.95]
+    precisions = []; recalls = []; f1_scores = []
+    for sig_level in sig_levels:
+        guard_debugger = GuardDebugger(data_debugger, bayesian_debugger)
+        precision, recall, f1_score = guard_debugger.score_anomaly_detection(int_frame_id, sig_level, n_anomalies, maximum_length)
+        precisions.append(precision); recalls.append(recall); f1_scores.append(f1_score)
 
-    guard_debugger = GuardDebugger(data_debugger, bayesian_debugger)
-    guard_debugger.analyze_anomaly_threshold(int_frame_id, sig_level)
+    drawer = Drawer()
+    drawer.draw_2d_distribution(sig_levels, [precisions, recalls, f1_scores], ['precision', 'recall', 'f1-score'], 'sig-level', 'value', 'No', 'sig-level-analysis')

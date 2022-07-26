@@ -206,18 +206,15 @@ class Evaluator():
             testing_event_states.append((event, stable_states))
             testing_benign_dict[testing_count] = i; testing_count += 1
             if i in candidate_positions: # If reaching the anomaly position.
-                # Determine the abnormal attribute
-                anomalous_attr = random.choice(frame.var_names)
-                while anomalous_attr in self.bayesian_fitter.nointeraction_attr_list: # JC NOTE: We assume that the nointeraction attr will not be anomalous.
-                    anomalous_attr = random.choice(frame.var_names)
+                anomalous_attr = random.choice(frame.var_names) # Determine the abnormal attribute
                 anomalous_attr_state = int(1 - stable_states[name_device_dict[anomalous_attr].index]) # Flip the state
-                anomalous_event = AttrEvent(date=event.date, time=event.time, dev=anomalous_attr, value=anomalous_attr_state)
+                anomalous_event = AttrEvent(date=event.date, time=event.time, dev=anomalous_attr, attr='Anomaly', value=anomalous_attr_state)
                 testing_event_states.append((anomalous_event, anomalous_attr_state)); anomaly_positions.append(testing_count)
                 testing_benign_dict[testing_count] = i; testing_count += 1
                 if maximum_length > 1:
                     pass
 
-        return testing_event_states, anomaly_positions, testing_benign_dict 
+        return testing_event_states, anomaly_positions, testing_benign_dict
 
     def inject_anomalies(self, frame_id, n_anomalies, maximum_length):
         """

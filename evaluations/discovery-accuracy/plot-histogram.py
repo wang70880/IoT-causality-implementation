@@ -72,5 +72,6 @@ def draw_accuracy_histogram():
 
     #plt.show()
     plt.savefig('causal-discovery.pdf')
+    plt.close('all')
 
 draw_accuracy_histogram()

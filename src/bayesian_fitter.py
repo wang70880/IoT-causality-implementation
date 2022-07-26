@@ -127,14 +127,12 @@ class BayesianFitter:
                 extended_dev = self._lag_name(var_name, tau)
                 outcoming_degree += sum(self.expanded_causal_graph[self.extended_name_device_dict[extended_dev].index])
             outcoming_degree_dict[var_name] = outcoming_degree
-        
         #nointeraction_attr_list = []
         #for var_name in self.var_names:
         #    var_index = self.extended_name_device_dict[var_name].index
         #    parents_index = [k for k in range(self.n_expanded_vars) if self.expanded_causal_graph[k, var_index] > 0]
         #    if all([(p - var_index) % self.n_vars == 0 for p in parents_index]): # If the current variable only contains autocorrelated parents
         #        nointeraction_attr_list.append(var_name)
-        
         isolated_attr_list = [var_name for var_name in self.var_names if incoming_degree_dict[var_name] + outcoming_degree_dict[var_name] == 0]
         exogenous_attr_list = [var_name for var_name in self.var_names if incoming_degree_dict[var_name] == 0 and outcoming_degree_dict[var_name] > 0]
         stop_attr_list = [var_name for var_name in self.var_names if incoming_degree_dict[var_name] > 0 and outcoming_degree_dict[var_name] == 0]

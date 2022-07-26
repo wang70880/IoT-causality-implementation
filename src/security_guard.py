@@ -1,6 +1,8 @@
-from tkinter import W
+from tabulate import tabulate
 from numpy import ndarray
+import seaborn as sns
 import numpy as np
+import matplotlib.pyplot as plt
 from pprint import pprint
 from statistics import mean
 from collections import defaultdict
@@ -45,13 +47,12 @@ class PhantomStateMachine():
         else:
             return self.phantom_states[-lag * self.n_vars: -(lag-1) * self.n_vars]
 
-    def update(self, event):
+    def update(self, event:'AttrEvent'):
         """
         Update the phantom state machine according to the newly received event.
         """
-        attr = event[0]; state = event[1]
         renewed_state_vector = self.get_lagged_states(lag = 1).copy()
-        renewed_state_vector[self.var_names.index(attr)] = state
+        renewed_state_vector[self.var_names.index(event.dev)] = event.value
         self.set_states(renewed_state_vector)
 
     def get_device_states(self, expanded_devices:'list[DevAttribute]'):
@@ -137,30 +138,39 @@ class SecurityGuard():
         self.phantom_state_machine = PhantomStateMachine(bayesian_fitter.var_names, bayesian_fitter.expanded_var_names)
         # Chain manager
         self.chain_manager = ChainManager(bayesian_fitter.var_names, bayesian_fitter.expanded_var_names, bayesian_fitter.expanded_causal_graph)
+        # Recent devices
+        self.recent_devices = []
         # Anomaly analyzer
         self.violation_dict = {}
         self.type1_debugging_dict = {}
+        self.tp_debugging_dict = {}
         self.fn_debugging_dict = {}
         self.fp_debugging_dict = {}
-        self.large_pscore_dict = defaultdict(int)
-        self.small_pscore_dict = defaultdict(int)
         # The score threshold
         self.training_anomaly_scores, self.score_threshold = self._compute_anomaly_score_cutoff(sig_level=sig_level)
     
-    def initialize(self, event_id, event, state_vector):
-        self.phantom_state_machine.set_states(state_vector) # Initialize the phantom state machine
-        attr = event[0]; expanded_attr_index = self.expanded_var_names.index(attr)
-        if self.chain_manager.match(expanded_attr_index):
-            self.chain_manager.update(expanded_attr_index)
+    def initialize(self, event_id:'int', event:'AttrEvent', state_vector:'np.ndarray'):
+        # Auxillary variables
+        extended_name_device_dict = self.bayesian_fitter.extended_name_device_dict
+        # 1. Initialize the phantom state machine
+        self.phantom_state_machine.set_states(state_vector)
+        # 2. Update the chain manager
+        index = extended_name_device_dict[event.dev].index
+        if self.chain_manager.match(index):
+            self.chain_manager.update(index)
         else:
-            self.chain_manager.create(event_id, expanded_attr_index, NORMAL)
-        self.last_processed_event = event
-
-    def _proceed(self, event):
-        attr = event[0]; expanded_attr_index = self.expanded_var_names.index(attr)
-        if self.chain_manager.match(expanded_attr_index): # Maintain the currently tracked chain
-            self.chain_manager.update(expanded_attr_index)
-        self.phantom_state_machine.update(event) # Update the phantom state machine
+            self.chain_manager.create(event_id, index, NORMAL)
+        # 3. Update recent-devices list
+        self._update_recent_devices(event.dev, True)
+    
+    def _update_recent_devices(self, dev, normality=True):
+        # Auxillary variables
+        tau_max = self.bayesian_fitter.tau_max
+        if normality:
+            if len(self.recent_devices) < tau_max:
+                self.recent_devices.append(dev)
+            else:
+                self.recent_devices = [*self.recent_devices[1:], dev]
 
     def anomaly_detection(self, event_id, event, maximum_length):
         report_to_user = False
@@ -184,90 +194,93 @@ class SecurityGuard():
                 self.chain_manager.create(event_id, expanded_attr_index, TYPE2_ANOMALY)
         else:
             if breakpoint_flag or self.chain_manager.current_chain_length() >= maximum_length: # The propagation of abnormal chains ends.
-                #print("     [Anomaly Tracking] Tracking finished at event {} with len(chain): {}. Prepare to calibrate it.".format(event_id + self.frame['testing-start-index'] + 1, self.chain_manager.current_chain_length()))
                 report_to_user = True # Finish tracking the current anomaly chain: Report to users
             else: 
                 self.chain_manager.update(expanded_attr_index) # The current chain is still propagating.
         self.last_processed_event = event
         return report_to_user
 
-    def score_anomaly_detection(self, event_id, event, debugging_id_list = []):
-        report_to_user = False
-        attr = event[0]; state = event[1]
-        anomalous_score_flag, anomaly_score = self.state_validation(event=event)
-        if not anomalous_score_flag: # A normal event
-            self.phantom_state_machine.update(event)
-            if event_id in debugging_id_list: # A false negative is detected.
-                self.fn_debugging_dict[event_id] = {}
-                self.fn_debugging_dict[event_id]['attr'] = attr
-                self.fn_debugging_dict[event_id]['state'] = state
-                self.fn_debugging_dict[event_id]['anomaly-score'] = anomaly_score
-        else: # An abnormal event
-            #if event[0] == 'M001': # JC DEBUGGING 
-            #    print("[Anomaly Detection] Anomalous score event {}: {}.\n".format(event_id + self.frame['testing-start-index'] + 1, event))
-            if event_id not in debugging_id_list:
-                self.fp_debugging_dict[event_id] = {}
-                self.fp_debugging_dict[event_id]['attr'] = attr
-                self.fp_debugging_dict[event_id]['state'] = state
-                self.fp_debugging_dict[event_id]['anomaly-score'] = anomaly_score
-            report_to_user = True
-        self.last_processed_event = event
-        return report_to_user
+    def score_anomaly_detection(self, event_id, event:'AttrEvent', debugging_id_list = []):
+        parent_states, anomaly_score = self._compute_event_anomaly_score(event, self.phantom_state_machine, self.recent_devices)
+        anomalous_score_flag = True if anomaly_score > self.score_threshold else False
+
+        int_dict = None
+        if anomalous_score_flag and event_id in debugging_id_list: # A tp is detected
+            int_dict = self.tp_debugging_dict
+        elif not anomalous_score_flag and event_id in debugging_id_list: # A fn is detected
+            int_dict = self.fn_debugging_dict
+        elif anomalous_score_flag and event_id not in debugging_id_list: # A fp is detected
+            int_dict = self.fp_debugging_dict
+        if int_dict is not None:
+            anomaly_case = '{}={} under {}'.format(event.dev, event.value, ",".join(['{}={}'.format(k, v) for (k, v) in parent_states]))
+            int_dict[anomaly_case] = [] if anomaly_case not in int_dict.keys() else int_dict[anomaly_case]
+            int_dict[anomaly_case].append((event_id, anomaly_score))
+        return anomalous_score_flag 
     
-    def print_debugging_dict(self, fp_flag=True):
-        target_dict = self.fp_debugging_dict if fp_flag else self.fn_debugging_dict
-        attr_count_dict = {}; anomaly_score_lists = []; degree_list = []
-        for evt_id, anomaly in target_dict.items():
-            attr = anomaly['attr']; attr_degree = len(self.bayesian_fitter.get_parents(attr)); state = anomaly['state'];  score = anomaly['anomaly-score']
-            print("     * ID, event, in-degree, score = {} ({}, {}) {} {}".format(evt_id, attr, state, attr_degree, score))
-            attr_count_dict[attr] = 1 if attr not in attr_count_dict.keys() else attr_count_dict[attr] + 1
-            anomaly_score_lists.append(score); degree_list.append(attr_degree)
-        pprint(attr_count_dict)
-        avg_score = 0 if len(anomaly_score_lists) == 0 else sum(anomaly_score_lists) * 1.0 / len(anomaly_score_lists)
-        avg_degree = 0 if len(degree_list) == 0 else sum(degree_list) * 1.0 / len(degree_list)
-        print("**Anomaly scores**:\n{}\nAverage: {}".format(anomaly_score_lists, avg_score))
-        print("**Attr degrees**:\n{}\nAverage: {}".format(degree_list, avg_degree))
+    def analyze_detection_results(self):
+        tps = sum([len(tp_list) for tp_list in self.tp_debugging_dict.values()]); fps = sum([len(fp_list) for fp_list in self.fp_debugging_dict.values()]); fns = sum([len(fn_list) for fn_list in self.fn_debugging_dict.values()])
+        sorted_tps = dict(sorted(self.tp_debugging_dict.items(), key=lambda x: len(x[1]), reverse=True))
+        sorted_fps = dict(sorted(self.fp_debugging_dict.items(), key=lambda x: len(x[1]), reverse=True))
+        sorted_fns = dict(sorted(self.fn_debugging_dict.items(), key=lambda x: len(x[1]), reverse=True))
+        #print("************* # of FPs = {} *************".format(fps))
+        #for fp_case in sorted_fps.keys():
+        #    n_cases = len(sorted_fps[fp_case])
+        #    if n_cases > 10:
+        #        print("{} ---- Occurrence: {}, Avg score: {}".format(fp_case, n_cases, mean([sorted_fps[fp_case][x][1] for x in range(n_cases)])))
+        #print("************* # of FNs = {} *************".format(fns))
+        #for fn_case in sorted_fns.keys():
+        #    n_cases = len(sorted_fns[fn_case])
+        #    if n_cases > 10:
+        #        print("{} ---- Occurrence: {}, Avg score: {}".format(fn_case, n_cases, mean([sorted_fns[fn_case][x][1] for x in range(n_cases)])))
 
-    def calibrate(self, event_id, stable_states_dict):
-        """
-        Find the latest normal event, then
-            1. Create a new normal chain starting with the normal event.
-            2. Set the state machine to the normal propagations.
-        
-        Param:
-            stable_states_dict: The {event_id: (stable event, stable state vector)} dict
-        """
-        #print("     [Calibration] The nearest benign event is {}: {}".format(testing_event_id + self.frame['testing-start-index'] + 1, event))
-        i = 0
-        while i < self.tau_max:
-            lagged_benign_state_vector = stable_states_dict[event_id - i][1]
+        print("************* # of TPs = {} *************".format(tps))
+        for tp_case in sorted_tps.keys():
+            n_cases = len(sorted_tps[tp_case])
+            #if n_cases > 10:
+            print("{} ---- Occurrence: {}, Avg score: {}".format(tp_case, n_cases, mean([sorted_tps[tp_case][x][1] for x in range(n_cases)])))
+        return fps, fns
+
+    def calibrate(self, event_id:'int', testing_benign_dict:'dict[int]'):
+        # Auxillary variables
+        benign_event_states = self.frame.testing_events_states
+        tau_max = self.bayesian_fitter.tau_max
+        extended_name_device_dict = self.bayesian_fitter.extended_name_device_dict
+        # Use the nearest tau_max benign events to calibrate the (1) phantom state machine, (2) recent_devices list, and (3) the currently tracking chain
+        self.recent_devices = []
+        benign_starting_index = testing_benign_dict[event_id]
+        for i in reversed(range(tau_max)):
+            lagged_event, lagged_benign_state_vector = benign_event_states[benign_starting_index - i]
             self.phantom_state_machine.set_states(lagged_benign_state_vector)
-            i += 1
-        last_stable_attr = stable_states_dict[event_id][0][0]; expanded_attr_index = self.expanded_var_names.index(last_stable_attr)
-        #print(self.phantom_state_machine)
-        self.chain_manager.create(event_id, expanded_attr_index, NORMAL)
+            self._update_recent_devices(lagged_event.dev, True)
+            if i == 0:
+                self.chain_manager.create(event_id, extended_name_device_dict[lagged_event.dev].index, NORMAL)
 
-    def compute_event_anomaly_score(self, event:'AttrEvent', phantom_state_machine:'PhantomStateMachine', recent_devices:'list[str]'):
-        # Return variables
-        anomaly_score = 0.
+    def _fetch_parent_states(self, event:'AttrEvent', phantom_state_machine:'PhantomStateMachine'):
         # Auxillary variables
         extended_name_device_dict:'dict[str, DevAttribute]' = self.bayesian_fitter.extended_name_device_dict
         # 1. Get the list of parents
         expanded_parents:'list[DevAttribute]' = self.bayesian_fitter.get_expanded_parents(extended_name_device_dict[event.dev])
-        if self.verbosity > 0:
-            print("[Score Computation] Now handling device {} with parents ({})".format(event.dev,\
-                    ','.join([parent.name for parent in expanded_parents])))
         # 2. Fetch the parents' states
         parent_state_dict:'dict[DevAttribute, int]' = phantom_state_machine.get_device_states(expanded_parents)
-        parent_states:'list[str, int]' = [(k.name, v) for k, v in parent_state_dict.items()]
-        # 3. Estimate the anomaly score for current event
+        parent_states:'list[tuple(str, int)]' = [(k.name, v) for k, v in parent_state_dict.items()]
+        return parent_states
+
+    def _compute_event_anomaly_score(self, event:'AttrEvent', phantom_state_machine:'PhantomStateMachine', recent_devices:'list[str]', verbosity=0):
+        # Return variables
+        anomaly_score = 0.
+        # 1. Get the list of parents for event.dev, and fetch their states from the phantom state machine
+        parent_states:'list[tuple(str, int)]' = self._fetch_parent_states(event, self.phantom_state_machine)
+        # 2. Estimate the anomaly score for current event
         cond_prob = self.bayesian_fitter.estimate_cond_probability(event, parent_states, recent_devices)
-        anomaly_score = 1 - cond_prob
-        if anomaly_score >= 0.9:
-            self.large_pscore_dict['{}={} under {}'.format(event.dev, event.value, ",".join(['{}={}'.format(k.name, v) for k, v in parent_state_dict.items()]))] += 1
-        else:
-            self.small_pscore_dict['{}:{}'.format(event.dev, event.value)] += 1
-        return anomaly_score
+        anomaly_score = 1. - cond_prob
+        if verbosity:
+            print("Event: {}\n\
+                   Phantom state machine: {}\n\
+                   recent devices: {}\n\
+                   parent states: {}\n\
+                   anomaly score: {}\n".format(event, self.phantom_state_machine, recent_devices, parent_states, cond_prob)
+                  )
+        return parent_states, anomaly_score
 
     def _compute_anomaly_score_cutoff(self, sig_level = 0.9):
         # Return variables
@@ -283,22 +296,23 @@ class SecurityGuard():
         for index, (event, states) in enumerate(training_events_states):
             training_phantom_machine.set_states(states)
             if index > tau_max:
-                anomaly_score = self.compute_event_anomaly_score(event, training_phantom_machine, recent_devices)
+                parent_states, anomaly_score = self._compute_event_anomaly_score(event, training_phantom_machine, recent_devices)
                 anomaly_scores.append(anomaly_score)
             if len(recent_devices) < tau_max:
                 recent_devices.append(event.dev)
             else:
                 recent_devices = [*recent_devices[1:], event.dev]
         score_threshold = np.percentile(np.array(anomaly_scores), sig_level * 100)
+        # Draw the score distribution graph
+        sns.displot(anomaly_scores, kde=False, color='red', bins=1000)
+        plt.axvline(x=score_threshold)
+        plt.title('Training score distribution')
+        plt.xlabel('Scores')
+        plt.ylabel('Occurrences')
+        plt.savefig("temp/image/training-score-distribution.pdf")
+        plt.close('all')
         return anomaly_scores, score_threshold
 
     def breakpoint_detection(self, event=()):
         attr = event[0]; expanded_attr_index = self.expanded_var_names.index(attr)
         return not self.chain_manager.match(expanded_attr_index)
-
-    def state_validation(self, event=()):
-        violation_flag = False
-        anomaly_score = self.compute_event_anomaly_score(event, self.phantom_state_machine)
-        if anomaly_score > self.score_threshold:
-            violation_flag = True
-        return violation_flag, anomaly_score
