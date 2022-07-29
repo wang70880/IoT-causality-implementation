@@ -1,25 +1,9 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-"""
-Tigramite causal discovery for time series: Parallization script implementing 
-the PCMCI method based on mpi4py. 
-
-Parallelization is done across variables j for both the PC condition-selection
-step and the MCI step.
-"""
-
-# Author: Jakob Runge <jakobrunge@posteo.de>
-#
-# License: GNU General Public License v3.0
-
-
 import os, sys, pickle
 import statistics
 import pprint
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
 from time import time
 from collections import defaultdict
@@ -42,8 +26,6 @@ from src.bayesian_fitter import BayesianFitter
 from src.causal_evaluation import Evaluator
 from src.genetic_type import DataFrame, AttrEvent, DevAttribute
 
-"""Parameter Settings"""
-
 # Default communicator
 COMM = MPI.COMM_WORLD
 NORMAL = 0
@@ -54,7 +36,8 @@ dataset = sys.argv[1]
 partition_days = int(sys.argv[2])
 training_ratio = float(sys.argv[3])
 
-apply_bk = int(sys.argv[4])
+apply_bk = 1
+#apply_bk = int(sys.argv[4])
 
 # Settings of test parameters
 autocorrelation_flag = True 
