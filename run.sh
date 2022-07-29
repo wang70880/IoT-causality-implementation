@@ -30,4 +30,4 @@ partition_days=30; training_ratio=0.9
 # 1. Initiate data preprocessing to generate the sanitized data file
 data_preprocessing $dataset $preprocessing_verbosity
 # 2. Initiate causal discovery process
-mpiexec -n 1 python -u causal_discovery.py ${dataset} ${partition_days} ${training_ratio} &>> output.txt </dev/null
+mpiexec -n 1 python -u causal_discovery.py ${dataset} ${partition_days} ${training_ratio} #&>> output.txt </dev/null
