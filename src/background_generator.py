@@ -11,11 +11,12 @@ from src.tigramite.tigramite import data_processing as pp
 
 class BackgroundGenerator():
 
-    def __init__(self, event_processor:'Hprocessor', tau_max:'int') -> None:
+    def __init__(self, event_processor:'Hprocessor', tau_max:'int', filter_threshold:'int') -> None:
         self.event_processor:'Hprocessor' = event_processor
         self.dataset = event_processor.dataset
         self.partition_days = event_processor.partition_days
         self.tau_max = tau_max
+        self.filter_threshold = filter_threshold
 
         self.temporal_pair_dict, self.heuristic_temporal_pair_dict = self._temporal_pair_identification()
         self.spatial_pair_dict = self._spatial_pair_identification()
@@ -69,8 +70,8 @@ class BackgroundGenerator():
                 count_array = temporal_pair_dict[frame_id][lag]
                 heuristic_count_array = heuristic_temporal_pair_dict[frame_id][lag]
                 for idx, x in np.ndenumerate(count_array):
-                    heuristic_count_array[idx] = 0 if x < self.partition_days else 1 
-                    count_array[idx] = 0 if x < self.partition_days else 1  
+                    heuristic_count_array[idx] = 0 if x < self.filter_threshold else 1 
+                    count_array[idx] = 0 if x < self.filter_threshold else 1  
 
         return temporal_pair_dict, heuristic_temporal_pair_dict
     

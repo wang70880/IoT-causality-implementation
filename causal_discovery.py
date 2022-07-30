@@ -29,29 +29,6 @@ from src.genetic_type import DataFrame, AttrEvent, DevAttribute
 
 # Default communicator
 COMM = MPI.COMM_WORLD
-NORMAL = 0
-ABNORMAL = 1
-
-# Accept parameters for data partitioning and loading
-
-apply_bk = 1
-#apply_bk = int(sys.argv[4])
-
-# Settings of test parameters
-autocorrelation_flag = True 
-skip_skeleton_estimation_flag = False
-skip_bayesian_fitting_flag = 0
-num_anomalies = 0
-max_prop_length = 1
-
-cond_ind_test = CMIsymb()
-tau_max = 3; tau_min = 1
-verbosity = -1 # -1: No debugging information; 0: Debugging information in this module; 2: Debugging info in PCMCI class; 3: Debugging info in CIT implementations
-## For stable-pc
-max_n_edges = 50
-pc_alpha = 0.001
-max_conds_dim = 5
-maximum_comb = 10
 
 ## Resulting dict
 pc_result_dict = {}; mci_result_dict = {}
@@ -108,12 +85,54 @@ def _run_pc_stable_parallel(j, dataframe, cond_ind_test, selected_links,\
 dataset = sys.argv[1]; partition_days = int(sys.argv[2]); training_ratio = float(sys.argv[3])
 event_preprocessor:'Hprocessor' = Hprocessor(dataset=dataset,verbosity=0, partition_days=partition_days, training_ratio=training_ratio)
 event_preprocessor.data_loading()
-frame:'DataFrame' = event_preprocessor.frame_dict[0] # By default, we use the first data frame
 
 # 2. Identify the background knowledge
-tau_max = int(sys.argv[4]); tau_min = 1
-background_generator = BackgroundGenerator(event_preprocessor, tau_max)
+tau_max = int(sys.argv[4]); tau_min = 1; filter_threshold=float(sys.argv[5])
+background_generator = BackgroundGenerator(event_preprocessor, tau_max, filter_threshold)
 
+# 3. Use the background knowledge to filter edges
+bk_level=int(sys.argv[6]); frame_id = 0 # JC NOTE: By default, we use the first data frame
+frame:'DataFrame' = event_preprocessor.frame_dict[frame_id]
+dataframe:pp.DataFrame = frame.training_dataframe; attr_names = frame.var_names
+T = dataframe.T; N = dataframe.N
+selected_variables = list(range(N))
+selected_links = background_generator.generate_candidate_interactions(bk_level, frame_id, N) # Get candidate interactions
+
+# 4. Split the job, and prepare to initiate causal discovery
+splitted_jobs = None
+results = []
+if COMM.rank == 0: # Assign selected_variables into whatever cores are available.
+    splitted_jobs = _split(selected_variables, COMM.size)
+scattered_jobs = COMM.scatter(splitted_jobs, root=0)
+
+# 5. Initiate parallel causal discovery
+cond_ind_test = CMIsymb() # JC TODO: Replace the conditional independence test method here.
+pc_alpha = float(sys.argv[7]); max_conds_dim = 5; maximum_comb = 10; max_n_edges = 20
+pc_start = time()
+for j in scattered_jobs: # 5.1 Each process calls stable-pc algorithm to infer the edges
+    (j, pcmci_of_j, parents_of_j) = _run_pc_stable_parallel(j=j, dataframe=dataframe, cond_ind_test=cond_ind_test,\
+                                                        selected_links=selected_links, tau_min=tau_min, tau_max=tau_max, pc_alpha=pc_alpha,\
+                                                        max_conds_dim=max_conds_dim, verbosity=-1, maximum_comb=maximum_comb)
+    filtered_parents_of_j = parents_of_j.copy()
+    n_edges = min(len(filtered_parents_of_j[j]), max_n_edges) # Only select top max_n_edges causal edges with maximum MCI
+    if n_edges > 0:
+        filtered_parents_of_j[j] = filtered_parents_of_j[j][0: n_edges]
+    results.append((j, pcmci_of_j, filtered_parents_of_j))
+results = MPI.COMM_WORLD.gather(results, root=0)
+pc_end = time()
+
+if COMM.rank == 0: # 5.2 The root node gathers the result
+    consumed_time = (pc_end - pc_start) * 1.0 / 60
+    index_device_dict:'dict[DevAttribute]' = event_preprocessor.index_device_dict
+    all_parents = {}; pcmci_objects = {}; all_parents_with_name = {}
+    for res in results:
+        for (j, pcmci_of_j, parents_of_j) in res:
+            all_parents[j] = parents_of_j[j]
+            pcmci_objects[j] = pcmci_of_j
+    for outcome_id, cause_list in all_parents.items():
+        all_parents_with_name[index_device_dict[outcome_id].name] = [(index_device_dict[cause_id].name,lag) for (cause_id, lag) in cause_list]
+    print("Parallel Interaction Mining finished. Consumed time: {} minutes".format(consumed_time))
+    print("parents dict:\n{}".format(all_parents_with_name))
 exit()
 
 for frame_id in frame_dict.keys():

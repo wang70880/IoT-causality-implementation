@@ -30,8 +30,12 @@ dataset="hh130"; preprocessing_verbosity=0
 ## Data loading
 partition_days=30; training_ratio=0.9
 ## Background generator
-tau_max=3
+tau_max=3; filter_threshold=15
+## Background knowldge level
+bk_level=1
+## PC discovery process
+pc_alpha=0.001
 # 1. Initiate data preprocessing to generate the sanitized data file
 data_preprocessing $dataset $preprocessing_verbosity
 # 2. Initiate causal discovery process
-mpiexec -n 1 python -u causal_discovery.py ${dataset} ${partition_days} ${training_ratio} ${tau_max} &>> output.txt </dev/null
+mpiexec -n 1 python -u causal_discovery.py ${dataset} ${partition_days} ${training_ratio} ${tau_max} ${filter_threshold} ${bk_level} ${pc_alpha} &>> output.txt </dev/null
