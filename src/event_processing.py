@@ -1,5 +1,4 @@
 from os import stat, path
-from tkinter import W
 import jenkspy
 import math
 import numpy as np
@@ -7,7 +6,6 @@ from datetime import datetime
 from collections import defaultdict
 from pprint import pprint
 
-from sklearn.linear_model import PassiveAggressiveClassifier
 from src.tigramite.tigramite import data_processing as pp
 from src.genetic_type import DevAttribute, AttrEvent, DataFrame
 

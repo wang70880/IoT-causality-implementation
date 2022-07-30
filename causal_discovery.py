@@ -1,5 +1,5 @@
 import os, sys, pickle
-os.environ["KMP_DUPLICATE_LIB_OK"]='TRUE'
+#os.environ["KMP_DUPLICATE_LIB_OK"]='TRUE'
 import statistics
 import pprint
 import numpy as np
