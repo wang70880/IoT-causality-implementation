@@ -85,7 +85,7 @@ frame:'DataFrame' = event_preprocessor.frame_dict[frame_id]
 dataframe:pp.DataFrame = frame.training_dataframe; attr_names = frame.var_names
 if COMM.rank == 0:
     print("[Data preprocessing] Complete. dataset={}, partition_days={}, training_ratio={}, # of training records={}\nattr_names={}\n"\
-        .format(dataset, partition_days, training_ratio, frame.n_events, frame.name_device_dict))
+        .format(dataset, partition_days, training_ratio, frame.n_events, attr_names))
 
 # 2. Identify the background knowledge
 tau_max = int(sys.argv[4]); tau_min = 1; filter_threshold=float(sys.argv[5]) # JC NOTE: Here we set the filter threshold empirically
