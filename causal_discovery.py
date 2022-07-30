@@ -83,13 +83,15 @@ event_preprocessor:'Hprocessor' = Hprocessor(dataset=dataset,verbosity=0, partit
 event_preprocessor.data_loading()
 frame:'DataFrame' = event_preprocessor.frame_dict[frame_id]
 dataframe:pp.DataFrame = frame.training_dataframe; attr_names = frame.var_names
-print("[Data preprocessing] Complete. dataset={}, partition_days={}, training_ratio={}, # of training records={}\nattr_names={}"\
+if COMM.rank == 0:
+    print("[Data preprocessing] Complete. dataset={}, partition_days={}, training_ratio={}, # of training records={}\nattr_names={}"\
         .format(dataset, partition_days, training_ratio, frame.n_events, frame.name_device_dict))
 
 # 2. Identify the background knowledge
 tau_max = int(sys.argv[4]); tau_min = 1; filter_threshold=float(sys.argv[5]) # JC NOTE: Here we set the filter threshold empirically
 background_generator = BackgroundGenerator(event_preprocessor, tau_max, filter_threshold)
-print("[Background Construction] Complete. tau-min={}, tau-max={}, temporal knowledge=\n{}"\
+if COMM.rank == 0:
+    print("[Background Construction] Complete. tau-min={}, tau-max={}, temporal knowledge=\n{}"\
         .format(tau_min, tau_max, background_generator.heuristic_temporal_pair_dict[frame_id]))
 
 # 3. Use the background knowledge to filter edges
@@ -100,7 +102,8 @@ selected_links = background_generator.generate_candidate_interactions(bk_level, 
 n_candidate_edges = 0
 for worker_index, link_dict in selected_links.items():
     n_candidate_edges += sum([len(cause_list) for cause_list in link_dict.values()])
-print("[Edge Filtering] Complete. bk-level={}, T={}, N={}, # of qualified edges={}"\
+if COMM.rank == 0:
+    print("[Edge Filtering] Complete. bk-level={}, T={}, N={}, # of qualified edges={}"\
         .format(bk_level, T, N, n_candidate_edges))
 
 # 4. Split the job, and prepare to initiate causal discovery
@@ -109,6 +112,7 @@ results = []
 if COMM.rank == 0: # Assign selected_variables into whatever cores are available.
     splitted_jobs = _split(selected_variables, COMM.size)
 scattered_jobs = COMM.scatter(splitted_jobs, root=0)
+print("[Job Scattering Rank {}] Complete. scattered_jobs = {}".format(COMM.rank, scattered_jobs))
 
 # 5. Initiate parallel causal discovery
 cond_ind_test = CMIsymb() # JC TODO: Replace the conditional independence test method here.
