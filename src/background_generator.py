@@ -11,11 +11,11 @@ from src.tigramite.tigramite import data_processing as pp
 
 class BackgroundGenerator():
 
-    def __init__(self, dataset, event_processor, partition_config, tau_max) -> None:
-        self.dataset = dataset
-        self.partition_config = partition_config
-        self.tau_max = tau_max
+    def __init__(self, event_processor:'Hprocessor', tau_max:'int') -> None:
         self.event_processor:'Hprocessor' = event_processor
+        self.dataset = event_processor.dataset
+        self.partition_days = event_processor.partition_days
+        self.tau_max = tau_max
 
         self.temporal_pair_dict, self.heuristic_temporal_pair_dict = self._temporal_pair_identification()
         self.spatial_pair_dict = self._spatial_pair_identification()
@@ -36,7 +36,7 @@ class BackgroundGenerator():
         The selected pairs are indexed by the time lag tau and the partitioning scheme (i.e., the date).
 
         Args:
-            partition_config (int): _description_
+            partition_days (int): _description_
             tau_max (int, optional): _description_. Defaults to 1.
         Returns:
 
@@ -69,8 +69,8 @@ class BackgroundGenerator():
                 count_array = temporal_pair_dict[frame_id][lag]
                 heuristic_count_array = heuristic_temporal_pair_dict[frame_id][lag]
                 for idx, x in np.ndenumerate(count_array):
-                    heuristic_count_array[idx] = 0 if x < self.partition_config else 1 
-                    count_array[idx] = 0 if x < self.partition_config else 1  
+                    heuristic_count_array[idx] = 0 if x < self.partition_days else 1 
+                    count_array[idx] = 0 if x < self.partition_days else 1  
 
         return temporal_pair_dict, heuristic_temporal_pair_dict
     
@@ -174,30 +174,6 @@ class BackgroundGenerator():
                 candidate_pair_dict[frame_id][lag][candidate_pair_dict[frame_id][lag] == 3] = 1
         return candidate_pair_dict
 
-    def _print_pair_list(self, interested_array):
-        attr_names = self.event_processor.attr_names; num_attrs = len(attr_names)
-        pair_list = []
-        for index, x in np.ndenumerate(interested_array):
-            if x == 1:
-                pair_list.append((attr_names[index[0]], attr_names[index[1]]))
-        print("Pair list with lens {}: {}".format(len(pair_list), pair_list))
-
-    def print_benchmark_info(self,frame_id=0, tau=1, type = ''):
-        """Print out the identified device correlations.
-
-        Args:
-            frame_id (int, optional): _description_. Defaults to 0.
-            tau (int, optional): _description_. Defaults to 1.
-            type (str, optional): 'temporal' or 'spatial' or 'functionality'
-        """
-        print("The {} corrleation dict for frame_id = {}, tau = {}: ".format(type, frame_id, tau))
-        attr_names = self.event_processor.attr_names; num_attrs = len(attr_names)
-        if type != 'functionality':
-            self._print_pair_list(self.correlation_dict[type][frame_id][tau])
-        else:
-            self._print_pair_list(self.correlation_dict[type]['activity'])
-            self._print_pair_list(self.correlation_dict[type]['physics'])
-
     def apply_background_knowledge(self, selected_links=None, knowledge_type='', frame_id=0):
         assert(selected_links is not None)
         n_filtered_edges = 0; n_qualified_edges = 0
@@ -233,13 +209,3 @@ class BackgroundGenerator():
             selected_links = self.apply_background_knowledge(selected_links, 'spatial', frame_id)
             selected_links = self.apply_background_knowledge(selected_links, 'functionality', frame_id)
         return selected_links
-
-if __name__ == '__main__':
-    # Parameter setting
-    dataset = 'hh101'
-    partition_config = 10
-    tau_max = 2; tau_min = 1
-    event_preprocessor = evt_proc.Hprocessor(dataset)
-    attr_names, dataframes = event_preprocessor.initiate_data_preprocessing(partition_config=partition_config)
-    background_generator = BackgroundGenerator(dataset, event_preprocessor, partition_config, tau_max)
-    background_generator.print_benchmark_info(frame_id=3, tau=2, type='spatial')

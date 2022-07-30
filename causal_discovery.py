@@ -20,7 +20,7 @@ from src.tigramite.tigramite.independence_tests import CMIsymb
 from src.tigramite.tigramite import plotting as tp
 
 import src.event_processing as evt_proc
-import src.background_generator as bk_generator
+from src.background_generator import BackgroundGenerator
 import src.security_guard as security_guard
 from src.event_processing import Hprocessor
 from src.bayesian_fitter import BayesianFitter
@@ -33,9 +33,6 @@ NORMAL = 0
 ABNORMAL = 1
 
 # Accept parameters for data partitioning and loading
-dataset = sys.argv[1]
-partition_days = int(sys.argv[2])
-training_ratio = float(sys.argv[3])
 
 apply_bk = 1
 #apply_bk = int(sys.argv[4])
@@ -108,13 +105,16 @@ def _run_pc_stable_parallel(j, dataframe, cond_ind_test, selected_links,\
     return j, pcmci_of_j, parents_of_j
 
 # 1. Load data and create data frame
-event_preprocessor:'Hprocessor' = Hprocessor(dataset)
-event_preprocessor.data_loading(partition_days=partition_days, training_ratio=training_ratio)
-frame: 'DataFrame' = event_preprocessor.frame_dict[0] # By default, we use the first data frame
-exit()
+dataset = sys.argv[1]; partition_days = int(sys.argv[2]); training_ratio = float(sys.argv[3])
+event_preprocessor:'Hprocessor' = Hprocessor(dataset=dataset,verbosity=0, partition_days=partition_days, training_ratio=training_ratio)
+event_preprocessor.data_loading()
+frame:'DataFrame' = event_preprocessor.frame_dict[0] # By default, we use the first data frame
 
-"""Background Generator"""
-background_generator = bk_generator.BackgroundGenerator(dataset, event_preprocessor, partition_config, tau_max)
+# 2. Identify the background knowledge
+tau_max = int(sys.argv[4]); tau_min = 1
+background_generator = BackgroundGenerator(event_preprocessor, tau_max)
+
+exit()
 
 for frame_id in frame_dict.keys():
 

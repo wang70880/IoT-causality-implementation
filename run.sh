@@ -25,9 +25,13 @@ data_preprocessing() { # Data preprocessing
 
 # 0. Cleanup process and parameter settings
 rm output.txt; touch output.txt
+## Data preprocessing
 dataset="hh130"; preprocessing_verbosity=0
+## Data loading
 partition_days=30; training_ratio=0.9
+## Background generator
+tau_max=3
 # 1. Initiate data preprocessing to generate the sanitized data file
 data_preprocessing $dataset $preprocessing_verbosity
 # 2. Initiate causal discovery process
-mpiexec -n 1 python -u causal_discovery.py ${dataset} ${partition_days} ${training_ratio} &>> output.txt </dev/null
+mpiexec -n 1 python -u causal_discovery.py ${dataset} ${partition_days} ${training_ratio} ${tau_max} &>> output.txt </dev/null

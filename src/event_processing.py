@@ -121,7 +121,7 @@ class Processor:
 
 class Hprocessor(Processor):
 
-	def __init__(self, dataset, verbosity=0):
+	def __init__(self, dataset, verbosity=0, partition_days=None, training_ratio=None):
 		super().__init__(dataset)
 		self.attr_names = None; self.n_vars = 0
 		self.name_device_dict = defaultdict(DevAttribute) # The str-DevAttribute dict using the attr name as the dict key
@@ -130,7 +130,7 @@ class Hprocessor(Processor):
 		self.transition_events_states = None # Lists of all (event, state array) tuple
 		self.frame_dict:'defaultdict(DataFrame)' = None # A dict with key, value = (frame_id, dict['number', 'day-interval', 'start-date', 'end-date', 'attr-sequence', 'attr-type-sequence', 'state-sequence'])
 		self.frame_count = None
-		self.verbosity = verbosity
+		self.verbosity = verbosity; self.partition_days = partition_days; self.training_ratio = training_ratio
 		# Variables for testing purposes
 		self.discretization_dict:'dict[tuple]' = {}
 
@@ -301,7 +301,7 @@ class Hprocessor(Processor):
 			last_states = cur_states
 		return transition_events_states
 
-	def partition_data_frame(self, transition_events_states, partition_days, training_ratio):
+	def partition_data_frame(self, transition_events_states):
 		frame_dict = defaultdict(DataFrame)
 		states_array = np.stack([tup[1] for tup in transition_events_states], axis=0)
 		# 1. Get the segmentation points
@@ -312,7 +312,7 @@ class Hprocessor(Processor):
 			cur_timestamp = '{} {}'.format(transition_event.date, transition_event.time)
 			last_timestamp = cur_timestamp if last_timestamp == '' else last_timestamp
 			past_days = ((datetime.fromisoformat(cur_timestamp) - datetime.fromisoformat(last_timestamp)).total_seconds()) * 1.0 / 86400
-			if past_days >= partition_days:
+			if past_days >= self.partition_days:
 				seg_points.append(count)
 				last_timestamp = cur_timestamp
 			count += 1
@@ -320,7 +320,7 @@ class Hprocessor(Processor):
 		# 2. Create DataFrames for logs in each segmentation interval
 		last_point = 0; frame_count = 0
 		for seg_point in seg_points: # Get the data frame with range [last_point, seg_point]
-			testing_start_point = math.floor(last_point + training_ratio * (seg_point - last_point))
+			testing_start_point = math.floor(last_point + self.training_ratio * (seg_point - last_point))
 			training_data = states_array[last_point:testing_start_point, ]; testing_data = states_array[testing_start_point: seg_point, ]
 			dataframe = pp.DataFrame(data=training_data, var_names=self.attr_names); testing_dataframe = pp.DataFrame(data=testing_data, var_names=self.attr_names)
 			dframe = DataFrame(id=frame_count, var_names=self.attr_names, n_events=seg_point-last_point)
@@ -339,6 +339,6 @@ class Hprocessor(Processor):
 		unified_parsed_events = self.unify_value_type(parsed_events)
 		self.create_preprocessed_data_file(unified_parsed_events)
 
-	def data_loading(self, partition_days=30, training_ratio=0.9):
+	def data_loading(self):
 		transition_events_states = self.read_preprocessed_data_file()
-		self.partition_data_frame(transition_events_states, partition_days, training_ratio)
+		self.partition_data_frame(transition_events_states)
