@@ -2,6 +2,7 @@ import os, sys, pickle
 #os.environ["KMP_DUPLICATE_LIB_OK"]='TRUE'
 import statistics
 import pprint
+from turtle import back
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -77,18 +78,22 @@ def _run_pc_stable_parallel(j, dataframe, cond_ind_test, selected_links,\
     return j, pcmci_of_j, parents_of_j
 
 # 1. Load data and create data frame
-dataset = sys.argv[1]; partition_days = int(sys.argv[2]); training_ratio = float(sys.argv[3])
+dataset = sys.argv[1]; partition_days = int(sys.argv[2]); training_ratio = float(sys.argv[3]); frame_id = 0 # JC NOTE: By default, we use the first data frame
 event_preprocessor:'Hprocessor' = Hprocessor(dataset=dataset,verbosity=0, partition_days=partition_days, training_ratio=training_ratio)
 event_preprocessor.data_loading()
+frame:'DataFrame' = event_preprocessor.frame_dict[frame_id]
+dataframe:pp.DataFrame = frame.training_dataframe; attr_names = frame.var_names
+print("[Data preprocessing] Complete. dataset={}, partition_days={}, training_ratio={}, # of training records={}\nattr_names={}"\
+        .format(dataset, partition_days, training_ratio, frame.n_events, frame.name_device_dict))
 
 # 2. Identify the background knowledge
 tau_max = int(sys.argv[4]); tau_min = 1; filter_threshold=float(sys.argv[5])
 background_generator = BackgroundGenerator(event_preprocessor, tau_max, filter_threshold)
+print("[Background Construction] Complete. tau-min={}, tau-max={}, temporal knowledge=\n{}"\
+            .format(tau_min, tau_max, background_generator.temporal_pair_dict[frame_id]))
 
 # 3. Use the background knowledge to filter edges
-bk_level=int(sys.argv[6]); frame_id = 0 # JC NOTE: By default, we use the first data frame
-frame:'DataFrame' = event_preprocessor.frame_dict[frame_id]
-dataframe:pp.DataFrame = frame.training_dataframe; attr_names = frame.var_names
+bk_level=int(sys.argv[6])
 T = dataframe.T; N = dataframe.N
 selected_variables = list(range(N))
 selected_links = background_generator.generate_candidate_interactions(bk_level, frame_id, N) # Get candidate interactions

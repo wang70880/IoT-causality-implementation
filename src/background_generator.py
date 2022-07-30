@@ -138,11 +138,9 @@ class BackgroundGenerator():
 
         # Return variables
         functionality_pair_dict = {} # First index: keyword in {'activity', 'physics'}. Value: an integer array of shape num_attrs * num_attrs
-
         # Auxillary variables
         name_device_dict:'dict[DevAttribute]' = self.event_processor.name_device_dict
         attr_names = self.event_processor.attr_names; num_attrs = len(attr_names)
-
         functionality_pair_dict['activity'] = np.zeros(shape=(num_attrs, num_attrs), dtype=np.int64)
         functionality_pair_dict['physics'] = np.zeros(shape=(num_attrs, num_attrs), dtype=np.int64)
         for i in range(num_attrs):
