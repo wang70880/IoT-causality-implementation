@@ -84,14 +84,14 @@ event_preprocessor.data_loading()
 frame:'DataFrame' = event_preprocessor.frame_dict[frame_id]
 dataframe:pp.DataFrame = frame.training_dataframe; attr_names = frame.var_names
 if COMM.rank == 0:
-    print("[Data preprocessing] Complete. dataset={}, partition_days={}, training_ratio={}, # of training records={}\nattr_names={}"\
+    print("[Data preprocessing] Complete. dataset={}, partition_days={}, training_ratio={}, # of training records={}\nattr_names={}\n"\
         .format(dataset, partition_days, training_ratio, frame.n_events, frame.name_device_dict))
 
 # 2. Identify the background knowledge
 tau_max = int(sys.argv[4]); tau_min = 1; filter_threshold=float(sys.argv[5]) # JC NOTE: Here we set the filter threshold empirically
 background_generator = BackgroundGenerator(event_preprocessor, tau_max, filter_threshold)
 if COMM.rank == 0:
-    print("[Background Construction] Complete. tau-min={}, tau-max={}, temporal knowledge=\n{}"\
+    print("[Background Construction] Complete. tau-min={}, tau-max={}, temporal knowledge=\n{}\n"\
         .format(tau_min, tau_max, background_generator.heuristic_temporal_pair_dict[frame_id]))
 
 # 3. Use the background knowledge to filter edges
@@ -103,7 +103,7 @@ n_candidate_edges = 0
 for worker_index, link_dict in selected_links.items():
     n_candidate_edges += sum([len(cause_list) for cause_list in link_dict.values()])
 if COMM.rank == 0:
-    print("[Edge Filtering] Complete. bk-level={}, T={}, N={}, # of qualified edges={}"\
+    print("[Edge Filtering] Complete. bk-level={}, T={}, N={}, # of qualified edges={}\n"\
         .format(bk_level, T, N, n_candidate_edges))
 
 # 4. Split the job, and prepare to initiate causal discovery
@@ -112,7 +112,7 @@ results = []
 if COMM.rank == 0: # Assign selected_variables into whatever cores are available.
     splitted_jobs = _split(selected_variables, COMM.size)
 scattered_jobs = COMM.scatter(splitted_jobs, root=0)
-print("[Job Scattering Rank {}] Complete. scattered_jobs = {}".format(COMM.rank, scattered_jobs))
+print("[Job Scattering Rank {}] Complete. scattered_jobs = {}\n".format(COMM.rank, scattered_jobs))
 
 # 5. Initiate parallel causal discovery
 cond_ind_test = CMIsymb() # JC TODO: Replace the conditional independence test method here.
@@ -140,5 +140,5 @@ if COMM.rank == 0: # 5.2 The root node gathers the result
             pcmci_objects[j] = pcmci_of_j
     for outcome_id, cause_list in all_parents.items():
         all_parents_with_name[index_device_dict[outcome_id].name] = [(index_device_dict[cause_id].name,lag) for (cause_id, lag) in cause_list]
-    print("Parallel Interaction Mining finished. Consumed time: {} minutes".format(consumed_time))
-    print("parents dict:\n{}".format(all_parents_with_name))
+    print("[PC Discovery] Complete. Consumed time: {} minutes".format(consumed_time))
+    print("Results:\n{}\n".format(all_parents_with_name))
