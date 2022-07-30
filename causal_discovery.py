@@ -87,16 +87,21 @@ print("[Data preprocessing] Complete. dataset={}, partition_days={}, training_ra
         .format(dataset, partition_days, training_ratio, frame.n_events, frame.name_device_dict))
 
 # 2. Identify the background knowledge
-tau_max = int(sys.argv[4]); tau_min = 1; filter_threshold=float(sys.argv[5])
+tau_max = int(sys.argv[4]); tau_min = 1; filter_threshold=float(sys.argv[5]) # JC NOTE: Here we set the filter threshold empirically
 background_generator = BackgroundGenerator(event_preprocessor, tau_max, filter_threshold)
 print("[Background Construction] Complete. tau-min={}, tau-max={}, temporal knowledge=\n{}"\
-            .format(tau_min, tau_max, background_generator.temporal_pair_dict[frame_id]))
+        .format(tau_min, tau_max, background_generator.heuristic_temporal_pair_dict[frame_id]))
 
 # 3. Use the background knowledge to filter edges
 bk_level=int(sys.argv[6])
 T = dataframe.T; N = dataframe.N
 selected_variables = list(range(N))
 selected_links = background_generator.generate_candidate_interactions(bk_level, frame_id, N) # Get candidate interactions
+n_candidate_edges = 0
+for worker_index, link_dict in selected_links.items():
+    n_candidate_edges += sum([len(cause_list) for cause_list in link_dict.values()])
+print("[Edge Filtering] Complete. bk-level={}, T={}, N={}, # of qualified edges={}"\
+        .format(bk_level, T, N, n_candidate_edges))
 
 # 4. Split the job, and prepare to initiate causal discovery
 splitted_jobs = None

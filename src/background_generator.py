@@ -65,7 +65,7 @@ class BackgroundGenerator():
                     temporal_pair_dict[frame_id][lag][prior_attr_index, con_attr_index] += 1
                     heuristic_temporal_pair_dict[frame_id][lag][prior_attr_index, con_attr_index] += 1
 
-        for frame_id in frame_dict.keys(): # JC NOTE: Here the frequency threshold is set empirically (Use partitioning criteria)
+        for frame_id in frame_dict.keys():
             for lag in range (1, self.tau_max + 1):
                 count_array = temporal_pair_dict[frame_id][lag]
                 heuristic_count_array = heuristic_temporal_pair_dict[frame_id][lag]
