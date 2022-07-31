@@ -16,7 +16,7 @@ from pgmpy.estimators import MaximumLikelihoodEstimator, BayesianEstimator
 
 from src.tigramite.tigramite import data_processing as pp
 from src.tigramite.tigramite.pcmci import PCMCI
-from src.tigramite.tigramite.independence_tests import CMIsymb
+from src.tigramite.tigramite.independence_tests import CMIsymb, ChiSquare
 from src.tigramite.tigramite import plotting as tp
 
 from src.background_generator import BackgroundGenerator
@@ -115,7 +115,7 @@ scattered_jobs = COMM.scatter(splitted_jobs, root=0)
 print("[Job Scattering Rank {}] Complete. scattered_jobs = {}\n".format(COMM.rank, scattered_jobs))
 
 # 5. Initiate parallel causal discovery
-cond_ind_test = CMIsymb() # JC TODO: Replace the conditional independence test method here.
+cond_ind_test = ChiSquare() # JC TODO: Replace the conditional independence test method here.
 pc_alpha = float(sys.argv[7]); max_conds_dim = int(sys.argv[8]); maximum_comb = int(sys.argv[9]); max_n_edges = 20
 pc_start = time()
 for j in scattered_jobs: # 5.1 Each process calls stable-pc algorithm to infer the edges
