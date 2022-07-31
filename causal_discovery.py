@@ -116,17 +116,18 @@ print("[Job Scattering Rank {}] Complete. scattered_jobs = {}\n".format(COMM.ran
 
 # 5. Initiate parallel causal discovery
 cond_ind_test = CMIsymb() # JC TODO: Replace the conditional independence test method here.
-pc_alpha = float(sys.argv[7]); max_conds_dim = 5; maximum_comb = 10; max_n_edges = 20
+pc_alpha = float(sys.argv[7]); max_conds_dim = int(sys.argv[8]); maximum_comb = int(sys.argv[9]); max_n_edges = 20
 pc_start = time()
 for j in scattered_jobs: # 5.1 Each process calls stable-pc algorithm to infer the edges
     (j, pcmci_of_j, parents_of_j) = _run_pc_stable_parallel(j=j, dataframe=dataframe, cond_ind_test=cond_ind_test,\
                                                         selected_links=selected_links, tau_min=tau_min, tau_max=tau_max, pc_alpha=pc_alpha,\
-                                                        max_conds_dim=max_conds_dim, verbosity=-1, maximum_comb=maximum_comb)
+                                                        max_conds_dim=max_conds_dim, maximum_comb=maximum_comb, verbosity=-1)
     filtered_parents_of_j = parents_of_j.copy()
     n_edges = min(len(filtered_parents_of_j[j]), max_n_edges) # Only select top max_n_edges causal edges with maximum MCI
     if n_edges > 0:
         filtered_parents_of_j[j] = filtered_parents_of_j[j][0: n_edges]
     results.append((j, pcmci_of_j, filtered_parents_of_j))
+    print("     [PC Discovery Rank {}] Complete. Consumed time: {} minutes".format(COMM.rank, (time() - pc_start) * 1.0 / 60))
 results = MPI.COMM_WORLD.gather(results, root=0)
 pc_end = time()
 
