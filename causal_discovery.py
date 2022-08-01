@@ -32,6 +32,9 @@ pc_result_dict = {}; mci_result_dict = {}
 record_count_list =[]
 pc_time_list = []; mci_time_list = []
 
+def _elapsed_minutes(start):
+    return (time()-start) * 1.0 / 60
+
 def _split(container, count):
     """
     Simple function splitting a range of selected variables (or range(N)) 
@@ -78,23 +81,26 @@ def _run_pc_stable_parallel(j, dataframe, cond_ind_test, selected_links,\
     return j, pcmci_of_j, parents_of_j
 
 # 1. Load data and create data frame
+dl_start =time()
 dataset = sys.argv[1]; partition_days = int(sys.argv[2]); training_ratio = float(sys.argv[3]); frame_id = 0 # JC NOTE: By default, we use the first data frame
 event_preprocessor:'Hprocessor' = Hprocessor(dataset=dataset,verbosity=0, partition_days=partition_days, training_ratio=training_ratio)
 event_preprocessor.data_loading()
 frame:'DataFrame' = event_preprocessor.frame_dict[frame_id]
 dataframe:pp.DataFrame = frame.training_dataframe; attr_names = frame.var_names
 if COMM.rank == 0:
-    print("[Data preprocessing] Complete. dataset={}, partition_days={}, training_ratio={}, # of training records={}\nattr_names={}\n"\
-        .format(dataset, partition_days, training_ratio, frame.n_events, attr_names))
+    print("[Data preprocessing] Complete ({} minutes). dataset={}, partition_days={}, training_ratio={}, # of training records={}\nattr_names={}\n"\
+        .format(dataset, _elapsed_minutes(dl_start), partition_days, training_ratio, frame.n_events, attr_names))
 
 # 2. Identify the background knowledge
+bg_start=time()
 tau_max = int(sys.argv[4]); tau_min = 1; filter_threshold=float(sys.argv[5]) # JC NOTE: Here we set the filter threshold empirically
 background_generator = BackgroundGenerator(event_preprocessor, tau_max, filter_threshold)
 if COMM.rank == 0:
-    print("[Background Construction] Complete. tau-min={}, tau-max={}, temporal knowledge=\n{}\n"\
-        .format(tau_min, tau_max, background_generator.heuristic_temporal_pair_dict[frame_id]))
+    print("[Background Construction] Complete ({} minutes). tau-min={}, tau-max={}, temporal knowledge=\n{}\n"\
+        .format(_elapsed_minutes(bg_start), tau_min, tau_max, background_generator.heuristic_temporal_pair_dict[frame_id]))
 
 # 3. Use the background knowledge to filter edges
+ef_start = time()
 bk_level=int(sys.argv[6])
 T = dataframe.T; N = dataframe.N
 selected_variables = list(range(N))
@@ -103,8 +109,8 @@ n_candidate_edges = 0
 for worker_index, link_dict in selected_links.items():
     n_candidate_edges += sum([len(cause_list) for cause_list in link_dict.values()])
 if COMM.rank == 0:
-    print("[Edge Filtering] Complete. bk-level={}, T={}, N={}, # of qualified edges={}\n"\
-        .format(bk_level, T, N, n_candidate_edges))
+    print("[Edge Filtering] Complete ({} minutes). bk-level={}, T={}, N={}, # of qualified edges={}\n"\
+        .format(_elapsed_minutes(ef_start), bk_level, T, N, n_candidate_edges))
 
 # 4. Split the job, and prepare to initiate causal discovery
 splitted_jobs = None
@@ -127,7 +133,7 @@ for j in scattered_jobs: # 5.1 Each process calls stable-pc algorithm to infer t
     if n_edges > 0:
         filtered_parents_of_j[j] = filtered_parents_of_j[j][0: n_edges]
     results.append((j, pcmci_of_j, filtered_parents_of_j))
-    print("     [PC Discovery Rank {}] Complete. Consumed time: {} minutes".format(COMM.rank, (time() - pc_start) * 1.0 / 60))
+    print("     [PC Discovery Rank {}] Complete ({} minutes).".format(COMM.rank, (time() - pc_start) * 1.0 / 60))
 results = MPI.COMM_WORLD.gather(results, root=0)
 pc_end = time()
 
@@ -141,5 +147,5 @@ if COMM.rank == 0: # 5.2 The root node gathers the result
             pcmci_objects[j] = pcmci_of_j
     for outcome_id, cause_list in all_parents.items():
         all_parents_with_name[index_device_dict[outcome_id].name] = [(index_device_dict[cause_id].name,lag) for (cause_id, lag) in cause_list]
-    print("[PC Discovery] Complete. Consumed time: {} minutes".format(consumed_time))
+    print("[PC Discovery] Complete ({} minutes).".format(consumed_time))
     print("Results:\n{}\n".format(all_parents_with_name))
