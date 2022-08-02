@@ -1,3 +1,5 @@
+import os
+os.environ["KMP_DUPLICATE_LIB_OK"]='TRUE'
 from src.event_processing import Hprocessor
 from src.causal_evaluation import Evaluator
 from src.background_generator import BackgroundGenerator
@@ -17,7 +19,6 @@ import seaborn as sns
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import os
 
 from src.bayesian_fitter import BayesianFitter
 from src.security_guard import SecurityGuard
@@ -50,12 +51,11 @@ class Drawer():
 
 class DataDebugger():
 
-    def __init__(self, dataset, partition_config=30, filter_threshold=30, training_ratio=1.0, tau_max = 4, alpha=0.001) -> None:
-        self.dataset = dataset; self.partition_config = partition_config; self.filter_threshold = filter_threshold; self.training_ratio = training_ratio; self.tau_max = tau_max; self.alpha = alpha
-        self.preprocessor = Hprocessor(dataset=dataset,tau_max=tau_max)
-        self.preprocessor.initiate_data_preprocessing()
-        self.preprocessor.data_loading(partition_config, training_ratio)
-        self.background_generator:'BackgroundGenerator' = BackgroundGenerator(dataset, self.preprocessor, partition_config, tau_max)
+    def __init__(self, dataset, partition_days=30, filter_threshold=30, training_ratio=1.0, tau_max = 4, alpha=0.001) -> None:
+        self.dataset = dataset; self.partition_days = partition_days; self.filter_threshold = filter_threshold; self.training_ratio = training_ratio; self.tau_max = tau_max; self.alpha = alpha
+        self.preprocessor = Hprocessor(dataset=dataset, partition_days=partition_days, training_ratio=training_ratio)
+        self.preprocessor.data_loading()
+        self.background_generator:'BackgroundGenerator' = BackgroundGenerator(self.preprocessor, tau_max, filter_threshold)
         
         # Assigned after draw_golden_standard() function is called.
         self.golden_p_matrix = None; self.golden_val_matrix = None; self.golden_graph = None
@@ -151,7 +151,7 @@ class DataDebugger():
         n_vars = tested_frame.n_vars
         matrix_shape = (n_vars, n_vars, self.tau_max + 1)
         interaction_matrix:'np.ndarray' = np.zeros(matrix_shape)
-        evaluator = Evaluator(self.preprocessor, self.background_generator, None, self.tau_max, self.filter_threshold)
+        evaluator = Evaluator(self.preprocessor, self.background_generator, None)
         interaction_dict:'dict[np.ndarray]' = evaluator.golden_standard_dict[int_type]
         interaction_matrix = interaction_dict[int_frame_id]
         str = "[Picturing Golden Standard] Number of edges for each tau:\n"
@@ -227,23 +227,14 @@ class MinerDebugger():
 
         # 1. Call pc algorithm to get the answer
         # JC TODO: Implement the discovery logic here.
-        #all_parents_with_name = {'D002': [('D002', -1), ('D002', -2), ('M001', -1), ('M001', -2), ('D002', -3), ('M001', -3)],\
-        #                        'M001': [('M001', -1), ('M001', -2), ('D002', -2), ('D002', -1), ('M005', -2), ('D002', -3), ('M004', -1), ('M001', -3), ('M003', -1), ('M005', -1), ('M002', -1), ('M006', -2), ('M006', -1), ('M005', -3), ('M006', -3)],\
-        #                        'M002': [('M002', -2), ('M002', -1), ('M001', -1), ('M004', -1), ('M005', -2), ('M005', -1), ('M003', -1), ('M006', -1)],\
-        #                        'M003': [('M003', -2), ('M003', -1), ('M005', -1), ('M004', -1), ('M004', -2), ('M001', -1), ('M002', -1), ('M006', -1), ('M002', -2)],\
-        #                        'M004': [('M004', -2), ('M005', -1), ('M002', -1), ('M001', -1), ('M004', -1), ('M006', -1), ('M005', -3)],\
-        #                        'M005': [('M005', -2), ('M005', -3), ('M005', -1), ('M004', -1), ('M003', -2), ('M001', -1), ('M003', -1), ('M002', -2), ('M002', -1), ('M006', -1), ('M001', -3), ('M002', -3), ('D002', -1), ('D002', -3), ('M006', -3), ('M004', -2), ('M001', -2), ('D002', -2)],\
-        #                        'M006': [('M006', -2), ('M005', -1), ('M001', -1), ('M011', -2), ('M003', -1), ('M004', -1), ('M002', -3), ('M001', -2), ('M002', -1), ('M002', -2), ('M001', -3)],\
-        #                        'M011': [('M011', -2), ('M006', -2), ('M011', -1)]} # With alpha = 0.001 and bk = 0
-        all_parents_with_name = {'D002': [('D002', -1), ('D002', -2), ('M001', -1), ('M001', -2), ('D002', -3), ('M001', -3)],\
-                                'M001': [('M001', -1), ('M001', -2), ('D002', -2), ('D002', -1), ('M005', -2), ('D002', -3), ('M004', -1), ('M001', -3), ('M003', -1), ('M005', -1), ('M002', -1), ('M006', -3), ('M005', -3)],\
-                                'M002': [('M002', -2), ('M002', -1), ('M001', -1), ('M004', -1), ('M005', -2), ('M005', -1), ('M003', -1), ('M006', -1)],\
-                                'M003': [('M003', -2), ('M003', -1), ('M005', -1), ('M004', -1), ('M004', -2), ('M001', -1), ('M002', -1), ('M006', -1), ('M002', -2)],\
-                                'M004': [('M004', -2), ('M005', -1), ('M002', -1), ('M001', -1), ('M004', -1), ('M006', -1), ('M005', -3)],\
-                                'M005': [('M005', -2), ('M005', -3), ('M005', -1), ('M004', -1), ('M003', -2), ('M001', -1), ('M003', -1), ('M002', -2), ('M002', -1), ('M006', -1), ('M001', -3), ('M002', -3), ('D002', -1), ('D002', -3), ('M006', -3), ('M004', -2), ('M001', -2), ('D002', -2)],\
-                                'M006': [('M006', -2), ('M005', -1), ('M011', -2), ('M003', -1), ('M004', -1), ('M001', -3), ('M002', -1)],\
-                                'M011': [('M011', -2), ('M006', -2), ('M011', -1)]} # With alpha = 0.001 and bk = 1
-        
+        all_parents_with_name = {'D002': [('D002', -2), ('D002', -1), ('M001', -1), ('M001', -2), ('D002', -3), ('M001', -3), ('M002', -1)],\
+                                'M001': [('M001', -1), ('M001', -2), ('D002', -2), ('M001', -3), ('D002', -1), ('M002', -1), ('D002', -3), ('M005', -2), ('M004', -1), ('M002', -3), ('M003', -1), ('M005', -1), ('M006', -3), ('M002', -2), ('M005', -3), ('M004', -3)],\
+                                'M002': [('M002', -2), ('M002', -1), ('M001', -1), ('M002', -3), ('M004', -1), ('M005', -1), ('M001', -3), ('M005', -2), ('M003', -1), ('M006', -1), ('M001', -2), ('M004', -3), ('D002', -1)],\
+                                'M003': [('M003', -2), ('M003', -1), ('M004', -1), ('M004', -2), ('M001', -1), ('M002', -1), ('M005', -1), ('M005', -3), ('M003', -3)],\
+                                'M004': [('M004', -2), ('M004', -1), ('M005', -1), ('M002', -1), ('M003', -2), ('M001', -1), ('M003', -1), ('M006', -1), ('M005', -3), ('M002', -3)],\
+                                'M005': [('M005', -2), ('M005', -3), ('M004', -1), ('M003', -2), ('M005', -1), ('M003', -1), ('M002', -2), ('M002', -3), ('M001', -1), ('M001', -3), ('M002', -1), ('M004', -2), ('M006', -1), ('M006', -3), ('D002', -3), ('D002', -1), ('M001', -2), ('D002', -2)],\
+                                'M006': [('M006', -2), ('M011', -2), ('M005', -1), ('M003', -1), ('M004', -1), ('M001', -3), ('M006', -1), ('M002', -3), ('M002', -1), ('M004', -2), ('M002', -2)],\
+                                'M011': [('M011', -2), ('M006', -2), ('M011', -1)]}
         # 2. Construct the interaction matrix given the pc-returned dict
         for outcome in all_parents_with_name:
             for (cause, lag) in all_parents_with_name[outcome]:
@@ -251,10 +242,10 @@ class MinerDebugger():
 
         return interaction_matrix
     
-    def analyze_discovery_result(self, int_frame_id=0):
+    def analyze_discovery_result(self, int_frame_id=0, int_type='user'):
 
         # 1. Fetch the golden interaction matrix
-        golden_interaction_matrix:'np.ndarray' = self.data_debugger.derive_golden_standard(int_frame_id, 'user')
+        golden_interaction_matrix:'np.ndarray' = self.data_debugger.derive_golden_standard(int_frame_id, int_type)
 
         # 2. Initiate PC discovery algorithm and get the discovered graph
         discovered_interaction_matrix:'np.ndarray' = self.initiate_discovery_algorithm(int_frame_id)
@@ -284,7 +275,6 @@ class BayesianDebugger():
         tested_frame:'DataFrame' = self.data_debugger.preprocessor.frame_dict[int_frame_id]
         var_names = tested_frame.var_names; tau_max = self.data_debugger.tau_max
         index_device_dict:'dict[DevAttribute]' = self.data_debugger.preprocessor.index_device_dict
-
         # 1. Get the interaction matrix and transform to link dict
         if self.analyze_golden_standard:
             interaction_matrix:'np.ndarray' = self.data_debugger.derive_golden_standard(int_frame_id, 'user')
@@ -381,18 +371,21 @@ class GuardDebugger():
 
 if __name__ == '__main__':
 
-    dataset = 'hh130'; partition_config = 30; filter_threshold = .5 * partition_config; training_ratio = 0.8; tau_max = 3
-    alpha = 0.001; int_frame_id = 4; analyze_golden_standard=False
-    data_debugger = DataDebugger(dataset, partition_config, filter_threshold, training_ratio, tau_max, alpha)
+    dataset = 'hh130'; partition_days = 30; filter_threshold = partition_days; training_ratio = 0.8; tau_max = 3
+    alpha = 0.001; int_frame_id = 0; analyze_golden_standard=False
+    data_debugger = DataDebugger(dataset, partition_days, filter_threshold, training_ratio, tau_max, alpha)
+    miner_debugger = MinerDebugger(alpha, data_debugger)
     bayesian_debugger = BayesianDebugger(data_debugger, verbosity=0, analyze_golden_standard=analyze_golden_standard)
 
-    n_anomalies = 50; maximum_length = 1; anomaly_case = 1
-    sig_levels = list(np.arange(0.1, 1., 0.1)); sig_levels = [0.95]
-    precisions = []; recalls = []; f1_scores = []
-    for sig_level in sig_levels:
-        guard_debugger = GuardDebugger(data_debugger, bayesian_debugger)
-        precision, recall, f1_score = guard_debugger.score_anomaly_detection(int_frame_id, sig_level, n_anomalies, maximum_length, anomaly_case)
-        precisions.append(precision); recalls.append(recall); f1_scores.append(f1_score)
+    miner_debugger.analyze_discovery_result()
 
-    drawer = Drawer()
-    drawer.draw_2d_distribution(sig_levels, [precisions, recalls, f1_scores], ['precision', 'recall', 'f1-score'], 'sig-level', 'value', 'No', 'sig-level-analysis')
+    #n_anomalies = 50; maximum_length = 1; anomaly_case = 1
+    #sig_levels = list(np.arange(0.1, 1., 0.1)); sig_levels = [0.95]
+    #precisions = []; recalls = []; f1_scores = []
+    #for sig_level in sig_levels:
+    #    guard_debugger = GuardDebugger(data_debugger, bayesian_debugger)
+    #    precision, recall, f1_score = guard_debugger.score_anomaly_detection(int_frame_id, sig_level, n_anomalies, maximum_length, anomaly_case)
+    #    precisions.append(precision); recalls.append(recall); f1_scores.append(f1_score)
+
+    #drawer = Drawer()
+    #drawer.draw_2d_distribution(sig_levels, [precisions, recalls, f1_scores], ['precision', 'recall', 'f1-score'], 'sig-level', 'value', 'No', 'sig-level-analysis')

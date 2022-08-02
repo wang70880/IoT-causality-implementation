@@ -206,7 +206,6 @@ class SecurityGuard():
         #if event_id in debugging_id_list:
         #    print("Detection meets anomaly event {} with recent devices {}.".format(event, self.recent_devices))
         #    print("Anomaly score: {}".format(anomaly_score))
-
         int_dict = None
         if anomalous_score_flag and event_id in debugging_id_list: # A tp is detected
             int_dict = self.tp_debugging_dict

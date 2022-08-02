@@ -1,4 +1,3 @@
-from turtle import back
 import collections
 import itertools
 import numpy as np
@@ -13,39 +12,20 @@ from collections import defaultdict
 
 class Evaluator():
 
-    def __init__(self, event_processor, background_generator, bayesian_fitter, tau_max, filter_threshold) -> None:
-        self.tau_max = tau_max
-        self.filter_threshold = filter_threshold
+    def __init__(self, event_processor, background_generator, bayesian_fitter) -> None:
         self.event_processor:'Hprocessor' = event_processor
         self.background_generator:'BackgroundGenerator' = background_generator
         self.bayesian_fitter:'BayesianFitter' = bayesian_fitter
-
-        self.golden_standard_dict = {}
-        self._construct_golden_standard()
+        self.tau_max = self.background_generator.tau_max; self.filter_threshold = self.background_generator.filter_threshold
+        self.golden_standard_dict = self._construct_golden_standard()
     
-    def evaluate_detection_accuracy(self, golden_standard:'list[int]', result:'list[int]'):
-        print("Golden standard with number {}: {}".format(len(golden_standard), golden_standard))
-        print("Your result with number {}: {}".format(len(result), result))
-        tp = len([x for x in result if x in golden_standard])
-        fp = len([x for x in result if x not in golden_standard])
-        fn = len([x for x in golden_standard if x not in result])
-        precision = tp * 1.0 / (tp + fp) if tp + fp > 0 else 0
-        recall = tp * 1.0 / (tp + fn) if tp + fn > 0 else 0
-        print("Precision, recall = {:.2f}, {:.2f}".format(precision, recall))
-
-    def candidate_interaction_matching(self, frame_id=0, tau=1, interactions_list=[]):
-        match_count = 0
-        candidate_interaction_array = self.background_generator.candidate_pair_dict[frame_id][tau]
-        for interaction in interactions_list:
-            if candidate_interaction_array[interaction[0], interaction[1]] == 1:
-                match_count += 1
-        return match_count
-
     def _construct_golden_standard(self):
         # JC NOTE: Currently we only consider hh-series datasets
-        self.golden_standard_dict['user'] = self._identify_user_interactions(self.filter_threshold)
-        self.golden_standard_dict['physics'] = self._identify_physical_interactions()
-        self.golden_standard_dict['automation'] = self._identify_automation_interactions()
+        golden_standard_dict = {}
+        golden_standard_dict['user'] = self._identify_user_interactions(self.filter_threshold)
+        golden_standard_dict['physics'] = self._identify_physical_interactions()
+        golden_standard_dict['automation'] = self._identify_automation_interactions()
+        return golden_standard_dict
 
     def _identify_user_interactions(self, filter_threshold=0):
         """
@@ -57,14 +37,11 @@ class Evaluator():
         """
         # Return variables
         user_interaction_dict = defaultdict(dict)
-
         # Auxillary variables
         name_device_dict = self.event_processor.name_device_dict; n_vars = self.event_processor.n_vars
         frame_dict:'dict[DataFrame]' = self.event_processor.frame_dict
-
         # Fetch spatial-adjacency pairs
         spatial_array:'np.ndarray' = self.background_generator.correlation_dict['spatial'][0][1] # The index does not matter, since for all frames and tau, the adjacency matrix is the same.
-
         # Analyze activation intervals to determine tau for each spatial adjacency pair
         activation_adjacency_dict = defaultdict(dict)
         for frame_id in frame_dict.keys(): # Initialize the dict
@@ -119,63 +96,6 @@ class Evaluator():
         golden_bayesian_fitter = BayesianFitter(int_frame, self.tau_max, link_dict)
         golden_bayesian_fitter.construct_bayesian_model()
         return golden_bayesian_fitter
-
-    def print_benchmark_info(self,frame_id= 0, tau= 1, type = ''):
-        """Print out the identified device correlations.
-
-        Args:
-            frame_id (int, optional): _description_. Defaults to 0.
-            tau (int, optional): _description_. Defaults to 1.
-            type (str, optional): 'activity' or 'physics' or 'automation'
-        """
-        print("The {} correlation dict for frame_id = {}, tau = {}: ".format(type, frame_id, tau))
-        attr_names = self.event_processor.attr_names; num_attrs = len(attr_names)
-        self._print_pair_list(self.correlation_dict[type][frame_id][tau])
-
-    def estimate_single_discovery_accuracy(self, frame_id, tau, result):
-        """
-        This function estimates the discovery accuracy for only user activity correlations.
-        Moreover, it specifies a certain frame_id and a tau for the discovered result.
-        """
-        attr_names = self.event_processor.attr_names; num_attrs = len(attr_names)
-        pcmci_array = np.zeros(shape=(num_attrs, num_attrs), dtype=np.int64)
-        for outcome_attr in result.keys(): # Transform the pcmci_results dict into array format (given the specific time lag \tau)
-            for (cause_attr, lag) in result[outcome_attr]:
-                pcmci_array[attr_names.index(cause_attr), attr_names.index(outcome_attr)] = 1 if lag == -1 * tau else 0
-        #print("[frame_id={}, tau={}] Evaluating accuracy for user-activity correlations".format(frame_id, tau))
-        discovery_array = pcmci_array * self.background_generator.functionality_pair_dict['activity']; truth_array = None
-        n_discovery = np.sum(discovery_array); truth_count = np.sum(truth_array)
-        tp = 0; fn = 0; fp = 0
-        fn_list = []
-        fp_list = []
-        for idx, x in np.ndenumerate(truth_array):
-            if truth_array[idx[0], idx[1]] == discovery_array[idx[0], idx[1]] == 1:
-                tp += 1
-            elif truth_array[idx[0], idx[1]] == 1:
-                fn += 1
-                fn_list.append("{} -> {}".format(attr_names[idx[0]], attr_names[idx[1]]))
-            elif discovery_array[idx[0], idx[1]] == 1:
-                fp_list.append("{} -> {}".format(attr_names[idx[0]], attr_names[idx[1]]))
-                fp += 1
-        precision = (tp * 1.0) / (tp + fp)
-        recall = (tp * 1.0) / (tp + fn)
-        #print("* FNs: {}".format(fn_list))
-        #print("* FPs: {}".format(fp_list))
-        #print("n_discovery = %d" % n_discovery
-        #          + "\ntruth_count = %s" % truth_count 
-        #          + "\ntp = %d" % tp
-        #          + "\nfn = %d" % fn 
-        #          + "\nfp = %d" % fp
-        #          + "\nprecision = {}".format(precision)
-        #          + "\nrecall = {}".format(recall))
-        return truth_count, precision, recall
-    
-    def estimate_average_discovery_accuracy(self, tau, result_dict):
-        truth_count_list = []; precision_list = []; recall_list = []
-        for frame_id, result in result_dict.items():
-            truth_count, precision, recall = self.estimate_single_discovery_accuracy(frame_id, tau, result)
-            truth_count_list.append(truth_count); precision_list.append(precision); recall_list.append(recall)
-        return statistics.mean(truth_count_list), statistics.mean(precision_list), statistics.mean(recall_list)
 
     def simulate_malicious_control(self, int_frame_id, n_anomaly, maximum_length, anomaly_case):
         """
@@ -306,3 +226,16 @@ class Evaluator():
         #print("Benign positions: {}".format(benign_position_dict.keys()))
 
         return testing_event_sequence, anomaly_positions, benign_position_dict 
+
+    def evaluate_discovery_accuracy(self, frame_id=None):
+        pass
+
+    def evaluate_detection_accuracy(self, golden_standard:'list[int]', result:'list[int]'):
+        print("Golden standard with number {}: {}".format(len(golden_standard), golden_standard))
+        print("Your result with number {}: {}".format(len(result), result))
+        tp = len([x for x in result if x in golden_standard])
+        fp = len([x for x in result if x not in golden_standard])
+        fn = len([x for x in golden_standard if x not in result])
+        precision = tp * 1.0 / (tp + fp) if tp + fp > 0 else 0
+        recall = tp * 1.0 / (tp + fn) if tp + fn > 0 else 0
+        print("Precision, recall = {:.2f}, {:.2f}".format(precision, recall))
