@@ -173,7 +173,7 @@ evaluator.evaluate_discovery_accuracy()
 injection_start = time()
 n_anomalies = 100; case = 1; max_length = 1
 testing_event_states, anomaly_positions, testing_benign_dict = evaluator.simulate_malicious_control(\
-                        int_frame_id=frame_id, n_anomaly=n_anomalies, maximum_length=max_length, case=case)
+                        int_frame_id=frame_id, n_anomaly=n_anomalies, maximum_length=max_length, anomaly_case=case)
 print("[Anomaly Injection] Complete ({} minutes). # of anomalies = {}".format(_elapsed_minutes(injection_start), len(anomaly_positions)))
 # 9.2 Initiate anomaly detection
 sig_levels = [0.9]

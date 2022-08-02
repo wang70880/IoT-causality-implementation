@@ -140,7 +140,6 @@ class DataDebugger():
             parent_vals.sort(key=lambda tup: tup[1], reverse=True)
             print(" -> ".join( [index_device_dict[x[0]].name for x in parent_vals] ))
         print(val_matrix[:,:,1])
-        exit()
         # 3.2 Plotting the final graph
         var_names = [index_device_dict[k].name for k in int_device_indices]
         tp.plot_time_series_graph(
