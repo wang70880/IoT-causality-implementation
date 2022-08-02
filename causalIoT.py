@@ -12,16 +12,16 @@ from mpi4py import MPI
 
 from pgmpy.models import BayesianNetwork 
 from pgmpy.estimators import MaximumLikelihoodEstimator, BayesianEstimator
-from security_guard import SecurityGuard
 
 from src.tigramite.tigramite import data_processing as pp
 from src.tigramite.tigramite.pcmci import PCMCI
 from src.tigramite.tigramite.independence_tests import ChiSquare
-from src.bayesian_fitter import BayesianFitter
 from src.tigramite.tigramite import plotting as tp
 
 from src.background_generator import BackgroundGenerator
 from src.event_processing import Hprocessor
+from src.bayesian_fitter import BayesianFitter
+from src.security_guard import SecurityGuard
 from src.causal_evaluation import Evaluator
 from src.genetic_type import DataFrame, AttrEvent, DevAttribute
 

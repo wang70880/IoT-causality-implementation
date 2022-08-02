@@ -4,7 +4,7 @@ from src.event_processing import Hprocessor
 from src.causal_evaluation import Evaluator
 from src.background_generator import BackgroundGenerator
 from src.tigramite.tigramite.pcmci import PCMCI
-from src.tigramite.tigramite.independence_tests import CMIsymb
+from src.tigramite.tigramite.independence_tests import ChiSquare
 from src.tigramite.tigramite import plotting as tp
 from src.genetic_type import DevAttribute, AttrEvent, DataFrame
 
@@ -70,31 +70,37 @@ class DataDebugger():
             plt.ylabel('Frequency')
             plt.savefig("temp/image/{}_{}_states.pdf".format(self.dataset, dev))
 
-    def validate_ci_testing(self, tau_max=3, int_tau=3):
+    def validate_ci_testing(self, tau_max, int_tau=-1):
+        """
+        Initiate independence testing (without conditioning variables) for all variables
+        Args:
+            tau_max (int, optional): _description_. Defaults to 3.
+            int_tau (int, optional): It is used to determine the links of interest (specified by the parameter). If -1, Test all links
+        """
 
-        # Load data and related attributes
+        # 1. Load data and related attributes
         index_device_dict:'dict[DevAttribute]' = self.preprocessor.index_device_dict
         tested_frame:'DataFrame' = self.preprocessor.frame_dict[0]
-        int_device_indices = [k for k in index_device_dict.keys() if index_device_dict[k].name.startswith('M')]
+        int_device_indices = [k for k in index_device_dict.keys() if index_device_dict[k].name.startswith(('M', 'D'))]
         n_vars = len(int_device_indices)
         # Initialize the conditional independence tester
-        selected_links = {n: [(i, int(-int_tau)) for i in int_device_indices] for n in int_device_indices}
+        if int_tau > 0:
+            selected_links = {n: [(i, int(-int_tau)) for i in int_device_indices] for n in int_device_indices}
+        else:
+            selected_links = {n: [(i, int(-k)) for k in range(1, tau_max + 1) for i in int_device_indices] for n in int_device_indices}
         pcmci = PCMCI(
             dataframe=tested_frame.training_dataframe,
-            cond_ind_test=CMIsymb(),
+            cond_ind_test=ChiSquare(),
             verbosity=-1)
-        # Test the dependency relationship among motion sensors
+        # 2. Test the dependency relationship among motion sensors
         all_parents = defaultdict(dict); all_vals = defaultdict(dict); all_pvals = defaultdict(dict)
-
         for i in int_device_indices: # Calculate the statistic values and the p value
             parents = []
-            val_dict = defaultdict(float)
-            pval_dict = defaultdict(float)
+            val_dict = defaultdict(float); pval_dict = defaultdict(float)
             for j in int_device_indices:
                 for tau in range(1, tau_max + 1):
                     lag = int(-tau)
                     Z = []
-                    #Z = [(j, int(-inter_tau)) for inter_tau in range(1, tau-1)] # If conditioning on the previous variables
                     val, pval = pcmci.cond_ind_test.run_test(X=[(j, lag)],
                                                         Y=[(i, 0)],
                                                         Z=Z,
@@ -105,7 +111,7 @@ class DataDebugger():
             all_parents[i] = parents
             all_vals[i] = val_dict
             all_pvals[i] = pval_dict
-        
+        # 3. Aggregate all results and draw the figure.
         def dict_to_matrix(all_vals, tau_max, int_attrs, default=1): # Inner helpful functions for output format transformation
             n_vars = len(int_attrs)
             matrix = np.ones((n_vars, n_vars, tau_max + 1))
@@ -115,7 +121,6 @@ class DataDebugger():
                     k, tau = link
                     matrix[int_attrs.index(k), int_attrs.index(j), abs(tau)] = all_vals[j][link]
             return matrix
-        
         val_matrix = dict_to_matrix(all_vals, tau_max, int_device_indices, default=0.)
         p_matrix = dict_to_matrix(all_pvals, tau_max, int_device_indices, default=1.)
         selected_links_matrix = np.empty((n_vars, n_vars, tau_max + 1)); selected_links_matrix.fill(1.1)
@@ -126,7 +131,7 @@ class DataDebugger():
         final_graph = p_matrix + selected_links_matrix # Adjust graph according to the selected links: For non-selected links, penalize its p-value by adding 1.1
         final_graph = final_graph <= self.alpha # Adjust graph according to hypothesis testing
         graph = pcmci.convert_to_string_graph(final_graph)
-        # Sorting all parents according to the CMI value
+        # 3.1 Sorting all parents according to the statistic value
         for dev_index in int_device_indices:
             print("Sorted parents for device {}:".format(index_device_dict[dev_index].name))
             parents = [x for x in int_device_indices if final_graph[int_device_indices.index(x), int_device_indices.index(dev_index), int_tau]]
@@ -134,7 +139,9 @@ class DataDebugger():
                                  for x in parents]
             parent_vals.sort(key=lambda tup: tup[1], reverse=True)
             print(" -> ".join( [index_device_dict[x[0]].name for x in parent_vals] ))
-        # Plotting
+        print(val_matrix[:,:,1])
+        exit()
+        # 3.2 Plotting the final graph
         var_names = [index_device_dict[k].name for k in int_device_indices]
         tp.plot_time_series_graph(
             figsize=(6, 4),
@@ -374,10 +381,10 @@ if __name__ == '__main__':
     dataset = 'hh130'; partition_days = 30; filter_threshold = partition_days; training_ratio = 0.8; tau_max = 3
     alpha = 0.001; int_frame_id = 0; analyze_golden_standard=False
     data_debugger = DataDebugger(dataset, partition_days, filter_threshold, training_ratio, tau_max, alpha)
-    miner_debugger = MinerDebugger(alpha, data_debugger)
-    bayesian_debugger = BayesianDebugger(data_debugger, verbosity=0, analyze_golden_standard=analyze_golden_standard)
-
-    miner_debugger.analyze_discovery_result()
+    data_debugger.validate_ci_testing(tau_max=3)
+    #miner_debugger = MinerDebugger(alpha, data_debugger)
+    #bayesian_debugger = BayesianDebugger(data_debugger, verbosity=0, analyze_golden_standard=analyze_golden_standard)
+    #miner_debugger.analyze_discovery_result()
 
     #n_anomalies = 50; maximum_length = 1; anomaly_case = 1
     #sig_levels = list(np.arange(0.1, 1., 0.1)); sig_levels = [0.95]
