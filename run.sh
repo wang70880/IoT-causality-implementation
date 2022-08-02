@@ -36,7 +36,7 @@ pc_alpha=0.001; max_conds_dim=5; max_comb=10
 # 1. Initiate data preprocessing to generate the sanitized data file
 data_preprocessing $dataset $preprocessing_verbosity
 # 2. Initiate causal discovery process
-mpiexec -n 8 python -u causal_discovery.py ${dataset} \
+mpiexec -n 8 python -u causalIoT.py ${dataset} \
                                            ${partition_days} ${training_ratio} \
                                            ${tau_max} ${filter_threshold} ${bk_level} \
                                            ${pc_alpha} ${max_conds_dim} ${max_comb} &>> output.txt </dev/null
