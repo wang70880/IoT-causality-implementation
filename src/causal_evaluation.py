@@ -227,8 +227,15 @@ class Evaluator():
 
         return testing_event_sequence, anomaly_positions, benign_position_dict 
 
-    def evaluate_discovery_accuracy(self, frame_id=None):
-        pass
+    def evaluate_discovery_accuracy(self, discovery_results:'np.ndarray', golden_frame_id:'int', golden_type:'str'):
+        precision = 0.0; recall = 0.0
+        golden_standard_array:'np.ndarray' = self.golden_standard_dict[golden_frame_id][golden_type]
+        assert(discovery_results.shape == golden_standard_array.shape)
+        tp = np.count_nonzero(np.sum(golden_standard_array, discovery_results) == 2)
+        fn = np.count_nonzero(golden_standard_array == 1) - tp; fp = np.count_nonzero(discovery_results == 1) - tp
+        precision = tp * 1.0 / (tp + fp) if (tp+fp) != 0 else 0
+        recall = tp * 1.0 / (tp + fn) if (tp+fn) != 0 else 0
+        return tp+fn, precision, recall # Return # golden edges, precision, recall
 
     def evaluate_detection_accuracy(self, golden_standard:'list[int]', result:'list[int]'):
         print("Golden standard with number {}: {}".format(len(golden_standard), golden_standard))

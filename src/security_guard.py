@@ -142,7 +142,6 @@ class SecurityGuard():
         self.recent_devices = []
         # Anomaly analyzer
         self.violation_dict = {}
-        self.type1_debugging_dict = {}
         self.tp_debugging_dict = {}
         self.fn_debugging_dict = {}
         self.fp_debugging_dict = {}

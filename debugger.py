@@ -92,6 +92,7 @@ class DataDebugger():
             dataframe=tested_frame.training_dataframe,
             cond_ind_test=ChiSquare(),
             verbosity=-1)
+
         # 2. Test the dependency relationship among motion sensors
         all_parents = defaultdict(dict); all_vals = defaultdict(dict); all_pvals = defaultdict(dict)
         for i in int_device_indices: # Calculate the statistic values and the p value
@@ -111,6 +112,7 @@ class DataDebugger():
             all_parents[i] = parents
             all_vals[i] = val_dict
             all_pvals[i] = pval_dict
+
         # 3. Aggregate all results and draw the figure.
         def dict_to_matrix(all_vals, tau_max, int_attrs, default=1): # Inner helpful functions for output format transformation
             n_vars = len(int_attrs)
@@ -123,33 +125,38 @@ class DataDebugger():
             return matrix
         val_matrix = dict_to_matrix(all_vals, tau_max, int_device_indices, default=0.)
         p_matrix = dict_to_matrix(all_pvals, tau_max, int_device_indices, default=1.)
-        selected_links_matrix = np.empty((n_vars, n_vars, tau_max + 1)); selected_links_matrix.fill(1.1)
+        selected_links_matrix = np.empty((n_vars, n_vars, tau_max + 1)); selected_links_matrix.fill(1)
+        n_selected_edges = 0
         for j in selected_links.keys():
             for link in selected_links[j]:
                 k, tau = link
                 selected_links_matrix[int_device_indices.index(k), int_device_indices.index(j), abs(tau)] = 0.
+                n_selected_edges += 1
         final_graph = p_matrix + selected_links_matrix # Adjust graph according to the selected links: For non-selected links, penalize its p-value by adding 1.1
         final_graph = final_graph <= self.alpha # Adjust graph according to hypothesis testing
+        print("# of filtered edges: {}".format(n_selected_edges - np.sum(final_graph)))
         graph = pcmci.convert_to_string_graph(final_graph)
+        val_matrix[val_matrix >= 11] = 11
         # 3.1 Sorting all parents according to the statistic value
-        for dev_index in int_device_indices:
-            print("Sorted parents for device {}:".format(index_device_dict[dev_index].name))
-            parents = [x for x in int_device_indices if final_graph[int_device_indices.index(x), int_device_indices.index(dev_index), int_tau]]
-            parent_vals = [(x, val_matrix[int_device_indices.index(x) , int_device_indices.index(dev_index), int_tau])
-                                 for x in parents]
-            parent_vals.sort(key=lambda tup: tup[1], reverse=True)
-            print(" -> ".join( [index_device_dict[x[0]].name for x in parent_vals] ))
-        print(val_matrix[:,:,1])
+        #for dev_index in int_device_indices:
+        #    print("Sorted parents for device {}:".format(index_device_dict[dev_index].name))
+        #    parents = [x for x in int_device_indices if final_graph[int_device_indices.index(x), int_device_indices.index(dev_index), int_tau]]
+        #    parent_vals = [(x, val_matrix[int_device_indices.index(x) , int_device_indices.index(dev_index), int_tau])
+        #                         for x in parents]
+        #    parent_vals.sort(key=lambda tup: tup[1], reverse=True)
+        #    print(" -> ".join( [index_device_dict[x[0]].name for x in parent_vals] ))
         # 3.2 Plotting the final graph
         var_names = [index_device_dict[k].name for k in int_device_indices]
         tp.plot_time_series_graph(
             figsize=(6, 4),
             val_matrix=val_matrix,
             graph=graph,
+            vmin_edges=0,
+            vmax_edges=np.max(val_matrix),
             var_names=var_names,
-            link_colorbar_label='MCI'
+            link_colorbar_label='G^2'
         )
-        plt.savefig("temp/image/{}cmi_test_tau{}.pdf".format(self.dataset, int_tau))
+        plt.savefig("temp/image/{}cmi_test_tau{}.pdf".format(self.dataset, tau_max))
     
     def derive_golden_standard(self, int_frame_id, int_type):
         # Auxillary variables
@@ -181,7 +188,7 @@ class DataDebugger():
         # 2. Calculate the p-value and CMI value for each edge.
         val_matrix:'np.ndarray' = np.zeros(matrix_shape); p_matrix:'np.ndarray' = np.ones(matrix_shape)
         p_matrix *= 10 # Initially we set a large number
-        pcmci = PCMCI(dataframe=tested_frame.training_dataframe, cond_ind_test=CMIsymb(), verbosity=-1)
+        pcmci = PCMCI(dataframe=tested_frame.training_dataframe, cond_ind_test=ChiSquare(), verbosity=-1)
         for index, x in np.ndenumerate(interaction_matrix):
             if x == 1:
                 i, j, lag = index
@@ -380,7 +387,7 @@ if __name__ == '__main__':
     dataset = 'hh130'; partition_days = 30; filter_threshold = partition_days; training_ratio = 0.8; tau_max = 3
     alpha = 0.001; int_frame_id = 0; analyze_golden_standard=False
     data_debugger = DataDebugger(dataset, partition_days, filter_threshold, training_ratio, tau_max, alpha)
-    data_debugger.validate_ci_testing(tau_max=3)
+    data_debugger.validate_ci_testing(tau_max=4, int_tau=2)
     #miner_debugger = MinerDebugger(alpha, data_debugger)
     #bayesian_debugger = BayesianDebugger(data_debugger, verbosity=0, analyze_golden_standard=analyze_golden_standard)
     #miner_debugger.analyze_discovery_result()
