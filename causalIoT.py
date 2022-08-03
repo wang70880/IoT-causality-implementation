@@ -92,7 +92,8 @@ pc_alpha = float(sys.argv[7]); max_conds_dim = int(sys.argv[8]); maximum_comb = 
 # 0.4 Anomaly generation parameters
 n_anomalies = 100; case = 1; max_length = 1; sig_level = 0.9
 
-print("\n\n********************** Parameter Settings **********************"\
+if COMM.rank == 0:
+    print("\n\n********************** Parameter Settings **********************"\
      + "\nbk = {}, pc-alpha = {}".format(bk_level, pc_alpha))
 
 # 1. Load data and create data frame
