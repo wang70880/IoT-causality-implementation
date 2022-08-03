@@ -125,7 +125,7 @@ class DataDebugger():
             return matrix
         val_matrix = dict_to_matrix(all_vals, tau_max, int_device_indices, default=0.)
         p_matrix = dict_to_matrix(all_pvals, tau_max, int_device_indices, default=1.)
-        selected_links_matrix = np.empty((n_vars, n_vars, tau_max + 1)); selected_links_matrix.fill(1)
+        selected_links_matrix = np.ones((n_vars, n_vars, tau_max + 1))
         n_selected_edges = 0
         for j in selected_links.keys():
             for link in selected_links[j]:
@@ -387,7 +387,7 @@ if __name__ == '__main__':
     dataset = 'hh130'; partition_days = 30; filter_threshold = partition_days; training_ratio = 0.8; tau_max = 3
     alpha = 0.001; int_frame_id = 0; analyze_golden_standard=False
     data_debugger = DataDebugger(dataset, partition_days, filter_threshold, training_ratio, tau_max, alpha)
-    data_debugger.validate_ci_testing(tau_max=4, int_tau=2)
+    data_debugger.validate_ci_testing(tau_max=3, int_tau=1)
     #miner_debugger = MinerDebugger(alpha, data_debugger)
     #bayesian_debugger = BayesianDebugger(data_debugger, verbosity=0, analyze_golden_standard=analyze_golden_standard)
     #miner_debugger.analyze_discovery_result()

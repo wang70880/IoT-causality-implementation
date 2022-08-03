@@ -2,7 +2,6 @@ import os, sys, pickle
 #os.environ["KMP_DUPLICATE_LIB_OK"]='TRUE'
 import statistics
 import pprint
-from turtle import bk
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -94,7 +93,7 @@ pc_alpha = float(sys.argv[7]); max_conds_dim = int(sys.argv[8]); maximum_comb = 
 n_anomalies = 100; case = 1; max_length = 1; sig_level = 0.9
 
 print("\n\n********************** Parameter Settings **********************"\
-     + "\nbk = {}, pc-alpha = {}".format(bk, pc_alpha))
+     + "\nbk = {}, pc-alpha = {}".format(bk_level, pc_alpha))
 
 # 1. Load data and create data frame
 dl_start =time()

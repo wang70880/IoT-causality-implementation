@@ -229,7 +229,7 @@ class Evaluator():
 
     def evaluate_discovery_accuracy(self, discovery_results:'np.ndarray', golden_frame_id:'int', golden_type:'str'):
         precision = 0.0; recall = 0.0
-        golden_standard_array:'np.ndarray' = self.golden_standard_dict[golden_frame_id][golden_type]
+        golden_standard_array:'np.ndarray' = self.golden_standard_dict[golden_type][golden_frame_id]
         assert(discovery_results.shape == golden_standard_array.shape)
         tp = np.count_nonzero(np.sum(golden_standard_array, discovery_results) == 2)
         fn = np.count_nonzero(golden_standard_array == 1) - tp; fp = np.count_nonzero(discovery_results == 1) - tp
