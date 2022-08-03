@@ -4,7 +4,7 @@ declare -a partition_array=(30)
 declare -a datasets=("hh130")
 
 data_preprocessing() { # Data preprocessing
-    python preprocessing.py ${dataset} ${verbosity}
+    python preprocessing.py ${dataset} ${preprocessing_verbosity}
 }
 
 #causalIoT() {
