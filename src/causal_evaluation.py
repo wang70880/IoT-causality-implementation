@@ -14,8 +14,8 @@ from src.tigramite.tigramite import plotting as ti_plotting
 import statistics
 from collections import defaultdict
 
-from tigramite.tigramite import pcmci
-from tigramite.tigramite.independence_tests.chi2 import ChiSquare
+from src.tigramite.tigramite import pcmci
+from src.tigramite.tigramite.independence_tests.chi2 import ChiSquare
 
 class Evaluator():
 
