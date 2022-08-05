@@ -2,13 +2,20 @@ import collections
 import itertools
 import numpy as np
 import random
-from numpy import ndarray
+from src.tigramite.tigramite.pcmci import PCMCI
+import matplotlib.pyplot as plt
+from numpy import ndarray, var
 from src.event_processing import Hprocessor
+from src.drawer import Drawer
 from src.background_generator import BackgroundGenerator
 from src.bayesian_fitter import BayesianFitter
 from src.genetic_type import DataFrame, AttrEvent, DevAttribute
+from src.tigramite.tigramite import plotting as ti_plotting
 import statistics
 from collections import defaultdict
+
+from tigramite.tigramite import pcmci
+from tigramite.tigramite.independence_tests.chi2 import ChiSquare
 
 class Evaluator():
 
@@ -82,6 +89,26 @@ class Evaluator():
     def _identify_automation_interactions(self):
         # In HH-series dataset, there is no automation interactions...
         return {}
+
+    def evaluate_discovery_accuracy(self, discovery_results:'np.ndarray', golden_frame_id:'int', golden_type:'str'):
+        # Auxillary variables
+        frame:'DataFrame' = self.event_processor.frame_dict[golden_frame_id]
+        var_names = frame.var_names; index_device_dict:'dict[DevAttribute]' = frame.index_device_dict
+        golden_standard_array:'np.ndarray' = self.golden_standard_dict[golden_type][golden_frame_id]
+
+        # 1. Plot the golden standard graph and the discovered graph.
+        drawer = Drawer(self.event_processor.dataset)
+        drawer.plot_interaction_graph(discovery_results==1, var_names, 'mined-interaction')
+        drawer.plot_interaction_graph(golden_standard_array==1, var_names, 'golden-interaction')
+
+        # 2. Calculate the precision and recall for discovered results.
+        precision = 0.0; recall = 0.0
+        assert(discovery_results.shape == golden_standard_array.shape)
+        tp = np.count_nonzero((golden_standard_array + discovery_results) == 2)
+        fn = np.count_nonzero(golden_standard_array == 1) - tp; fp = np.count_nonzero(discovery_results == 1) - tp
+        precision = tp * 1.0 / (tp + fp) if (tp+fp) != 0 else 0
+        recall = tp * 1.0 / (tp + fn) if (tp+fn) != 0 else 0
+        return tp+fn, precision, recall # Return # golden edges, precision, recall
 
     def construct_golden_standard_bayesian_fitter(self, int_frame_id=0, int_type='user'):
         # Auxillary variables
@@ -227,15 +254,6 @@ class Evaluator():
 
         return testing_event_sequence, anomaly_positions, benign_position_dict 
 
-    def evaluate_discovery_accuracy(self, discovery_results:'np.ndarray', golden_frame_id:'int', golden_type:'str'):
-        precision = 0.0; recall = 0.0
-        golden_standard_array:'np.ndarray' = self.golden_standard_dict[golden_type][golden_frame_id]
-        assert(discovery_results.shape == golden_standard_array.shape)
-        tp = np.count_nonzero((golden_standard_array + discovery_results) == 2)
-        fn = np.count_nonzero(golden_standard_array == 1) - tp; fp = np.count_nonzero(discovery_results == 1) - tp
-        precision = tp * 1.0 / (tp + fp) if (tp+fp) != 0 else 0
-        recall = tp * 1.0 / (tp + fn) if (tp+fn) != 0 else 0
-        return tp+fn, precision, recall # Return # golden edges, precision, recall
 
     def evaluate_detection_accuracy(self, golden_standard:'list[int]', result:'list[int]'):
         print("Golden standard with number {}: {}".format(len(golden_standard), golden_standard))

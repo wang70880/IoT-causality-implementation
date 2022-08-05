@@ -23,31 +23,7 @@ import matplotlib.pyplot as plt
 from src.bayesian_fitter import BayesianFitter
 from src.security_guard import SecurityGuard
 from src.tigramite.tigramite import data_processing as pp
-
-class Drawer():
-
-    def __init__(self) -> None:
-        pass
-
-    def draw_1d_distribution(self, val_list, xlabel='', ylabel='', title='', fname='default'):
-        sns.displot(val_list, kde=False, color='red', bins=1000)
-        plt.title(title)
-        plt.xlabel(xlabel)
-        plt.ylabel(ylabel)
-        plt.savefig("temp/image/{}.pdf".format(fname))
-        plt.close('all')
-    
-    def draw_2d_distribution(self, x_list, y_lists, label_list, x_label, y_label, title, fname):
-        assert(len(label_list) == len(y_lists))
-        for i, (label, y_list) in enumerate(list(zip(label_list, y_lists))):
-            col = (np.random.random(), np.random.random(), np.random.random())
-            plt.plot(x_list, y_list, label=label, c=col)
-        plt.xlabel(x_label)
-        plt.ylabel(y_label)
-        plt.legend(loc='best')
-        plt.title(title)
-        plt.savefig('temp/image/{}.pdf'.format(fname))
-        plt.close('all')
+from src.drawer import Drawer
 
 class DataDebugger():
 
@@ -137,6 +113,7 @@ class DataDebugger():
         print("# of filtered edges: {}".format(n_selected_edges - np.sum(final_graph)))
         graph = pcmci.convert_to_string_graph(final_graph)
         val_matrix[val_matrix >= 11] = 11
+
         # 3.1 Sorting all parents according to the statistic value
         #for dev_index in int_device_indices:
         #    print("Sorted parents for device {}:".format(index_device_dict[dev_index].name))
@@ -145,6 +122,7 @@ class DataDebugger():
         #                         for x in parents]
         #    parent_vals.sort(key=lambda tup: tup[1], reverse=True)
         #    print(" -> ".join( [index_device_dict[x[0]].name for x in parent_vals] ))
+
         # 3.2 Plotting the final graph
         var_names = [index_device_dict[k].name for k in int_device_indices]
         tp.plot_time_series_graph(
@@ -382,12 +360,52 @@ class GuardDebugger():
         f1_score = 2.0 * precision * recall / (precision + recall)
         return precision, recall, f1_score
 
+class Evaluator():
+
+    def __init__(self, dataset) -> None:
+        self.dataset = dataset
+    
+    def causal_discovery_evaluation(self):
+        """
+        1. Calculate the precision and recall (comparisons with golden standards).
+        2. Types of discovered interactions.
+        3. Answer for for false positives.
+        4. Identified device interaction chains.
+        """
+        n_records = 173094; n_devices = 8; n_golden_edges = 68 # It is surprising that for all param settings, the number of golden edges is the same.
+        bk_nedges_dict = {0: 192, 1: 141, 2: 118}
+        # The discovered result dict.
+        bk_alpha_results_dict = {
+            (0, 0.001): {'precision':0.457, 'recall':0.706, 'n_edges':105, 'consumed_time':1.689},
+            (0, 0.005): {'precision':0.453, 'recall':0.706, 'n_edges':106, 'consumed_time':1.750},
+            (0, 0.01): {'precision':0.453, 'recall':0.706, 'n_edges':106, 'consumed_time':1.760},
+            (0, 0.05): {'precision':0.443, 'recall':0.691, 'n_edges':106, 'consumed_time':1.767},
+            (0, 0.1): {'precision':0.435, 'recall':0.691, 'n_edges':108, 'consumed_time':1.791},
+
+            (1, 0.001):{'precision':0.490, 'recall':0.75, 'n_edges':104, 'consumed_time':1.59},
+            (1, 0.005):{'precision':0.486, 'recall':0.75, 'n_edges':105, 'consumed_time':1.585},
+            (1, 0.01): {'precision':0.495, 'recall':0.765, 'n_edges':105, 'consumed_time':1.601},
+            (1, 0.05): {'precision':0.5, 'recall':0.779, 'n_edges':106, 'consumed_time':1.657},
+            (1, 0.1):  {'precision':0.5, 'recall':0.779, 'n_edges':106, 'consumed_time':1.644},
+
+            (2, 0.001): {'precision':0.604, 'recall':0.853, 'n_edges':96, 'consumed_time':1.303},
+            (2, 0.005): {'precision':0.598, 'recall':0.8529, 'n_edges':97, 'consumed_time':1.365},
+            (2, 0.01): {'precision':0.608, 'recall':0.868, 'n_edges':97, 'consumed_time':1.291},
+            (2, 0.05): {'precision':0.604, 'recall':0.897, 'n_edges':101, 'consumed_time':1.485},
+            (2, 0.1): {'precision':0.604, 'recall':0.897, 'n_edges':106, 'consumed_time':1.479}
+        }
+        precision_lists = [[bk_alpha_results_dict[(bk, alpha)]['precision']\
+                            for bk in range(0, 3) ] for alpha in [0.001, 0.005, 0.01, 0.05, 0.1]]
+        recall_lists = [[bk_alpha_results_dict[(bk, alpha)]['recall']\
+                            for bk in range(0, 3) ] for alpha in [0.001, 0.005, 0.01, 0.05, 0.1]]
+        return precision_lists, recall_lists
+
 if __name__ == '__main__':
 
     dataset = 'hh130'; partition_days = 30; filter_threshold = partition_days; training_ratio = 0.8; tau_max = 3
-    alpha = 0.001; int_frame_id = 0; analyze_golden_standard=False
-    data_debugger = DataDebugger(dataset, partition_days, filter_threshold, training_ratio, tau_max, alpha)
-    data_debugger.validate_ci_testing(tau_max=3, int_tau=1)
+    #alpha = 0.001; int_frame_id = 0; analyze_golden_standard=False
+    #data_debugger = DataDebugger(dataset, partition_days, filter_threshold, training_ratio, tau_max, alpha)
+    #data_debugger.validate_ci_testing(tau_max=3, int_tau=1)
     #miner_debugger = MinerDebugger(alpha, data_debugger)
     #bayesian_debugger = BayesianDebugger(data_debugger, verbosity=0, analyze_golden_standard=analyze_golden_standard)
     #miner_debugger.analyze_discovery_result()
@@ -402,3 +420,9 @@ if __name__ == '__main__':
 
     #drawer = Drawer()
     #drawer.draw_2d_distribution(sig_levels, [precisions, recalls, f1_scores], ['precision', 'recall', 'f1-score'], 'sig-level', 'value', 'No', 'sig-level-analysis')
+    evaluation_painter = Evaluator(dataset)
+    precision_lists, recall_lists = evaluation_painter.causal_discovery_evaluation()
+    drawer = Drawer(dataset)
+    legends = ['alpha=0.001', 'alpha=0.005', 'alpha=0.01', 'alpha=0.05', 'alpha=0.1']; groups = ['BK0', 'BK1', 'BK2']
+    drawer.draw_histogram(precision_lists, legends, groups, 'Background', 'Precision')
+    drawer.draw_histogram(recall_lists, legends, groups, 'Background', 'Recall')

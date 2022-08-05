@@ -47,7 +47,7 @@ declare -a pc_alphas=(0.001 0.005 0.01 0.05 0.1)
 max_conds_dim=5; max_comb=10
 
 # 0. Cleanup process and parameter settings
-rm -rf output.txt; touch output.txt
+#rm -rf output.txt; touch output.txt
 # 1. Initiate data preprocessing to generate the sanitized data file
 data_preprocessing
 # 2. Initiate causal discovery process
