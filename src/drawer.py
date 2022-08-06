@@ -51,7 +51,6 @@ class Drawer():
         plt.close('all')
 
     def plot_interaction_graph(self, pcmci:'PCMCI', contingency_array:'np.ndarray', fname='default'):
-        pcmci = PCMCI(dataframe=None, cond_ind_test=ChiSquare(), verbosity=-1)
         var_names = pcmci.var_names
         tp.plot_time_series_graph(
             figsize=(6, 4),
