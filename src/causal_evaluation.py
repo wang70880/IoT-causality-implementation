@@ -96,10 +96,11 @@ class Evaluator():
         var_names = frame.var_names; index_device_dict:'dict[DevAttribute]' = frame.index_device_dict
         golden_standard_array:'np.ndarray' = self.golden_standard_dict[golden_type][golden_frame_id]
 
-        # 1. Plot the golden standard graph and the discovered graph.
+        # 1. Plot the golden standard graph and the discovered graph. Note that the plot functionality requires PCMCI objects
         drawer = Drawer(self.event_processor.dataset)
-        drawer.plot_interaction_graph(discovery_results==1, var_names, 'mined-interaction')
-        drawer.plot_interaction_graph(golden_standard_array==1, var_names, 'golden-interaction')
+        pcmci = PCMCI(dataframe=frame.training_dataframe, cond_ind_test=ChiSquare(), verbosity=-1)
+        drawer.plot_interaction_graph(pcmci, discovery_results==1, var_names, 'mined-interaction')
+        drawer.plot_interaction_graph(pcmci, golden_standard_array==1, var_names, 'golden-interaction')
 
         # 2. Calculate the precision and recall for discovered results.
         precision = 0.0; recall = 0.0
@@ -253,7 +254,6 @@ class Evaluator():
         #print("Benign positions: {}".format(benign_position_dict.keys()))
 
         return testing_event_sequence, anomaly_positions, benign_position_dict 
-
 
     def evaluate_detection_accuracy(self, golden_standard:'list[int]', result:'list[int]'):
         print("Golden standard with number {}: {}".format(len(golden_standard), golden_standard))

@@ -50,8 +50,9 @@ class Drawer():
         plt.savefig('{}/{}_discovery_{}.pdf'.format(self.image_path, self.dataset, y_label))
         plt.close('all')
 
-    def plot_interaction_graph(self, contingency_array:'np.ndarray', var_names, fname='default'):
+    def plot_interaction_graph(self, pcmci:'PCMCI', contingency_array:'np.ndarray', fname='default'):
         pcmci = PCMCI(dataframe=None, cond_ind_test=ChiSquare(), verbosity=-1)
+        var_names = pcmci.var_names
         tp.plot_time_series_graph(
             figsize=(6, 4),
             val_matrix=np.ones(contingency_array.shape),
