@@ -99,8 +99,8 @@ class Evaluator():
         # 1. Plot the golden standard graph and the discovered graph. Note that the plot functionality requires PCMCI objects
         drawer = Drawer(self.event_processor.dataset)
         pcmci = PCMCI(dataframe=frame.training_dataframe, cond_ind_test=ChiSquare(), verbosity=-1)
-        drawer.plot_interaction_graph(pcmci, discovery_results==1, var_names, 'mined-interaction')
-        drawer.plot_interaction_graph(pcmci, golden_standard_array==1, var_names, 'golden-interaction')
+        drawer.plot_interaction_graph(pcmci, discovery_results==1, 'mined-interaction')
+        drawer.plot_interaction_graph(pcmci, golden_standard_array==1, 'golden-interaction')
 
         # 2. Calculate the precision and recall for discovered results.
         precision = 0.0; recall = 0.0
