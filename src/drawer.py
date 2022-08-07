@@ -53,7 +53,7 @@ class Drawer():
     def plot_interaction_graph(self, pcmci:'PCMCI', contingency_array:'np.ndarray', fname='default'):
         var_names = pcmci.var_names
         tp.plot_graph(
-            figsize=(6, 4),
+            figsize=(8, 6),
             val_matrix=np.ones(contingency_array.shape),
             graph=pcmci.convert_to_string_graph(contingency_array),
             var_names=var_names,
@@ -62,5 +62,5 @@ class Drawer():
             link_colorbar_label='G^2',
             show_colorbar=False
         )
-        plt.savefig("{}/{}.pdf".format(self.image_path, fname))
+        plt.savefig("{}/{}.pdf".format(self.image_path, fname), bbox_inches='tight')
         plt.close()
