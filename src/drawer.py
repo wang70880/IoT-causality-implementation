@@ -52,12 +52,15 @@ class Drawer():
 
     def plot_interaction_graph(self, pcmci:'PCMCI', contingency_array:'np.ndarray', fname='default'):
         var_names = pcmci.var_names
-        tp.plot_time_series_graph(
+        tp.plot_graph(
             figsize=(6, 4),
             val_matrix=np.ones(contingency_array.shape),
             graph=pcmci.convert_to_string_graph(contingency_array),
             var_names=var_names,
-            link_colorbar_label='G^2'
+            vmax_edges=1.0,
+            node_colorbar_label="auto-G^2",
+            link_colorbar_label='G^2',
+            show_colorbar=False
         )
         plt.savefig("{}/{}.pdf".format(self.image_path, fname))
         plt.close()
