@@ -103,10 +103,18 @@ class Evaluator():
         drawer.plot_interaction_graph(pcmci, golden_standard_array==1, 'golden-interaction')
 
         # 2. Calculate the precision and recall for discovered results.
+        tp = 0; fp = 0; fn = 0
         precision = 0.0; recall = 0.0
         assert(discovery_results.shape == golden_standard_array.shape)
-        tp = np.count_nonzero((golden_standard_array + discovery_results) == 2)
-        fn = np.count_nonzero(golden_standard_array == 1) - tp; fp = np.count_nonzero(discovery_results == 1) - tp
+        for index, x in np.ndenumerate(discovery_results):
+            if discovery_results[index] == 1 and golden_standard_array[index] == 1:
+                tp += 1
+            elif discovery_results[index] == 1 and golden_standard_array[index] == 0:
+                fp += 1
+            elif discovery_results[index] == 0 and golden_standard_array[index] == 1:
+                fn += 1
+        #tp = np.count_nonzero((golden_standard_array + discovery_results) == 2)
+        #fn = np.count_nonzero(golden_standard_array == 1) - tp; fp = np.count_nonzero(discovery_results == 1) - tp
         precision = tp * 1.0 / (tp + fp) if (tp+fp) != 0 else 0
         recall = tp * 1.0 / (tp + fn) if (tp+fn) != 0 else 0
         return tp+fn, precision, recall # Return # golden edges, precision, recall

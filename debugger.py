@@ -1,8 +1,8 @@
 import os
+
+from torch import init_num_threads
 os.environ["KMP_DUPLICATE_LIB_OK"]='TRUE'
 from src.event_processing import Hprocessor
-from src.causal_evaluation import Evaluator
-from src.background_generator import BackgroundGenerator
 from src.tigramite.tigramite.pcmci import PCMCI
 from src.tigramite.tigramite.independence_tests import ChiSquare
 from src.tigramite.tigramite import plotting as tp
@@ -24,6 +24,8 @@ from src.bayesian_fitter import BayesianFitter
 from src.security_guard import SecurityGuard
 from src.tigramite.tigramite import data_processing as pp
 from src.drawer import Drawer
+from src.causal_evaluation import Evaluator
+from src.background_generator import BackgroundGenerator
 
 class DataDebugger():
 
@@ -153,7 +155,6 @@ class DataDebugger():
         return interaction_matrix
 
     def analyze_golden_standard(self, int_frame_id=0, int_type='user'):
-
         # Auxillary variables
         tested_frame:'DataFrame' = self.preprocessor.frame_dict[int_frame_id]
         var_names = tested_frame.var_names; n_vars = tested_frame.n_vars
@@ -164,8 +165,8 @@ class DataDebugger():
         interaction_matrix:'np.ndarray' = self.derive_golden_standard(int_frame_id, int_type)
 
         # 2. Calculate the p-value and CMI value for each edge.
+        golden_val_matrix:'np.ndarray' = np.zeros(matrix_shape); golden_p_matrix:'np.ndarray' = np.ones(matrix_shape)
         val_matrix:'np.ndarray' = np.zeros(matrix_shape); p_matrix:'np.ndarray' = np.ones(matrix_shape)
-        p_matrix *= 10 # Initially we set a large number
         pcmci = PCMCI(dataframe=tested_frame.training_dataframe, cond_ind_test=ChiSquare(), verbosity=-1)
         for index, x in np.ndenumerate(interaction_matrix):
             if x == 1:
@@ -175,18 +176,39 @@ class DataDebugger():
                             Z=[],
                             tau_max=self.tau_max)
                 val_matrix[i, j, lag] = val; p_matrix[i, j, lag] = pval
+                golden_val_matrix[i, j, lag] = 11; golden_p_matrix[i, j, lag] = 0
                 #print("For index {}, val = {}, pval = {}".format(index, val ,pval))
-        p_matrix[p_matrix >= 1] = 1; final_graph = p_matrix < 1
-        graph = pcmci.convert_to_string_graph(final_graph)
-        tp.plot_time_series_graph( # Plot the graph
-            figsize=(6, 4),
+        
+        val_matrix[val_matrix >= 11] = 11 # We set a cut threshold for the calculated G^2 statistic: For values larger than 11, the p-value is 0.001
+        final_graph = p_matrix < self.alpha; golden_final_graph = golden_p_matrix < 1
+        graph = pcmci.convert_to_string_graph(final_graph); golden_graph = pcmci.convert_to_string_graph(golden_final_graph)
+        tp.plot_graph( # Plot the golden standard graph
+            figsize=(8, 6),
+            val_matrix=golden_val_matrix,
+            graph=golden_graph,
+            vmin_edges=-11.0,
+            vmax_edges=11.0,
+            var_names=var_names,
+            node_colorbar_label="auto-G^2",
+            link_colorbar_label='G^2',
+            show_colorbar=False
+        )
+        plt.savefig("temp/image/golden_standard_{}.pdf".format(self.dataset), bbox_inches='tight')
+        plt.close('all')
+        tp.plot_graph( # Plot the causal minimality verification graph
+            figsize=(8, 6),
             val_matrix=val_matrix,
             graph=graph,
+            vmin_edges=-11.0,
+            vmax_edges=11.0,
             var_names=var_names,
-            link_colorbar_label='MCI'
+            node_colorbar_label="auto-G^2",
+            link_colorbar_label='G^2',
+            show_colorbar=False
         )
         print("Total # of golden edges: {}\n".format(np.sum(interaction_matrix)))
-        plt.savefig("temp/image/golden_standard_{}.pdf".format(int_type))
+        plt.savefig("temp/image/causal_minimality_{}.pdf".format(self.dataset), bbox_inches='tight')
+        plt.close('all')
 
         # 3. Verify the causal assumptions
         ## 3.1 Verify causal minimality assumptions
@@ -196,7 +218,7 @@ class DataDebugger():
             i, j, lag = index
             if x == 1 and p_matrix[index] > self.alpha:
                 n_violation += 1
-                print("The edge {}(-{}) -> {} violates minimality assumption! p-value = {}, CMI = {}"\
+                print("The edge {}(-{}) -> {} violates minimality assumption! p-value = {}, G^2 = {}"\
                                     .format(index_device_dict[i].name, lag, index_device_dict[j].name, p_matrix[index], val_matrix[index]))
         print("Total # of violations: {}\n".format(n_violation))
         return interaction_matrix, p_matrix, val_matrix
@@ -360,19 +382,20 @@ class GuardDebugger():
         f1_score = 2.0 * precision * recall / (precision + recall)
         return precision, recall, f1_score
 
-class Evaluator():
+class EvaluationResultRepo():
 
     def __init__(self, dataset) -> None:
         self.dataset = dataset
-    
-    def causal_discovery_evaluation(self):
+
+    def discovery_evaluation(self):
         """
         1. Calculate the precision and recall (comparisons with golden standards).
-        2. Types of discovered interactions.
-        3. Answer for for false positives.
-        4. Identified device interaction chains.
+        2. Consumed time for discovery.
+        3. Answer for false positives.
+        4. Types of discovered interactions.
+        5. Identified device interaction chains.
         """
-        n_records = 173094; n_devices = 8; n_golden_edges = 68 # It is surprising that for all param settings, the number of golden edges is the same.
+        n_records = 173094; n_devices = 8; n_golden_edges = 68
         bk_nedges_dict = {0: 192, 1: 141, 2: 118}
         # The discovered result dict.
         bk_alpha_results_dict = {
@@ -398,17 +421,27 @@ class Evaluator():
                             for bk in range(0, 3) ] for alpha in [0.001, 0.005, 0.01, 0.05, 0.1]]
         recall_lists = [[bk_alpha_results_dict[(bk, alpha)]['recall']\
                             for bk in range(0, 3) ] for alpha in [0.001, 0.005, 0.01, 0.05, 0.1]]
-        return precision_lists, recall_lists
+        consumed_time_lists = [[bk_alpha_results_dict[(bk, alpha)]['consumed_time']\
+                            for bk in range(0, 3) ] for alpha in [0.001, 0.005, 0.01, 0.05, 0.1]]
+        return precision_lists, recall_lists, consumed_time_lists
 
 if __name__ == '__main__':
 
-    dataset = 'hh130'; partition_days = 30; filter_threshold = partition_days; training_ratio = 0.8; tau_max = 3
-    #alpha = 0.001; int_frame_id = 0; analyze_golden_standard=False
-    #data_debugger = DataDebugger(dataset, partition_days, filter_threshold, training_ratio, tau_max, alpha)
-    #data_debugger.validate_ci_testing(tau_max=3, int_tau=1)
-    #miner_debugger = MinerDebugger(alpha, data_debugger)
-    #bayesian_debugger = BayesianDebugger(data_debugger, verbosity=0, analyze_golden_standard=analyze_golden_standard)
-    #miner_debugger.analyze_discovery_result()
+    dataset = 'hh130'; partition_days = 100; filter_threshold = partition_days; training_ratio = 0.8; tau_max = 3
+    alpha = 0.001; int_frame_id = 0; int_type = 'user'; analyze_golden_standard=False
+    data_debugger = DataDebugger(dataset, partition_days, filter_threshold, training_ratio, tau_max, alpha)
+
+    # 1. Verify causal sufficiency assumptions on the dataset
+    data_debugger.analyze_golden_standard(int_frame_id, int_type)
+
+    # 2. Evaluate causal discovery accuracy
+    evaluation_repo = EvaluationResultRepo(dataset)
+    precision_lists, recall_lists, consumed_time_lists = evaluation_repo.discovery_evaluation()
+    drawer = Drawer(dataset)
+    legends = ['alpha=0.001', 'alpha=0.005', 'alpha=0.01', 'alpha=0.05', 'alpha=0.1']; groups = ['BK0', 'BK1', 'BK2']
+    #drawer.draw_histogram(precision_lists, legends, groups, 'Background', 'Precision')
+    #drawer.draw_histogram(recall_lists, legends, groups, 'Background', 'Recall')
+    drawer.draw_histogram(consumed_time_lists, legends, groups, 'Background', 'Time (minutes)')
 
     #n_anomalies = 50; maximum_length = 1; anomaly_case = 1
     #sig_levels = list(np.arange(0.1, 1., 0.1)); sig_levels = [0.95]
@@ -417,12 +450,5 @@ if __name__ == '__main__':
     #    guard_debugger = GuardDebugger(data_debugger, bayesian_debugger)
     #    precision, recall, f1_score = guard_debugger.score_anomaly_detection(int_frame_id, sig_level, n_anomalies, maximum_length, anomaly_case)
     #    precisions.append(precision); recalls.append(recall); f1_scores.append(f1_score)
-
     #drawer = Drawer()
     #drawer.draw_2d_distribution(sig_levels, [precisions, recalls, f1_scores], ['precision', 'recall', 'f1-score'], 'sig-level', 'value', 'No', 'sig-level-analysis')
-    evaluation_painter = Evaluator(dataset)
-    precision_lists, recall_lists = evaluation_painter.causal_discovery_evaluation()
-    drawer = Drawer(dataset)
-    legends = ['alpha=0.001', 'alpha=0.005', 'alpha=0.01', 'alpha=0.05', 'alpha=0.1']; groups = ['BK0', 'BK1', 'BK2']
-    drawer.draw_histogram(precision_lists, legends, groups, 'Background', 'Precision')
-    drawer.draw_histogram(recall_lists, legends, groups, 'Background', 'Recall')
