@@ -154,7 +154,7 @@ if COMM.rank == 0:
             n_discovered_edges += 1
 pc_consumed_time = _elapsed_minutes(pc_start)
 if COMM.rank == 0: # 3.4 Evaluate the discovery accuracy
-    evaluator = Evaluator(event_preprocessor, background_generator, None, bk_level, pc_alpha)
+    evaluator = Evaluator(event_preprocessor, background_generator, None, bk_level, pc_alpha, filter_threshold)
     n_golden_edges, precision, recall = evaluator.evaluate_discovery_accuracy(interaction_array, golden_frame_id=frame_id, golden_type='user')
     print("     [Causal Discovery] # discovered edges = {}, # golden edges = {}, precision = {}, recall = {}"\
                         .format(n_discovered_edges, n_golden_edges, precision, recall))

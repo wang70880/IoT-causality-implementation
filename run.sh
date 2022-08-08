@@ -25,7 +25,7 @@ dataset="hh130"; preprocessing_verbosity=0
 ## Data loading
 partition_days=100; training_ratio=0.8
 ## Background generator and application level
-tau_max=3;
+tau_max=3
 declare -a bk_levels=(0 1 2)
 declare -a filter_thresholds=(10 20 30 40 50 60 70 80 90 100)
 ## PC discovery process
