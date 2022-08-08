@@ -93,7 +93,7 @@ n_anomalies = 100; case = 1; max_length = 1; sig_level = 0.9
 
 if COMM.rank == 0:
     print("\n\n********************** Parameter Settings **********************"\
-     + "\nbk = {}, pc-alpha = {}".format(bk_level, pc_alpha))
+     + "\nbk = {}, pc-alpha = {}, filter-threshold = {}".format(bk_level, pc_alpha, filter_threshold))
 
 # 1. Load data and create data frame
 dl_start =time()
