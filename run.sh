@@ -27,9 +27,9 @@ partition_days=100; training_ratio=0.8
 ## Background generator and application level
 tau_max=3
 declare -a bk_levels=(0 1 2)
-declare -a filter_thresholds=(10 20 30 40 50 60 70 80 90 100)
+declare -a filter_thresholds=(10 20 30)
 ## PC discovery process
-declare -a pc_alphas=(0.000001 0.00001 0.0001 0.001)
+declare -a pc_alphas=(0.001 0.01 0.1)
 max_conds_dim=5; max_comb=10
 
 # 0. Cleanup process and parameter settings

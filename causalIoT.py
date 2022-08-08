@@ -126,8 +126,8 @@ results = []
 if COMM.rank == 0: # Assign selected_variables into whatever cores are available.
     splitted_jobs = _split(selected_variables, COMM.size)
 scattered_jobs = COMM.scatter(splitted_jobs, root=0)
-# 3.2 Initiate parallel causal discovery
-cond_ind_test = ChiSquare() # JC NOTE: Here we can replace the conditional independence test method (e.g., using CMI test).
+# 3.2 Initiate parallel causal discovery, and generate the interaction dict (all_parents_with_name)
+cond_ind_test = ChiSquare()
 for j in scattered_jobs:
     (j, pcmci_of_j, parents_of_j) = _run_pc_stable_parallel(j=j, dataframe=dataframe, cond_ind_test=cond_ind_test,\
                                                         selected_links=selected_links, tau_min=tau_min, tau_max=tau_max, pc_alpha=pc_alpha,\
@@ -138,7 +138,8 @@ for j in scattered_jobs:
         filtered_parents_of_j[j] = filtered_parents_of_j[j][0: n_edges]
     results.append((j, pcmci_of_j, filtered_parents_of_j))
 results = MPI.COMM_WORLD.gather(results, root=0)
-# 3.3 Gather the distributed pc-discovery result, and transform the result into a binary array
+
+# 3.3 Gather the distributed pc-discovery result, and transform the result into a binary array (interaction_array)
 if COMM.rank == 0:
     n_discovered_edges = 0; interaction_array:'np.ndarray' = np.zeros((n_vars, n_vars, tau_max + 1), dtype=np.int8)
     index_device_dict:'dict[DevAttribute]' = event_preprocessor.index_device_dict

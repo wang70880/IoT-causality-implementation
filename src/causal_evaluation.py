@@ -121,6 +121,15 @@ class Evaluator():
         recall = tp * 1.0 / (tp + fn) if (tp+fn) != 0 else 0
         return tp+fn, precision, recall # Return # golden edges, precision, recall
 
+    def interpret_discovery_results(self, discovery_results:'np.ndarray', golden_frame_id:'int', golden_type:'str'):
+        # Auxillary variables
+        frame:'DataFrame' = self.event_processor.frame_dict[golden_frame_id]
+        var_names = frame.var_names; index_device_dict:'dict[DevAttribute]' = frame.index_device_dict
+        golden_standard_array:'np.ndarray' = self.golden_standard_dict[golden_type][golden_frame_id]
+        # 1. Analyze the discovered device interactions
+
+        # 2. Analyze the formed device interaction chains
+
     def construct_golden_standard_bayesian_fitter(self, int_frame_id=0, int_type='user'):
         # Auxillary variables
         int_frame:'DataFrame' = self.event_processor.frame_dict[int_frame_id]
@@ -197,73 +206,6 @@ class Evaluator():
                 testing_benign_dict[testing_count] = i; testing_count += 1; anomaly_count += 1
 
         return testing_event_states, anomaly_positions, testing_benign_dict
-
-    def inject_anomalies(self, frame_id, n_anomalies, maximum_length):
-        """
-        The function which is used for injecting anomalies to the testing data.
-
-        Parameters:
-            frame_id: The id of currently testing dataframe
-            n_anomalies: The number of point anomalies which are going to be injected
-            maximum_length: The maximum length of the anomaly chain. If 0, the function injects single point anomalies.
-
-        Returns:
-            testing_event_sequence: The list of testing events (with injected anomalies)
-            anomaly_positions: The list of injection positions
-            benign_position_dict: The index-in-testing-sequence:index-in-original-sequence dict
-        """
-        testing_event_sequence = []; anomaly_positions = []; benign_position_dict = {}
-        original_frame = self.event_processor.frame_dict[frame_id]
-        benign_testing_event_sequence = list(zip(original_frame['testing-attr-sequence'], original_frame['testing-state-sequence'])); n_benign_events = len(benign_testing_event_sequence)
-        anomalous_sequences = []; anomaly_lag = 1 # Injecting lag-1 anomalies
-        if n_anomalies == 0:
-            testing_event_sequence = benign_testing_event_sequence.copy()
-            anomaly_positions = []
-            benign_position_dict = {x: x for x in range(n_benign_events)}
-        else:
-            # First determine the injection positions in the original event sequence, and generate the propagated anomaly sequence
-            split_positions = sorted(random.sample(range(self.tau_max+1, n_benign_events-1, self.tau_max + maximum_length), n_anomalies))
-            for split_position in split_positions:
-                anomalous_sequence = []
-                preceding_attr = benign_testing_event_sequence[split_position][0]; preceding_attr_index = original_frame['var-name'].index(preceding_attr)
-                candidate_anomalous_attrs = [original_frame['var-name'][i] for i in list(np.where(self.background_generator.candidate_pair_dict[frame_id][anomaly_lag][preceding_attr_index] == 0)[0])]
-                anomalous_attr = random.choice(candidate_anomalous_attrs)
-                while anomalous_attr in self.bayesian_fitter.nointeraction_attr_list: # JC NOTE: We assume that the nointeraction attr will not be anomalous.
-                    anomalous_attr = random.choice(candidate_anomalous_attrs)
-                anomalous_sequence.append(anomalous_attr)
-                for i in range(maximum_length - 1): # Propagate the anomaly chain (given pre-selected anomalous attr)
-                    preceding_attr_index = original_frame['var-name'].index(anomalous_attr)
-                    candidate_anomalous_attrs = [original_frame['var-name'][i] for i in list(np.where(self.background_generator.candidate_pair_dict[frame_id][anomaly_lag][preceding_attr_index] == 1)[0])]
-                    if len(candidate_anomalous_attrs) == 0:
-                        break
-                    else:
-                        anomalous_attr = random.choice(candidate_anomalous_attrs)
-                        anomalous_sequence.append(anomalous_attr)
-                anomalous_sequences.append(anomalous_sequence)
-            
-            # Then generate the testing sequence by combining original sequence with generated anomaly sequences
-            starting_index = 0
-            for i in range(0, n_anomalies):
-                benign_starting_index = len(testing_event_sequence)
-                testing_event_sequence += benign_testing_event_sequence[starting_index: split_positions[i]+1].copy()
-                anomaly_start_index = len(testing_event_sequence)
-                for (x, y) in list(zip([n for n in range(benign_starting_index, anomaly_start_index)], [m for m in range(starting_index, split_positions[i]+1)])):
-                    benign_position_dict[x] = y
-                anomaly_positions.append(anomaly_start_index)
-                testing_event_sequence += [(attr, 1) for attr in anomalous_sequences[i]]
-                starting_index = split_positions[i]+1
-            benign_starting_index = len(testing_event_sequence)
-            testing_event_sequence += benign_testing_event_sequence[starting_index:].copy()
-            for (x, y) in list(zip([n for n in range(benign_starting_index, len(testing_event_sequence))], [m for m in range(starting_index, n_benign_events)])):
-                benign_position_dict[x] = y
-        assert(all([x not in list(benign_position_dict.keys()) for x in anomaly_positions]))
-        assert(len(testing_event_sequence) == len(benign_testing_event_sequence)\
-                         + sum([len(anomaly_sequence) for anomaly_sequence in anomalous_sequences]))
-        
-        #print("Injected positions: {}, anomalies: {}".format(anomaly_positions, anomalous_sequences))
-        #print("Benign positions: {}".format(benign_position_dict.keys()))
-
-        return testing_event_sequence, anomaly_positions, benign_position_dict 
 
     def evaluate_detection_accuracy(self, golden_standard:'list[int]', result:'list[int]'):
         print("Golden standard with number {}: {}".format(len(golden_standard), golden_standard))
