@@ -19,12 +19,13 @@ from src.tigramite.tigramite.independence_tests.chi2 import ChiSquare
 
 class Evaluator():
 
-    def __init__(self, event_processor, background_generator, bayesian_fitter) -> None:
+    def __init__(self, event_processor, background_generator, bayesian_fitter, bk_level=0, pc_alpha=0.) -> None:
         self.event_processor:'Hprocessor' = event_processor
         self.background_generator:'BackgroundGenerator' = background_generator
         self.bayesian_fitter:'BayesianFitter' = bayesian_fitter
-        self.tau_max = self.background_generator.tau_max; self.filter_threshold = self.background_generator.filter_threshold
+        self.tau_max = self.background_generator.tau_max
         self.golden_standard_dict = self._construct_golden_standard()
+        self.bk_level = bk_level; self.pc_alpha = pc_alpha; self.filter_threshold = self.background_generator.filter_threshold
     
     def _construct_golden_standard(self):
         # JC NOTE: Currently we only consider hh-series datasets
@@ -99,8 +100,9 @@ class Evaluator():
         # 1. Plot the golden standard graph and the discovered graph. Note that the plot functionality requires PCMCI objects
         drawer = Drawer(self.event_processor.dataset)
         pcmci = PCMCI(dataframe=frame.training_dataframe, cond_ind_test=ChiSquare(), verbosity=-1)
-        drawer.plot_interaction_graph(pcmci, discovery_results==1, 'mined-interaction')
-        drawer.plot_interaction_graph(pcmci, golden_standard_array==1, 'golden-interaction')
+        drawer.plot_interaction_graph(pcmci, discovery_results==1, 'mined-interaction-bklevel{}-alpha{}-threshold{}'\
+                            .format(self.bk_level, int(1.0/self.pc_alpha), self.filter_threshold))
+        drawer.plot_interaction_graph(pcmci, golden_standard_array==1, 'golden-interaction-threshold{}'.format(int(self.filter_threshold)))
 
         # 2. Calculate the precision and recall for discovered results.
         tp = 0; fp = 0; fn = 0
