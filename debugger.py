@@ -144,7 +144,7 @@ class DataDebugger():
         n_vars = tested_frame.n_vars
         matrix_shape = (n_vars, n_vars, self.tau_max + 1)
         interaction_matrix:'np.ndarray' = np.zeros(matrix_shape)
-        evaluator = Evaluator(self.preprocessor, self.background_generator, None)
+        evaluator = Evaluator(self.preprocessor, self.background_generator, None, 1, self.alpha, self.filter_threshold)
         interaction_dict:'dict[np.ndarray]' = evaluator.golden_standard_dict[int_type]
         interaction_matrix = interaction_dict[int_frame_id]
         str = "[Picturing Golden Standard] Number of edges for each tau:\n"
