@@ -181,35 +181,9 @@ class DataDebugger():
         
         val_matrix[val_matrix >= 11] = 11 # We set a cut threshold for the calculated G^2 statistic: For values larger than 11, the p-value is 0.001
         final_graph = p_matrix < self.alpha; golden_final_graph = golden_p_matrix < 1
-        graph = pcmci.convert_to_string_graph(final_graph); golden_graph = pcmci.convert_to_string_graph(golden_final_graph)
-        tp.plot_graph( # Plot the golden standard graph
-            figsize=(8, 6),
-            val_matrix=golden_val_matrix,
-            graph=golden_graph,
-            vmin_edges=-11.0,
-            vmax_edges=11.0,
-            var_names=var_names,
-            node_colorbar_label="auto-G^2",
-            link_colorbar_label='G^2',
-            show_colorbar=False
-        )
-        plt.savefig("temp/image/golden_standard_{}.pdf".format(self.dataset), bbox_inches='tight')
-        plt.close('all')
-        tp.plot_graph( # Plot the causal minimality verification graph
-            figsize=(8, 6),
-            val_matrix=val_matrix,
-            graph=graph,
-            vmin_edges=-11.0,
-            vmax_edges=11.0,
-            var_names=var_names,
-            node_colorbar_label="auto-G^2",
-            link_colorbar_label='G^2',
-            show_colorbar=False
-        )
-        print("Total # of golden edges: {}\n".format(np.sum(interaction_matrix)))
-        plt.savefig("temp/image/causal_minimality_{}.pdf".format(self.dataset), bbox_inches='tight')
-        plt.close('all')
-
+        drawer= Drawer(self.dataset)
+        drawer.plot_interaction_graph(pcmci, final_graph, "causal_minimality_{}.pdf".format(self.dataset))
+        drawer.plot_interaction_graph(pcmci, golden_final_graph, "golden_standard_{}.pdf".format(self.dataset))
         # 3. Verify the causal assumptions
         ## 3.1 Verify causal minimality assumptions
         assert(interaction_matrix.shape == val_matrix.shape == p_matrix.shape)
