@@ -138,8 +138,8 @@ class Evaluator():
                         tau_free_tp += 1
                     else:
                         tau_free_fp += 1
-        tau_free_precision = tau_free_fp * 1.0 / (tau_free_tp + tau_free_fp) if (tau_free_tp + tau_free_fp) !=0 else 0
-        tau_free_recall = tau_free_fp * 1.0 / (tau_free_tp + tau_free_fn) if (tau_free_tp + tau_free_fn) !=0 else 0
+        tau_free_precision = tau_free_tp * 1.0 / (tau_free_tp + tau_free_fp) if (tau_free_tp + tau_free_fp) !=0 else 0
+        tau_free_recall = tau_free_tp * 1.0 / (tau_free_tp + tau_free_fn) if (tau_free_tp + tau_free_fn) !=0 else 0
 
         #return tp+fn, precision, recall # Return # golden edges, precision, recall
         return tau_free_tp+tau_free_fn, tau_free_precision, tau_free_recall # Return # golden edges, precision, recall
