@@ -57,7 +57,7 @@ class BackgroundGenerator():
             for lag in range (1, self.tau_max + 1): # Initialize the count array
                 temporal_pair_dict[frame_id][lag] = np.zeros(shape=(num_attrs, num_attrs), dtype=np.int32)
                 heuristic_temporal_pair_dict[frame_id][lag] = np.zeros(shape=(num_attrs, num_attrs), dtype=np.int32)
-            for i in range(len(event_sequence)): # Count the occurrence of each lagged aattr pair
+            for i in range(len(event_sequence)): # Count the occurrence of each lagged attr pair
                 for lag in range (1, self.tau_max + 1):
                     if i + lag >= len(event_sequence):
                         continue
