@@ -94,7 +94,7 @@ class Evaluator():
     def evaluate_discovery_accuracy(self, discovery_results:'np.ndarray', golden_frame_id:'int', golden_type:'str'):
         # Auxillary variables
         frame:'DataFrame' = self.event_processor.frame_dict[golden_frame_id]
-        var_names = frame.var_names; index_device_dict:'dict[DevAttribute]' = frame.index_device_dict
+        var_names = frame.var_names; n_vars = len(var_names); index_device_dict:'dict[DevAttribute]' = frame.index_device_dict
         golden_standard_array:'np.ndarray' = self.golden_standard_dict[golden_type][golden_frame_id]
 
         # 1. Plot the golden standard graph and the discovered graph. Note that the plot functionality requires PCMCI objects
@@ -103,11 +103,11 @@ class Evaluator():
         drawer.plot_interaction_graph(pcmci, discovery_results==1, 'mined-interaction-bklevel{}-alpha{}-threshold{}'\
                             .format(self.bk_level, int(1.0/self.pc_alpha), self.filter_threshold))
         drawer.plot_interaction_graph(pcmci, golden_standard_array==1, 'golden-interaction-threshold{}'.format(int(self.filter_threshold)))
-
+        
+        assert(discovery_results.shape == golden_standard_array.shape == (n_vars, n_vars, self.tau_max + 1))
         # 2. Calculate the precision and recall for discovered results.
         tp = 0; fp = 0; fn = 0
         precision = 0.0; recall = 0.0
-        assert(discovery_results.shape == golden_standard_array.shape)
         for index, x in np.ndenumerate(discovery_results):
             if discovery_results[index] == 1 and golden_standard_array[index] == 1:
                 tp += 1
@@ -119,7 +119,30 @@ class Evaluator():
         #fn = np.count_nonzero(golden_standard_array == 1) - tp; fp = np.count_nonzero(discovery_results == 1) - tp
         precision = tp * 1.0 / (tp + fp) if (tp+fp) != 0 else 0
         recall = tp * 1.0 / (tp + fn) if (tp+fn) != 0 else 0
-        return tp+fn, precision, recall # Return # golden edges, precision, recall
+
+        # 3. Calculate the tau-free-precision and tau-free-recall for discovered results
+        tau_free_tp = 0; tau_free_tn = 0; tau_free_fp = 0; tau_free_fn = 0
+        tau_free_precision = 0.0; tau_free_recall = 0.0
+        for i in range(n_vars):
+            for j in range(n_vars):
+                golden_lags = [lag for lag in range(1, self.tau_max + 1) if golden_standard_array[(i, j, lag)] == 1]
+                discovered_lags = [lag for lag in range(1, self.tau_max + 1) if discovery_results[(i, j, lag)] == 1]
+                if len(golden_lags) == len(discovered_lags) == 0:
+                    tau_free_tn += 1
+                elif len(golden_lags) == 0 and len(discovered_lags) > 0:
+                    tau_free_fp += 1
+                elif len(discovered_lags) == 0 and len(golden_lags) > 0:
+                    tau_free_fn += 1
+                else:
+                    if any([discovered_lag in golden_lags for discovered_lag in discovered_lags]):
+                        tau_free_tp += 1
+                    else:
+                        tau_free_fp += 1
+        tau_free_precision = tau_free_fp * 1.0 / (tau_free_tp + tau_free_fp) if (tau_free_tp + tau_free_fp) !=0 else 0
+        tau_free_recall = tau_free_fp * 1.0 / (tau_free_tp + tau_free_fn) if (tau_free_tp + tau_free_fn) !=0 else 0
+
+        #return tp+fn, precision, recall # Return # golden edges, precision, recall
+        return tau_free_tp+tau_free_fn, tau_free_precision, tau_free_recall # Return # golden edges, precision, recall
 
     def interpret_discovery_results(self, discovery_results:'np.ndarray', golden_frame_id:'int', golden_type:'str'):
         # Auxillary variables
