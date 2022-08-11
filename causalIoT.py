@@ -82,18 +82,18 @@ def _run_pc_stable_parallel(j, dataframe, cond_ind_test, selected_links,\
     return j, pcmci_of_j, parents_of_j
 
 # 0. Parameter settings
-# 0.1 Data-loading parameters
+    # 0.1 Data-loading parameters
 dataset = sys.argv[1]; partition_days = int(sys.argv[2]); training_ratio = float(sys.argv[3]); frame_id = 0 # JC NOTE: By default, we use the first data frame
-# 0.2 Background knowledge parameters
+    # 0.2 Background knowledge parameters
 tau_max = int(sys.argv[4]); tau_min = 1; filter_threshold=float(sys.argv[5]); bk_level=int(sys.argv[6])
-# 0.3 PC discovery parameters
+    # 0.3 PC discovery parameters
 pc_alpha = float(sys.argv[7]); max_conds_dim = int(sys.argv[8]); maximum_comb = int(sys.argv[9]); max_n_edges = 15
-# 0.4 Anomaly generation parameters
+    # 0.4 Anomaly generation parameters
 n_anomalies = 100; case = 1; max_length = 1; sig_level = 0.9
 
 if COMM.rank == 0:
-    print("\n\n********************** Parameter Settings **********************"\
-     + "\nbk = {}, pc-alpha = {}, filter-threshold = {}".format(bk_level, pc_alpha, filter_threshold))
+    print("\n\n********************** Parameter Settings **********************\n"\
+     + "bk = {}, pc-alpha = {}, filter-threshold = {}".format(bk_level, pc_alpha, filter_threshold))
 
 # 1. Load data and create data frame
 dl_start =time()
@@ -118,28 +118,31 @@ bk_consumed_time = _elapsed_minutes(bg_start)
 if COMM.rank == 0:
     print("     [Background Integration] # candidate edges = {}".format(n_candidate_edges))
 
-# 3. Initiate parallel causal discovery
-# 3.1 Scatter the jobs
+# 3. Construct the golden standard.
+evaluator = Evaluator(event_preprocessor, background_generator, None, bk_level, pc_alpha, filter_threshold)
+
+# 4. Initiate parallel causal discovery
+    # 4.1 Scatter the jobs
 pc_start = time()
 splitted_jobs = None
 results = []
-if COMM.rank == 0: # Assign selected_variables into whatever cores are available.
+if COMM.rank == 0:
     splitted_jobs = _split(selected_variables, COMM.size)
 scattered_jobs = COMM.scatter(splitted_jobs, root=0)
-# 3.2 Initiate parallel causal discovery, and generate the interaction dict (all_parents_with_name)
+    # 4.2 Initiate parallel causal discovery, and generate the interaction dict (all_parents_with_name)
 cond_ind_test = ChiSquare()
 for j in scattered_jobs:
     (j, pcmci_of_j, parents_of_j) = _run_pc_stable_parallel(j=j, dataframe=dataframe, cond_ind_test=cond_ind_test,\
                                                         selected_links=selected_links, tau_min=tau_min, tau_max=tau_max, pc_alpha=pc_alpha,\
                                                         max_conds_dim=max_conds_dim, maximum_comb=maximum_comb, verbosity=-1)
     filtered_parents_of_j = parents_of_j.copy()
-    n_edges = min(len(filtered_parents_of_j[j]), max_n_edges) # Only select top max_n_edges causal edges with maximum MCI
-    if n_edges > 0:
-        filtered_parents_of_j[j] = filtered_parents_of_j[j][0: n_edges]
+    #n_edges = min(len(filtered_parents_of_j[j]), max_n_edges) # Only select top max_n_edges causal edges with maximum statistic values
+    #if n_edges > 0:
+    #    filtered_parents_of_j[j] = filtered_parents_of_j[j][0: n_edges]
     results.append((j, pcmci_of_j, filtered_parents_of_j))
 results = MPI.COMM_WORLD.gather(results, root=0)
 
-# 3.3 Gather the distributed pc-discovery result, and transform the result into a binary array (interaction_array)
+    # 4.3 Gather the distributed pc-discovery result, and transform the result into a binary array (interaction_array)
 if COMM.rank == 0:
     n_discovered_edges = 0; interaction_array:'np.ndarray' = np.zeros((n_vars, n_vars, tau_max + 1), dtype=np.int8)
     index_device_dict:'dict[DevAttribute]' = event_preprocessor.index_device_dict
@@ -154,8 +157,8 @@ if COMM.rank == 0:
             interaction_array[cause_id, outcome_id, abs(lag)] = 1
             n_discovered_edges += 1
 pc_consumed_time = _elapsed_minutes(pc_start)
-if COMM.rank == 0: # 3.4 Evaluate the discovery accuracy
-    evaluator = Evaluator(event_preprocessor, background_generator, None, bk_level, pc_alpha, filter_threshold)
+    # 4.4 Evaluate the discovery accuracy
+if COMM.rank == 0:
     n_golden_edges, precision, recall = evaluator.evaluate_discovery_accuracy(interaction_array, golden_frame_id=frame_id, golden_type='user')
     print("     [Causal Discovery] # discovered edges = {}, # golden edges = {}, precision = {}, recall = {}"\
                         .format(n_discovered_edges, n_golden_edges, precision, recall))
