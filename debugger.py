@@ -373,23 +373,17 @@ class EvaluationResultRepo():
         bk_nedges_dict = {0: 192, 1: 141, 2: 118}
         # The discovered result dict.
         bk_alpha_results_dict = {
-            (0, 0.00001): {'precision':0.783, 'recall':0.857, 'n_edges':42, 'consumed_time':5.071},
-            (0, 0.0001): {'precision':0.787, 'recall':0.881, 'n_edges':42, 'consumed_time':1.750},
-            (0, 0.001): {'precision':0.771, 'recall':0.883, 'n_edges':106, 'consumed_time':1.760},
-            (0, 0.01): {'precision':0.776, 'recall':0.905, 'n_edges':106, 'consumed_time':1.767},
-            (0, 0.1): {'precision':0.765, 'recall':0.929, 'n_edges':108, 'consumed_time':1.791},
+            (0, 0.00001): {'precision':0.787, 'recall':0.881, 'n_edges':42, 'consumed_time':5.071},
+            (0, 0.001): {'precision':0.78, 'recall':0.929, 'n_edges':106, 'consumed_time':1.760},
+            (0, 0.1): {'precision':0.76, 'recall':0.976, 'n_edges':108, 'consumed_time':1.791},
 
-            (1, 0.00001):{'precision':0.782, 'recall':0.857, 'n_edges':104, 'consumed_time':1.59},
-            (1, 0.0001):{'precision':0.787, 'recall':0.881, 'n_edges':105, 'consumed_time':1.585},
-            (1, 0.001): {'precision':0.787, 'recall':0.881, 'n_edges':105, 'consumed_time':1.601},
-            (1, 0.01): {'precision':0.776, 'recall':0.905, 'n_edges':106, 'consumed_time':1.657},
-            (1, 0.1):  {'precision':0.784, 'recall':0.952, 'n_edges':106, 'consumed_time':1.644},
+            (1, 0.00001):{'precision':0.787, 'recall':0.881, 'n_edges':104, 'consumed_time':1.59},
+            (1, 0.001): {'precision':0.796, 'recall':0.929, 'n_edges':105, 'consumed_time':1.601},
+            (1, 0.1):  {'precision':0.789, 'recall':0.976, 'n_edges':106, 'consumed_time':1.644},
 
-            (2, 0.00001): {'precision':1.0, 'recall':0.857, 'n_edges':96, 'consumed_time':1.303},
-            (2, 0.0001): {'precision':1.0, 'recall':0.881, 'n_edges':97, 'consumed_time':1.365},
-            (2, 0.001): {'precision':1.0, 'recall':0.881, 'n_edges':97, 'consumed_time':1.291},
-            (2, 0.01): {'precision':1.0, 'recall':0.881, 'n_edges':101, 'consumed_time':1.485},
-            (2, 0.1): {'precision':1.0, 'recall':0.952, 'n_edges':106, 'consumed_time':1.479}
+            (2, 0.00001): {'precision':1.0, 'recall':0.881, 'n_edges':96, 'consumed_time':1.303},
+            (2, 0.001): {'precision':1.0, 'recall':0.929, 'n_edges':97, 'consumed_time':1.291},
+            (2, 0.1): {'precision':1.0, 'recall':0.976, 'n_edges':106, 'consumed_time':1.479}
         }
         precision_lists = [[bk_alpha_results_dict[(bk, alpha)]['precision']\
                             for bk in range(0, 3) ] for alpha in [0.00001, 0.001, 0.1]]

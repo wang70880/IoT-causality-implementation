@@ -7,8 +7,8 @@ from src.event_processing import Hprocessor
 
 class ARMer():
 
-    def __init__(self, frame:'DataFrame', min_support, min_confidence) -> None:
-        self.frame = frame
+    def __init__(self, frame, min_support, min_confidence) -> None:
+        self.frame:'DataFrame' = frame
         self.min_support = min_support
         self.min_confidence = min_confidence
         self.transactions = self._transactions_generation()
@@ -18,12 +18,23 @@ class ARMer():
         transactions = []
         # Auxillary variables
         index_device_dict:'dict[DevAttribute]' = self.frame.index_device_dict
+        training_events_states:"list[tuple(AttrEvent, np.ndarray)]" = self.frame.training_events_states
         training_array:'np.ndarray' = self.frame.training_dataframe.values
-        for states in training_array:
-            # JC NOTE: When applying association rule mining, a criteria should be given (Here we use the activation as the criteria)
-            transaction = tuple([index_device_dict[x].name for x in range(len(states)) if states[x] == 1])
-            if len(transaction) > 0:
-                transactions.append(transaction)
+
+        mode = 1
+        if mode == 0: # State-based transaction identification
+            for states in training_array:
+                # JC NOTE: When applying association rule mining, a criteria should be given (Here we use the activation as the criteria)
+                transaction = tuple([index_device_dict[x].name for x in range(len(states)) if states[x] == 1])
+                if len(transaction) > 0:
+                    transactions.append(transaction)
+        elif mode == 1: # Fixed number of records (say 5)
+            cut_threshold = 50
+            count = 0; transaction = set()
+            for (event, states) in training_events_states:
+                if count > cut_threshold:
+                    transactions.append(tuple(transaction)); transaction = set(); count = 0
+                transaction.add(event.dev); count += 1
         return transactions
     
     def association_rule_mining(self):
