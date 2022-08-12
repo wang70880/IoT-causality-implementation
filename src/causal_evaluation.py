@@ -135,16 +135,18 @@ class Evaluator():
                     tau_free_tn += 1
                 elif len(golden_lags) == 0 and len(discovered_lags) > 0:
                     tau_free_fp += 1
+                    print("False positives: {} -> {}".format(index_device_dict[i].name, index_device_dict[j].name))
                 elif len(discovered_lags) == 0 and len(golden_lags) > 0:
                     tau_free_fn += 1
+                    print("False negatives: {} -> {}".format(index_device_dict[i].name, index_device_dict[j].name))
                 else:
                     if any([discovered_lag in golden_lags for discovered_lag in discovered_lags]):
                         tau_free_tp += 1
                     else:
                         tau_free_fp += 1
+                        print("False positives (for wrong lag): {} -> {}".format(index_device_dict[i].name, index_device_dict[j].name))
         tau_free_precision = tau_free_tp * 1.0 / (tau_free_tp + tau_free_fp) if (tau_free_tp + tau_free_fp) !=0 else 0
         tau_free_recall = tau_free_tp * 1.0 / (tau_free_tp + tau_free_fn) if (tau_free_tp + tau_free_fn) !=0 else 0
-
         #return tp+fn, precision, recall # Return # golden edges, precision, recall
         return tau_free_tp+tau_free_fn, tau_free_precision, tau_free_recall # Return # golden edges, precision, recall
 

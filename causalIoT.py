@@ -168,9 +168,9 @@ if COMM.rank == 0:
     print("     [Efficiency Evaluation] Consumed time for preprocessing, background, causal discovery = {}, {}, {}"\
                 .format(preprocessing_consumed_time, bk_consumed_time, pc_consumed_time))
     # 5.2 Compare with ARM and analyze the result
-    armer = ARMer(frame=frame, min_support=filter_threshold, min_confidence=0.3)
-    association_array = armer.association_rule_mining()
-    evaluator.compare_with_arm(interaction_array, arm_results=association_array, golden_frame_id=frame_id, golden_type='user')
+    #armer = ARMer(frame=frame, min_support=filter_threshold, min_confidence=0.3)
+    #association_array = armer.association_rule_mining()
+    #evaluator.compare_with_arm(interaction_array, arm_results=association_array, golden_frame_id=frame_id, golden_type='user')
     # 5.3 Efficiency analysis
 exit()
 
