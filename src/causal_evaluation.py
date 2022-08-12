@@ -40,7 +40,6 @@ class Evaluator():
     def _identify_user_interactions(self):
         """
         In HH-series dataset, the user interaction is in the form of M->M, M->D, or D->M
-
         For any two devices, they have interactions iff (1) they are spatially adjacent, and (2) they are usually sequentially activated.
             (1) The identification of spatial adjacency is done by the background generator.
             (2) The identification of sequential activation is done by counting with a filtering mechanism (as specified by the filter_threshold parameter).

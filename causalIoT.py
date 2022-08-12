@@ -120,7 +120,7 @@ if COMM.rank == 0:
     print("     [Background Integration] # candidate edges = {}".format(n_candidate_edges))
 
 # 3. Construct the golden standard.
-evaluator = Evaluator(event_preprocessor, background_generator, None, bk_level, pc_alpha, 1)
+evaluator = Evaluator(event_preprocessor, background_generator, None, bk_level, pc_alpha, filter_threshold=filter_threshold)
 
 # 4. Initiate parallel causal discovery
     # 4.1 Scatter the jobs
