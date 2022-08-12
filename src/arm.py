@@ -53,10 +53,10 @@ class ARMer():
             preceding_devices = rule[0]
             consecutive_devices = rule[1]
             interactions = [(x, y) for x in preceding_devices for y in consecutive_devices]
-            print("Interaction lists: {}".format(interactions))
+            #print("Interaction lists: {}".format(interactions))
             for interaction in interactions:
                 association_array[(name_device_dict[interaction[0]].index, name_device_dict[interaction[1]].index)] = 1
-        print("Total number of interactions: {}".format(np.sum(association_array)))
+        #print("Total number of interactions: {}".format(np.sum(association_array)))
         return association_array
 
 
