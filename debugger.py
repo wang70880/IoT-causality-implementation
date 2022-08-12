@@ -373,30 +373,30 @@ class EvaluationResultRepo():
         bk_nedges_dict = {0: 192, 1: 141, 2: 118}
         # The discovered result dict.
         bk_alpha_results_dict = {
-            (0, 0.001): {'precision':0.457, 'recall':0.706, 'n_edges':105, 'consumed_time':1.689},
-            (0, 0.005): {'precision':0.453, 'recall':0.706, 'n_edges':106, 'consumed_time':1.750},
-            (0, 0.01): {'precision':0.453, 'recall':0.706, 'n_edges':106, 'consumed_time':1.760},
-            (0, 0.05): {'precision':0.443, 'recall':0.691, 'n_edges':106, 'consumed_time':1.767},
-            (0, 0.1): {'precision':0.435, 'recall':0.691, 'n_edges':108, 'consumed_time':1.791},
+            (0, 0.00001): {'precision':0.783, 'recall':0.857, 'n_edges':42, 'consumed_time':5.071},
+            (0, 0.0001): {'precision':0.787, 'recall':0.881, 'n_edges':42, 'consumed_time':1.750},
+            (0, 0.001): {'precision':0.771, 'recall':0.883, 'n_edges':106, 'consumed_time':1.760},
+            (0, 0.01): {'precision':0.776, 'recall':0.905, 'n_edges':106, 'consumed_time':1.767},
+            (0, 0.1): {'precision':0.765, 'recall':0.929, 'n_edges':108, 'consumed_time':1.791},
 
-            (1, 0.001):{'precision':0.490, 'recall':0.75, 'n_edges':104, 'consumed_time':1.59},
-            (1, 0.005):{'precision':0.486, 'recall':0.75, 'n_edges':105, 'consumed_time':1.585},
-            (1, 0.01): {'precision':0.495, 'recall':0.765, 'n_edges':105, 'consumed_time':1.601},
-            (1, 0.05): {'precision':0.5, 'recall':0.779, 'n_edges':106, 'consumed_time':1.657},
-            (1, 0.1):  {'precision':0.5, 'recall':0.779, 'n_edges':106, 'consumed_time':1.644},
+            (1, 0.00001):{'precision':0.782, 'recall':0.857, 'n_edges':104, 'consumed_time':1.59},
+            (1, 0.0001):{'precision':0.787, 'recall':0.881, 'n_edges':105, 'consumed_time':1.585},
+            (1, 0.001): {'precision':0.787, 'recall':0.881, 'n_edges':105, 'consumed_time':1.601},
+            (1, 0.01): {'precision':0.776, 'recall':0.905, 'n_edges':106, 'consumed_time':1.657},
+            (1, 0.1):  {'precision':0.784, 'recall':0.952, 'n_edges':106, 'consumed_time':1.644},
 
-            (2, 0.001): {'precision':0.604, 'recall':0.853, 'n_edges':96, 'consumed_time':1.303},
-            (2, 0.005): {'precision':0.598, 'recall':0.8529, 'n_edges':97, 'consumed_time':1.365},
-            (2, 0.01): {'precision':0.608, 'recall':0.868, 'n_edges':97, 'consumed_time':1.291},
-            (2, 0.05): {'precision':0.604, 'recall':0.897, 'n_edges':101, 'consumed_time':1.485},
-            (2, 0.1): {'precision':0.604, 'recall':0.897, 'n_edges':106, 'consumed_time':1.479}
+            (2, 0.00001): {'precision':1.0, 'recall':0.857, 'n_edges':96, 'consumed_time':1.303},
+            (2, 0.0001): {'precision':1.0, 'recall':0.881, 'n_edges':97, 'consumed_time':1.365},
+            (2, 0.001): {'precision':1.0, 'recall':0.881, 'n_edges':97, 'consumed_time':1.291},
+            (2, 0.01): {'precision':1.0, 'recall':0.881, 'n_edges':101, 'consumed_time':1.485},
+            (2, 0.1): {'precision':1.0, 'recall':0.952, 'n_edges':106, 'consumed_time':1.479}
         }
         precision_lists = [[bk_alpha_results_dict[(bk, alpha)]['precision']\
-                            for bk in range(0, 3) ] for alpha in [0.001, 0.005, 0.01, 0.05, 0.1]]
+                            for bk in range(0, 3) ] for alpha in [0.00001, 0.001, 0.1]]
         recall_lists = [[bk_alpha_results_dict[(bk, alpha)]['recall']\
-                            for bk in range(0, 3) ] for alpha in [0.001, 0.005, 0.01, 0.05, 0.1]]
+                            for bk in range(0, 3) ] for alpha in [0.00001, 0.001, 0.1]]
         consumed_time_lists = [[bk_alpha_results_dict[(bk, alpha)]['consumed_time']\
-                            for bk in range(0, 3) ] for alpha in [0.001, 0.005, 0.01, 0.05, 0.1]]
+                            for bk in range(0, 3) ] for alpha in [0.00001, 0.001, 0.1]]
         return precision_lists, recall_lists, consumed_time_lists
 
 if __name__ == '__main__':
@@ -406,16 +406,16 @@ if __name__ == '__main__':
     data_debugger = DataDebugger(dataset, partition_days, filter_threshold, training_ratio, tau_max, alpha)
 
     # 1. Verify causal sufficiency assumptions on the dataset
-    data_debugger.analyze_golden_standard(int_frame_id, int_type)
+    #data_debugger.analyze_golden_standard(int_frame_id, int_type)
 
     # 2. Evaluate causal discovery accuracy
     evaluation_repo = EvaluationResultRepo(dataset)
     precision_lists, recall_lists, consumed_time_lists = evaluation_repo.discovery_evaluation()
     drawer = Drawer(dataset)
-    legends = ['alpha=0.001', 'alpha=0.005', 'alpha=0.01', 'alpha=0.05', 'alpha=0.1']; groups = ['BK0', 'BK1', 'BK2']
-    #drawer.draw_histogram(precision_lists, legends, groups, 'Background', 'Precision')
-    #drawer.draw_histogram(recall_lists, legends, groups, 'Background', 'Recall')
-    drawer.draw_histogram(consumed_time_lists, legends, groups, 'Background', 'Time (minutes)')
+    legends = ['alpha=1e-5', 'alpha=1e-3', 'alpha=1e-1']; groups = ['Pure-PC', 'BK-Temporal', 'BK-Spatial']
+    drawer.draw_histogram(precision_lists, legends, groups, 'Background', 'Precision')
+    drawer.draw_histogram(recall_lists, legends, groups, 'Background', 'Recall')
+    #drawer.draw_histogram(consumed_time_lists, legends, groups, 'Background', 'Time (minutes)')
 
     #n_anomalies = 50; maximum_length = 1; anomaly_case = 1
     #sig_levels = list(np.arange(0.1, 1., 0.1)); sig_levels = [0.95]

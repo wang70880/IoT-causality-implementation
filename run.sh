@@ -23,13 +23,13 @@ evaluate_discovery_process() {
 ## Data preprocessing
 dataset="hh130"; preprocessing_verbosity=0
 ## Data loading
-partition_days=100; training_ratio=0.8
+partition_days=300; training_ratio=0.8
 ## Background generator and application level
 tau_max=3
 declare -a bk_levels=(0 1 2)
-declare -a filter_thresholds=(10 20 30)
+declare -a filter_thresholds=(20 60 100 150 200)
 ## PC discovery process
-declare -a pc_alphas=(0.001 0.01 0.1)
+declare -a pc_alphas=(0.00001 0.001 0.1)
 max_conds_dim=5; max_comb=10
 
 # 0. Cleanup process and parameter settings

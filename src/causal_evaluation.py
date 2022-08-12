@@ -27,15 +27,17 @@ class Evaluator():
         self.tau_max = self.background_generator.tau_max
         self.golden_standard_dict = self._construct_golden_standard()
     
+    """Function classes for golden standard construction."""
+
     def _construct_golden_standard(self):
         # JC NOTE: Currently we only consider hh-series datasets
         golden_standard_dict = {}
-        golden_standard_dict['user'] = self._identify_user_interactions(self.filter_threshold)
+        golden_standard_dict['user'] = self._identify_user_interactions()
         golden_standard_dict['physics'] = self._identify_physical_interactions()
         golden_standard_dict['automation'] = self._identify_automation_interactions()
         return golden_standard_dict
 
-    def _identify_user_interactions(self, filter_threshold=0):
+    def _identify_user_interactions(self):
         """
         In HH-series dataset, the user interaction is in the form of M->M, M->D, or D->M
 
@@ -69,8 +71,8 @@ class Evaluator():
                     interval += 1
         for frame_id in frame_dict.keys(): # Normalize the frequency dict using the filter_threshold parameter
             for tau in range(1, self.tau_max + 1):
-                activation_adjacency_dict[frame_id][tau][activation_adjacency_dict[frame_id][tau] < filter_threshold] = 0
-                activation_adjacency_dict[frame_id][tau][activation_adjacency_dict[frame_id][tau] >= filter_threshold] = 1
+                activation_adjacency_dict[frame_id][tau][activation_adjacency_dict[frame_id][tau] < self.filter_threshold] = 0
+                activation_adjacency_dict[frame_id][tau][activation_adjacency_dict[frame_id][tau] >= self.filter_threshold] = 1
         
         user_interaction_dict:'dict[np.ndarray]' = {}
         for frame_id in frame_dict.keys(): # Finally, generate the user_interaction_dict (which should be spatially adjacent and have legitimate activation orders)
@@ -90,6 +92,8 @@ class Evaluator():
     def _identify_automation_interactions(self):
         # In HH-series dataset, there is no automation interactions...
         return {}
+
+    """Function classes for causal discovery evaluation."""
 
     def evaluate_discovery_accuracy(self, discovery_results:'np.ndarray', golden_frame_id:'int', golden_type:'str'):
         # Auxillary variables
@@ -144,6 +148,10 @@ class Evaluator():
         #return tp+fn, precision, recall # Return # golden edges, precision, recall
         return tau_free_tp+tau_free_fn, tau_free_precision, tau_free_recall # Return # golden edges, precision, recall
 
+    def compare_with_arm(self, discovery_results:'np.ndarray', arm_results:'np.ndarray', golden_frame_id:'int', golden_type:'str'):
+        # The shape of discovery_results is (n_vars, n_vars, tau_max), while the shape of the arm_results is (n_vars, n_vars)
+        pass
+
     def interpret_discovery_results(self, discovery_results:'np.ndarray', golden_frame_id:'int', golden_type:'str'):
         # Auxillary variables
         frame:'DataFrame' = self.event_processor.frame_dict[golden_frame_id]
@@ -152,6 +160,8 @@ class Evaluator():
         # 1. Analyze the discovered device interactions
 
         # 2. Analyze the formed device interaction chains
+
+    """Function classes for anomaly detection evaluation."""
 
     def construct_golden_standard_bayesian_fitter(self, int_frame_id=0, int_type='user'):
         # Auxillary variables

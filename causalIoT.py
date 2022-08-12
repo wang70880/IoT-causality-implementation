@@ -23,6 +23,7 @@ from src.bayesian_fitter import BayesianFitter
 from src.security_guard import SecurityGuard
 from src.causal_evaluation import Evaluator
 from src.genetic_type import DataFrame, AttrEvent, DevAttribute
+from src.arm import ARMer
 
 # Default communicator
 COMM = MPI.COMM_WORLD
@@ -119,7 +120,7 @@ if COMM.rank == 0:
     print("     [Background Integration] # candidate edges = {}".format(n_candidate_edges))
 
 # 3. Construct the golden standard.
-evaluator = Evaluator(event_preprocessor, background_generator, None, bk_level, pc_alpha, filter_threshold)
+evaluator = Evaluator(event_preprocessor, background_generator, None, bk_level, pc_alpha, 1)
 
 # 4. Initiate parallel causal discovery
     # 4.1 Scatter the jobs
@@ -157,13 +158,20 @@ if COMM.rank == 0:
             interaction_array[cause_id, outcome_id, abs(lag)] = 1
             n_discovered_edges += 1
 pc_consumed_time = _elapsed_minutes(pc_start)
-    # 4.4 Evaluate the discovery accuracy
+
+# 5. Evaluate the discovery accuracy
 if COMM.rank == 0:
+    # 5.1 Evaluate the discovery precision and recall for different levels of background knowledge
     n_golden_edges, precision, recall = evaluator.evaluate_discovery_accuracy(interaction_array, golden_frame_id=frame_id, golden_type='user')
     print("     [Causal Discovery] # discovered edges = {}, # golden edges = {}, precision = {}, recall = {}"\
                         .format(n_discovered_edges, n_golden_edges, precision, recall))
     print("     [Efficiency Evaluation] Consumed time for preprocessing, background, causal discovery = {}, {}, {}"\
                 .format(preprocessing_consumed_time, bk_consumed_time, pc_consumed_time))
+    # 5.2 Compare with ARM and analyze the result
+    armer = ARMer(frame=frame, min_support=filter_threshold, min_confidence=0.3)
+    association_array = armer.association_rule_mining()
+    evaluator.compare_with_arm(interaction_array, arm_results=association_array, golden_frame_id=frame_id, golden_type='user')
+    # 5.3 Efficiency analysis
 exit()
 
 # After parallel causal discovery is finished, only RANK-0 process is kept.
