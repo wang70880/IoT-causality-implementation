@@ -94,6 +94,32 @@ class Evaluator():
 
     """Function classes for causal discovery evaluation."""
 
+    def interpret_discovery_results(self, discovery_results:'np.ndarray', golden_frame_id:'int', golden_type:'str'):
+        # Return variables
+        interactions:'list[tuple]' = []; interaction_types:'list[tuple]' = []; n_paths = 0
+        # Auxillary variables
+        frame:'DataFrame' = self.event_processor.frame_dict[golden_frame_id]
+        var_names = frame.var_names; n_vars = len(var_names); index_device_dict:'dict[DevAttribute]' = frame.index_device_dict
+        golden_standard_array:'np.ndarray' = self.golden_standard_dict[golden_type][golden_frame_id]
+
+        # 1. Analyze the discovered device interactions
+        tau_free_discovery_array = sum([discovery_results[:,:,tau] for tau in range(1, self.tau_max + 1)]); tau_free_discovery_array[tau_free_discovery_array > 0] = 1
+        tau_free_golden_array = sum([golden_standard_array[:,:,tau] for tau in range(1, self.tau_max + 1)]); tau_free_golden_array[tau_free_golden_array > 0] = 1
+        discovered_golden_array = np.zeros((n_vars, n_vars))
+        assert(tau_free_discovery_array.shape == tau_free_golden_array == (n_vars, n_vars))
+        for (i, j), x in np.ndenumerate(tau_free_golden_array):
+            if tau_free_discovery_array[(i, j)] == x == 1:
+                interactions.append((index_device_dict[i].name, index_device_dict[j].name))
+                interaction_types.append((index_device_dict[i].name[0], index_device_dict[j].name[0]))
+                discovered_golden_array[(i, j)] = 1
+        print("# of discovered interactions: {}".format(len(interactions)))
+        print("# of interaction types and type lists: {}, {}".format(len(interaction_types), interaction_types))
+
+        # 2. Analyze the formed device interaction chains.
+        path_array = np.linalg.matrix_power(discovered_golden_array, 10); n_paths = sum(path_array)
+        print("# of interaction chains: {}".format(n_paths))
+        return interactions, interaction_types, n_paths
+
     def precision_recall_calculation(self, golden_array:'np.ndarray', evaluated_array:'np.ndarray'):
         tp = 0; fp = 0; fn = 0; precision = 0.0; recall = 0.0
         for index, x in np.ndenumerate(evaluated_array):
@@ -110,7 +136,7 @@ class Evaluator():
     def evaluate_discovery_accuracy(self, discovery_results:'np.ndarray', golden_frame_id:'int', golden_type:'str'):
         # Auxillary variables
         frame:'DataFrame' = self.event_processor.frame_dict[golden_frame_id]
-        var_names = frame.var_names; n_vars = len(var_names); index_device_dict:'dict[DevAttribute]' = frame.index_device_dict
+        var_names = frame.var_names; n_vars = len(var_names)
         golden_standard_array:'np.ndarray' = self.golden_standard_dict[golden_type][golden_frame_id]
 
         # 1. Plot the golden standard graph and the discovered graph. Note that the plot functionality requires PCMCI objects
@@ -119,11 +145,9 @@ class Evaluator():
         drawer.plot_interaction_graph(pcmci, discovery_results==1, 'mined-interaction-bklevel{}-alpha{}-threshold{}'\
                             .format(self.bk_level, int(1.0/self.pc_alpha), self.filter_threshold))
         drawer.plot_interaction_graph(pcmci, golden_standard_array==1, 'golden-interaction-threshold{}'.format(int(self.filter_threshold)))
-        
         assert(discovery_results.shape == golden_standard_array.shape == (n_vars, n_vars, self.tau_max + 1))
         # 2. Calculate the precision and recall for discovered results.
         tp, fp, fn, precision, recall = self.precision_recall_calculation(golden_standard_array, discovery_results)
-
         # 3. Calculate the tau-free-precision and tau-free-recall for discovered results
         tau_free_discovery_array = sum([discovery_results[:,:,tau] for tau in range(1, self.tau_max + 1)]); tau_free_discovery_array[tau_free_discovery_array > 0] = 1
         tau_free_golden_array = sum([golden_standard_array[:,:,tau] for tau in range(1, self.tau_max + 1)]); tau_free_golden_array[tau_free_golden_array > 0] = 1
@@ -131,11 +155,12 @@ class Evaluator():
         return tau_free_tp+tau_free_fn, tau_free_precision, tau_free_recall
 
     def compare_with_arm(self, discovery_results:'np.ndarray', arm_results:'np.ndarray', golden_frame_id:'int', golden_type:'str'):
-        # The shape of discovery_results is (n_vars, n_vars, tau_max), while the shape of the arm_results is (n_vars, n_vars)
         # Auxillary variables
         frame:'DataFrame' = self.event_processor.frame_dict[golden_frame_id]
         var_names = frame.var_names; n_vars = len(var_names); index_device_dict:'dict[DevAttribute]' = frame.index_device_dict
         golden_standard_array:'np.ndarray' = self.golden_standard_dict[golden_type][golden_frame_id]
+        assert(discovery_results.shape == (n_vars, n_vars, self.tau_max + 1))
+        assert(arm_results.shape == (n_vars, n_vars))
 
         # 1. Reduce discovery_results from (n_vars, n_vars, tau_max) to (n_vars, n_vars)
         tau_free_discovery_array = sum([discovery_results[:,:,tau] for tau in range(1, self.tau_max + 1)]); tau_free_discovery_array[tau_free_discovery_array > 0] = 1
@@ -147,14 +172,6 @@ class Evaluator():
         print("Causal discovery tp, fp, fn, precision, recall = {}, {}, {}, {}, {}".format(causal_tp, causal_fp, causal_fn, causal_precision, causal_recall))
         print("ARM tp, fp, fn, precision, recall = {}, {}, {}, {}, {}".format(arm_tp, arm_fp, arm_fn, arm_precision, arm_recall))
 
-    def interpret_discovery_results(self, discovery_results:'np.ndarray', golden_frame_id:'int', golden_type:'str'):
-        # Auxillary variables
-        frame:'DataFrame' = self.event_processor.frame_dict[golden_frame_id]
-        var_names = frame.var_names; index_device_dict:'dict[DevAttribute]' = frame.index_device_dict
-        golden_standard_array:'np.ndarray' = self.golden_standard_dict[golden_type][golden_frame_id]
-        # 1. Analyze the discovered device interactions
-
-        # 2. Analyze the formed device interaction chains
 
     """Function classes for anomaly detection evaluation."""
 
