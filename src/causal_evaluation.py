@@ -96,7 +96,7 @@ class Evaluator():
 
     def interpret_discovery_results(self, discovery_results:'np.ndarray', golden_frame_id:'int', golden_type:'str'):
         # Return variables
-        interactions:'list[tuple]' = []; interaction_types:'list[tuple]' = []; n_paths:'int' = 0
+        interactions:'list[tuple]' = []; interaction_types:'set' = set(); n_paths:'int' = 0
         # Auxillary variables
         frame:'DataFrame' = self.event_processor.frame_dict[golden_frame_id]
         var_names = frame.var_names; n_vars = len(var_names); index_device_dict:'dict[DevAttribute]' = frame.index_device_dict
@@ -106,17 +106,17 @@ class Evaluator():
         tau_free_discovery_array = sum([discovery_results[:,:,tau] for tau in range(1, self.tau_max + 1)]); tau_free_discovery_array[tau_free_discovery_array > 0] = 1
         tau_free_golden_array = sum([golden_standard_array[:,:,tau] for tau in range(1, self.tau_max + 1)]); tau_free_golden_array[tau_free_golden_array > 0] = 1
         discovered_golden_array = np.zeros((n_vars, n_vars))
-        assert(tau_free_discovery_array.shape == tau_free_golden_array == (n_vars, n_vars))
+        assert(tau_free_discovery_array.shape == tau_free_golden_array.shape == (n_vars, n_vars))
         for (i, j), x in np.ndenumerate(tau_free_golden_array):
             if tau_free_discovery_array[(i, j)] == x == 1:
                 interactions.append((index_device_dict[i].name, index_device_dict[j].name))
-                interaction_types.append((index_device_dict[i].name[0], index_device_dict[j].name[0]))
+                interaction_types.add((index_device_dict[i].name[0], index_device_dict[j].name[0]))
                 discovered_golden_array[(i, j)] = 1
         print("# of discovered interactions: {}".format(len(interactions)))
         print("# of interaction types and type lists: {}, {}".format(len(interaction_types), interaction_types))
 
         # 2. Analyze the formed device interaction chains.
-        path_array = np.linalg.matrix_power(discovered_golden_array, 10); n_paths = sum(path_array)
+        path_array = np.linalg.matrix_power(discovered_golden_array, 5); n_paths = np.sum(path_array)
         print("# of interaction chains: {}".format(n_paths))
         return interactions, interaction_types, n_paths
 
