@@ -96,7 +96,7 @@ class Evaluator():
 
     def interpret_discovery_results(self, discovery_results:'np.ndarray', golden_frame_id:'int', golden_type:'str'):
         # Return variables
-        interactions:'list[tuple]' = []; interaction_types:'list[tuple]' = []; n_paths = 0
+        interactions:'list[tuple]' = []; interaction_types:'list[tuple]' = []; n_paths:'int' = 0
         # Auxillary variables
         frame:'DataFrame' = self.event_processor.frame_dict[golden_frame_id]
         var_names = frame.var_names; n_vars = len(var_names); index_device_dict:'dict[DevAttribute]' = frame.index_device_dict

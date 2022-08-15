@@ -162,12 +162,14 @@ pc_consumed_time = _elapsed_minutes(pc_start)
 # 5. Evaluate the discovery accuracy
 if COMM.rank == 0:
     # 5.1 Evaluate the discovery precision and recall for different levels of background knowledge
+    interactions, interaction_types, n_paths = evaluator.interpret_discovery_results(interaction_array, golden_frame_id=frame_id, golden_type='user')
+    # 5.2 Evaluate the discovery precision and recall for different levels of background knowledge
     n_golden_edges, precision, recall = evaluator.evaluate_discovery_accuracy(interaction_array, golden_frame_id=frame_id, golden_type='user')
     print("     [Causal Discovery] # golden edges = {}, precision = {}, recall = {}"\
                         .format(n_golden_edges, precision, recall))
     print("     [Efficiency Evaluation] Consumed time for preprocessing, background, causal discovery = {}, {}, {}"\
                 .format(preprocessing_consumed_time, bk_consumed_time, pc_consumed_time))
-    # 5.2 Compare with ARM and analyze the result
+    # 5.3 Compare with ARM and analyze the result
     armer = ARMer(frame=frame, min_support=filter_threshold, min_confidence=0.3)
     association_array:'np.ndarray' = armer.association_rule_mining()
     evaluator.compare_with_arm(interaction_array, arm_results=association_array, golden_frame_id=frame_id, golden_type='user')
