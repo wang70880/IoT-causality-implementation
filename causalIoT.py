@@ -111,7 +111,7 @@ if COMM.rank == 0:
 bg_start=time()
 background_generator = BackgroundGenerator(event_preprocessor, tau_max, filter_threshold)
 selected_variables = list(range(n_vars))
-selected_links = background_generator.generate_candidate_interactions(bk_level, frame_id, n_vars) # Get candidate interactions
+selected_links, candidate_matrix = background_generator.generate_candidate_interactions(bk_level, frame_id, n_vars) # Get candidate interactions
 n_candidate_edges = 0
 for worker_index, link_dict in selected_links.items():
     n_candidate_edges += sum([len(cause_list) for cause_list in link_dict.values()])

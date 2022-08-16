@@ -207,4 +207,12 @@ class BackgroundGenerator():
         if apply_bk >= 2:
             selected_links = self.apply_background_knowledge(selected_links, 'spatial', frame_id)
             selected_links = self.apply_background_knowledge(selected_links, 'functionality', frame_id)
-        return selected_links
+        
+        # Transform the selected_links to a matrix form
+        candidate_matrix = np.zeros((N, N, self.tau_max+1))
+        for index, link_dict in selected_links.items():
+            for outcome, causes in link_dict.items():
+                for (cause, lag) in causes:
+                    candidate_matrix[(cause, outcome, abs(lag))] = 1
+
+        return selected_links, candidate_matrix
