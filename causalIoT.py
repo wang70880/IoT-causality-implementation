@@ -163,7 +163,7 @@ if COMM.rank == 0:
     for outcome, filtered_edges_dict in filtered_edges.items(): # collect information of filtered edges
         for edge, edge_infos in filtered_edges_dict.items():
                 tupled_filtered_edges[outcome].append((edge, edge_infos['conds'], edge_infos['val'], edge_infos['pval']))
-        print("Filtered edges for outcome {}: {}",format(outcome, tupled_filtered_edges[outcome]))
+        print("Filtered edges for outcome {}: {}".format(outcome, tupled_filtered_edges[outcome]))
     for outcome_id, cause_list in all_parents.items():
         for (cause_id, lag) in cause_list:
             all_parents_with_name[index_device_dict[outcome_id].name] = (index_device_dict[cause_id].name, lag)
