@@ -119,7 +119,7 @@ class Evaluator():
         print("# of interaction types and type lists: {}, {}".format(len(interaction_types), interaction_types))
 
         # 2. Analyze the formed device interaction chains.
-        path_array = np.linalg.matrix_power(discovered_golden_array, 5); n_paths = np.sum(path_array)
+        path_array = np.linalg.matrix_power(discovered_golden_array, 3); n_paths = np.sum(path_array)
         print("# of interaction chains: {}".format(n_paths))
         return interactions, interaction_types, n_paths
 

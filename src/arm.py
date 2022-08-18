@@ -29,7 +29,7 @@ class ARMer():
                 if len(transaction) > 0:
                     transactions.append(transaction)
         elif mode == 1: # Fixed number of records (say 5)
-            cut_threshold = 50
+            cut_threshold = 100
             count = 0; transaction = set()
             for (event, states) in training_events_states:
                 if count > cut_threshold:

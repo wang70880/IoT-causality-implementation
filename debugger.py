@@ -45,7 +45,7 @@ class DataDebugger():
         frame:'DataFrame' = self.preprocessor.frame_dict[frame_id]
         var_names = frame.var_names; n_vars = len(var_names)
         for bk_level in [0, 1, 2]:
-            print("Current bk-level: {}".format(bk_level))
+            #print("Current bk-level: {}".format(bk_level))
             # 1. Derive the golden interaction matrix and the candidate matrix.
             evaluator = Evaluator(self.preprocessor, self.background_generator, None, bk_level, self.alpha, self.filter_threshold)
             golden_interaction_matrix:'np.ndarray' = evaluator.golden_standard_dict[int_type][frame_id]
@@ -54,8 +54,6 @@ class DataDebugger():
             # 2. Suppress these two matrices, since we do not care the time lag for now
             tau_free_golden_array = sum([golden_interaction_matrix[:,:,tau] for tau in range(1, self.tau_max + 1)]); tau_free_golden_array[tau_free_golden_array > 0] = 1
             tau_free_candidate_array = sum([candidate_matrix[:,:,tau] for tau in range(1, self.tau_max + 1)]); tau_free_candidate_array[tau_free_candidate_array > 0] = 1
-            print(tau_free_golden_array)
-            print(tau_free_candidate_array)
             # 3. Verify whether the candidate matrix should contain golden interaction matrix
             for index, x in np.ndenumerate(tau_free_golden_array):
                 if x == 1:
@@ -401,11 +399,11 @@ class EvaluationResultRepo():
 
             (1, 0.00001):{'precision':0.804, 'recall':0.881, 'n_edges':104, 'consumed_time':1.59},
             (1, 0.001): {'precision':0.809, 'recall':0.905, 'n_edges':105, 'consumed_time':1.601},
-            (1, 0.1):  {'precision':0.82, 'recall':0.976, 'n_edges':106, 'consumed_time':1.644},
+            (1, 0.1):  {'precision':0.817, 'recall':0.952, 'n_edges':106, 'consumed_time':1.644},
 
             (2, 0.00001): {'precision':1.0, 'recall':0.881, 'n_edges':96, 'consumed_time':1.303},
             (2, 0.001): {'precision':1.0, 'recall':0.905, 'n_edges':97, 'consumed_time':1.291},
-            (2, 0.1): {'precision':1.0, 'recall':0.980, 'n_edges':106, 'consumed_time':1.479}
+            (2, 0.1): {'precision':1.0, 'recall':0.952, 'n_edges':106, 'consumed_time':1.479}
         }
         precision_lists = [[bk_alpha_results_dict[(bk, alpha)]['precision']\
                             for bk in range(0, 3) ] for alpha in [0.00001, 0.001, 0.1]]
@@ -420,8 +418,7 @@ if __name__ == '__main__':
     dataset = 'hh130'; partition_days = 100; filter_threshold = 100; training_ratio = 0.8; tau_max = 3
     alpha = 0.1; int_frame_id = 0; int_type = 'user'; analyze_golden_standard=False
     data_debugger = DataDebugger(dataset, partition_days, filter_threshold, training_ratio, tau_max, alpha)
-    data_debugger.validate_background_knowledge()
-    exit()
+    #data_debugger.validate_background_knowledge()
 
     # 1. Verify causal sufficiency assumptions on the dataset
     #data_debugger.analyze_golden_standard(int_frame_id, int_type)

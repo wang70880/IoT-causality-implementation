@@ -1,3 +1,4 @@
+from email.policy import default
 import os, sys, pickle
 #os.environ["KMP_DUPLICATE_LIB_OK"]='TRUE'
 import statistics
@@ -72,6 +73,7 @@ def _run_pc_stable_parallel(j, dataframe, cond_ind_test, selected_links,\
         selected_links=selected_links[j],
         tau_min=tau_min,
         tau_max=tau_max,
+        save_iterations=True,
         pc_alpha=pc_alpha,
         max_combinations=maximum_comb,
         max_conds_dim=max_conds_dim
@@ -123,14 +125,14 @@ if COMM.rank == 0:
 evaluator = Evaluator(event_preprocessor, background_generator, None, bk_level, pc_alpha, filter_threshold=1) # As long as two adjacent devices are sequentially activated once, it will be counted as a golden interaction.
 
 # 4. Initiate parallel causal discovery
-    # 4.1 Scatter the jobs
+## 4.1 Scatter the jobs
 pc_start = time()
 splitted_jobs = None
 results = []
 if COMM.rank == 0:
     splitted_jobs = _split(selected_variables, COMM.size)
 scattered_jobs = COMM.scatter(splitted_jobs, root=0)
-    # 4.2 Initiate parallel causal discovery, and generate the interaction dict (all_parents_with_name)
+## 4.2 Initiate parallel causal discovery, and generate the interaction dict (all_parents_with_name)
 cond_ind_test = ChiSquare()
 for j in scattered_jobs:
     (j, pcmci_of_j, parents_of_j) = _run_pc_stable_parallel(j=j, dataframe=dataframe, cond_ind_test=cond_ind_test,\
@@ -142,35 +144,41 @@ for j in scattered_jobs:
     #    filtered_parents_of_j[j] = filtered_parents_of_j[j][0: n_edges]
     results.append((j, pcmci_of_j, filtered_parents_of_j))
 results = MPI.COMM_WORLD.gather(results, root=0)
+pc_consumed_time = _elapsed_minutes(pc_start)
 
-    # 4.3 Gather the distributed pc-discovery result, and transform the result into a binary array (interaction_array)
+## 4.3 Gather the distributed pc-discovery result, and collect information of filtered edges
 if COMM.rank == 0:
     n_discovered_edges = 0; interaction_array:'np.ndarray' = np.zeros((n_vars, n_vars, tau_max + 1), dtype=np.int8)
     index_device_dict:'dict[DevAttribute]' = event_preprocessor.index_device_dict
     all_parents = {}; pcmci_objects = {}; all_parents_with_name = {}
+    filtered_edges = defaultdict(list)
     for res in results:
         for (j, pcmci_of_j, parents_of_j) in res:
             all_parents[j] = parents_of_j[j]
             pcmci_objects[j] = pcmci_of_j
+    for j, pcmci_of_j in pcmci_objects.items():
+        worker_filtered_edges = pcmci_of_j.filtered_edges
+        for outcome_index, filtered_edges_dict in worker_filtered_edges.items():
+            for edge, edge_infos in filtered_edges_dict.items():
+                filtered_edges[outcome_index].append((edge, edge_infos['conds'], edge_infos['val'], edge_infos['pval']))
     for outcome_id, cause_list in all_parents.items():
         for (cause_id, lag) in cause_list:
             all_parents_with_name[index_device_dict[outcome_id].name] = (index_device_dict[cause_id].name, lag)
             interaction_array[cause_id, outcome_id, abs(lag)] = 1
             n_discovered_edges += 1
-pc_consumed_time = _elapsed_minutes(pc_start)
 
 # 5. Evaluate the discovery accuracy
 if COMM.rank == 0:
-    # 5.1 Evaluate the discovery precision and recall for different levels of background knowledge
+## 5.1 Evaluate the discovery precision and recall for different levels of background knowledge
     interactions, interaction_types, n_paths = evaluator.interpret_discovery_results(interaction_array, golden_frame_id=frame_id, golden_type='user')
-    # 5.2 Evaluate the discovery precision and recall for different levels of background knowledge
+## 5.2 Evaluate the discovery precision and recall for different levels of background knowledge
     n_golden_edges, precision, recall = evaluator.evaluate_discovery_accuracy(interaction_array, golden_frame_id=frame_id, golden_type='user')
     print("     [Causal Discovery] # golden edges = {}, precision = {}, recall = {}"\
                         .format(n_golden_edges, precision, recall))
     print("     [Efficiency Evaluation] Consumed time for preprocessing, background, causal discovery = {}, {}, {}"\
                 .format(preprocessing_consumed_time, bk_consumed_time, pc_consumed_time))
     # 5.3 Compare with ARM and analyze the result
-    armer = ARMer(frame=frame, min_support=filter_threshold, min_confidence=0.3)
+    armer = ARMer(frame=frame, min_support=filter_threshold, min_confidence=1.0-pc_alpha)
     association_array:'np.ndarray' = armer.association_rule_mining()
     evaluator.compare_with_arm(interaction_array, arm_results=association_array, golden_frame_id=frame_id, golden_type='user')
     # 5.3 Efficiency analysis
