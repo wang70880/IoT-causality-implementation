@@ -117,9 +117,9 @@ selected_links, candidate_matrix = background_generator.generate_candidate_inter
 n_candidate_edges = 0
 for worker_index, link_dict in selected_links.items():
     n_candidate_edges += sum([len(cause_list) for cause_list in link_dict.values()])
-    for outcome, cause_list in link_dict.items():
-        if len(cause_list) > 0:
-            print("# of candidate edges for outcome {}: {} (Responsible worker: {})".format(outcome, len(cause_list), worker_index))
+    #for outcome, cause_list in link_dict.items():
+    #    if len(cause_list) > 0:
+    #        print("# of candidate edges for outcome {}: {} (Responsible worker: {})".format(outcome, len(cause_list), worker_index))
 bk_consumed_time = _elapsed_minutes(bg_start)
 if COMM.rank == 0:
     print("     [Background Integration] # candidate edges = {}".format(n_candidate_edges))
@@ -154,7 +154,7 @@ if COMM.rank == 0:
     n_discovered_edges = 0; interaction_array:'np.ndarray' = np.zeros((n_vars, n_vars, tau_max + 1), dtype=np.int8)
     index_device_dict:'dict[DevAttribute]' = event_preprocessor.index_device_dict
     all_parents = {}; pcmci_objects = {}; all_parents_with_name = {}
-    filtered_edges = {}; tupled_filtered_edges = defaultdict(list)
+    filtered_edges = {}; filtered_edge_infos = defaultdict(list)
     for res in results:
         for (j, pcmci_of_j, parents_of_j) in res:
             all_parents[j] = parents_of_j[j]
@@ -162,14 +162,14 @@ if COMM.rank == 0:
             filtered_edges[j] = pcmci_of_j.filtered_edges[j]
     for outcome, filtered_edges_dict in filtered_edges.items(): # collect information of filtered edges
         for edge, edge_infos in filtered_edges_dict.items():
-                tupled_filtered_edges[outcome].append((edge, edge_infos['conds'], edge_infos['val'], edge_infos['pval']))
-        print("Filtered edges for outcome {}: {}".format(outcome, tupled_filtered_edges[outcome]))
+                filtered_edge_infos[outcome].append((edge, edge_infos['conds'], edge_infos['val'], edge_infos['pval']))
+        #print("# filtered edges for outcome {}: {}, {}".format(outcome, len(tupled_filtered_edges[outcome]), tupled_filtered_edges[outcome]))
     for outcome_id, cause_list in all_parents.items():
         for (cause_id, lag) in cause_list:
             all_parents_with_name[index_device_dict[outcome_id].name] = (index_device_dict[cause_id].name, lag)
             interaction_array[cause_id, outcome_id, abs(lag)] = 1
             n_discovered_edges += 1
-        print("Number of edges for outcome {}: {}".format(outcome_id, len(cause_list)))
+        #print("# discovered edges for outcome {}: {}".format(outcome_id, len(cause_list)))
 
 # 5. Evaluate the discovery accuracy
 if COMM.rank == 0:
@@ -184,7 +184,8 @@ if COMM.rank == 0:
     # 5.3 Compare with ARM and analyze the result
     armer = ARMer(frame=frame, min_support=filter_threshold, min_confidence=1.0-pc_alpha)
     association_array:'np.ndarray' = armer.association_rule_mining()
-    evaluator.compare_with_arm(interaction_array, arm_results=association_array, golden_frame_id=frame_id, golden_type='user')
+    evaluator.compare_with_arm(discovery_results=interaction_array, filtered_edge_infos=filtered_edge_infos, arm_results=association_array,\
+                                    golden_frame_id=frame_id, golden_type='user')
     # 5.3 Efficiency analysis
 exit()
 

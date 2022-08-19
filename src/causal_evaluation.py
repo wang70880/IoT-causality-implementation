@@ -157,7 +157,7 @@ class Evaluator():
         tau_free_tp, tau_free_fp, tau_free_fn, tau_free_precision, tau_free_recall = self.precision_recall_calculation(tau_free_golden_array, tau_free_discovery_array)
         return tau_free_tp+tau_free_fn, tau_free_precision, tau_free_recall
 
-    def compare_with_arm(self, discovery_results:'np.ndarray', arm_results:'np.ndarray', golden_frame_id:'int', golden_type:'str'):
+    def compare_with_arm(self, discovery_results:'np.ndarray', filtered_edge_infos:'defaultdict(list)', arm_results:'np.ndarray', golden_frame_id:'int', golden_type:'str'):
         # Auxillary variables
         frame:'DataFrame' = self.event_processor.frame_dict[golden_frame_id]
         var_names = frame.var_names; n_vars = len(var_names); index_device_dict:'dict[DevAttribute]' = frame.index_device_dict
@@ -168,6 +168,7 @@ class Evaluator():
         # 1. Reduce discovery_results from (n_vars, n_vars, tau_max) to (n_vars, n_vars)
         tau_free_discovery_array = sum([discovery_results[:,:,tau] for tau in range(1, self.tau_max + 1)]); tau_free_discovery_array[tau_free_discovery_array > 0] = 1
         tau_free_golden_array = sum([golden_standard_array[:,:,tau] for tau in range(1, self.tau_max + 1)]); tau_free_golden_array[tau_free_golden_array > 0] = 1
+        assert(tau_free_discovery_array.shape == tau_free_golden_array.shape == (n_vars, n_vars))
 
         # 2. Calculate the discovery accuracy for ARM and our algorithm, respectively
         causal_tp, causal_fp, causal_fn, causal_precision, causal_recall = self.precision_recall_calculation(tau_free_golden_array, tau_free_discovery_array)
@@ -175,6 +176,24 @@ class Evaluator():
         print("Causal discovery tp, fp, fn, precision, recall = {}, {}, {}, {}, {}".format(causal_tp, causal_fp, causal_fn, causal_precision, causal_recall))
         print("ARM tp, fp, fn, precision, recall = {}, {}, {}, {}, {}".format(arm_tp, arm_fp, arm_fn, arm_precision, arm_recall))
 
+        # 3. Analyze the situations of PC-filtered edges in ARM results
+        removed_common_parent_associations = []; removed_chained_associations = []
+        ## 3.1 Identify the set of deducted associations with common links
+        for cause in range(n_vars):
+            outcomes = [outcome for outcome in range(n_vars) if tau_free_discovery_array[(cause, outcome)]==tau_free_golden_array[(cause, outcome)]==1 and outcome != cause]
+            candidate_pairs = list(itertools.permutations(outcomes, 2))
+            removed_common_parent_associations += [pair for pair in candidate_pairs\
+                            if tau_free_discovery_array[pair]==tau_free_golden_array[pair]==0]
+        ## 3.2 Identify the set of deducted associations with intermediate variables
+        for cause in range(n_vars):
+            outcomes = [outcome for outcome in range(n_vars) if tau_free_discovery_array[(cause, outcome)]==tau_free_golden_array[(cause, outcome)]==1 and outcome != cause]
+            for outcome in outcomes:
+                further_outcomes = [further_outcome for further_outcome in range(n_vars) if tau_free_discovery_array[(outcome, further_outcome)]==tau_free_golden_array[(outcome, further_outcome)]==1 and further_outcome != outcome]
+                removed_chained_associations += [further_outcome for further_outcome in further_outcomes if tau_free_discovery_array[(cause, further_outcome)]==tau_free_golden_array[(cause, further_outcome)]==0]
+        ## 3.3 For each removed spurious associations, check its existence in the ARM array
+        n_spurious_cp_associations = len([spurious_link for spurious_link in removed_common_parent_associations if arm_results[spurious_link] == 1])
+        n_spurious_chained_associations = len([spurious_link for spurious_link in removed_chained_associations if arm_results[spurious_link] == 1])
+        print("Compared with ARM, causalIoT removes {} spurious common-parent edges and {} spurious chained edges.".format(n_spurious_cp_associations, n_spurious_chained_associations))
 
     """Function classes for anomaly detection evaluation."""
 
