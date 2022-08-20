@@ -11,7 +11,7 @@ evaluate_discovery_process() {
             for pc_alpha in ${pc_alphas[@]}; do
                 for filter_threshold in ${filter_thresholds[@]}; do
                     mpiexec -n 8 python -u causalIoT.py ${dataset} \
-                                                       ${partition_days} ${training_ratio} \
+                                                       ${partition_day} ${training_ratio} \
                                                        ${tau_max} ${filter_threshold} ${bk_level} \
                                                        ${pc_alpha} ${max_conds_dim} ${max_comb} &>> discovery_evaluation.txt </dev/null
                 done
