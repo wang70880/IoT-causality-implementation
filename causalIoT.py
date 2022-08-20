@@ -177,16 +177,19 @@ if COMM.rank == 0:
     interactions, interaction_types, n_paths = evaluator.interpret_discovery_results(interaction_array, golden_frame_id=frame_id, golden_type='user')
 ## 5.2 Evaluate the discovery precision and recall for different levels of background knowledge
     n_golden_edges, precision, recall = evaluator.evaluate_discovery_accuracy(interaction_array, golden_frame_id=frame_id, golden_type='user')
-    print("     [Causal Discovery] # golden edges = {}, precision = {}, recall = {}"\
+    print("     [Causal Discovery Evaluation] # golden edges = {}, precision = {}, recall = {}"\
                         .format(n_golden_edges, precision, recall))
-    print("     [Efficiency Evaluation] Consumed time for preprocessing, background, causal discovery = {}, {}, {}"\
+    print("     [Causal Discovery Evaluation] Consumed time for preprocessing, background, causal discovery = {}, {}, {}"\
                 .format(preprocessing_consumed_time, bk_consumed_time, pc_consumed_time))
     # 5.3 Compare with ARM and analyze the result
+    arm_start = time()
     armer = ARMer(frame=frame, min_support=filter_threshold, min_confidence=1.0-pc_alpha)
     association_array:'np.ndarray' = armer.association_rule_mining()
-    evaluator.compare_with_arm(discovery_results=interaction_array, filtered_edge_infos=filtered_edge_infos, arm_results=association_array,\
+    arm_consumed_time = _elapsed_minutes(arm_start)
+    print("     [Causal Discovery Evaluation] Consumed time for Association Rule Mining is {}".format(arm_consumed_time))
+    evaluator.compare_with_arm(discovery_results=interaction_array, arm_results=association_array,\
                                     golden_frame_id=frame_id, golden_type='user')
-    # 5.3 Efficiency analysis
+## 5.3 Efficiency analysis
 exit()
 
 # After parallel causal discovery is finished, only RANK-0 process is kept.

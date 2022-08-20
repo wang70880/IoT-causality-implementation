@@ -157,7 +157,7 @@ class Evaluator():
         tau_free_tp, tau_free_fp, tau_free_fn, tau_free_precision, tau_free_recall = self.precision_recall_calculation(tau_free_golden_array, tau_free_discovery_array)
         return tau_free_tp+tau_free_fn, tau_free_precision, tau_free_recall
 
-    def compare_with_arm(self, discovery_results:'np.ndarray', filtered_edge_infos:'defaultdict(list)', arm_results:'np.ndarray', golden_frame_id:'int', golden_type:'str'):
+    def compare_with_arm(self, discovery_results:'np.ndarray', arm_results:'np.ndarray', golden_frame_id:'int', golden_type:'str'):
         # Auxillary variables
         frame:'DataFrame' = self.event_processor.frame_dict[golden_frame_id]
         var_names = frame.var_names; n_vars = len(var_names); index_device_dict:'dict[DevAttribute]' = frame.index_device_dict
