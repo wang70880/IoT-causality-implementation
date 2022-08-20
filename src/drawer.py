@@ -49,6 +49,17 @@ class Drawer():
         plt.title('{} of interaction mining for {}'.format(y_label, self.dataset))
         plt.savefig('{}/{}_discovery_{}.pdf'.format(self.image_path, self.dataset, y_label))
         plt.close('all')
+    
+    def draw_line_chart(self, x_list, y_lists, legends, x_label, y_label):
+        assert(len(y_lists) == len(legends)) 
+        for i in range(len(y_lists)):
+            col = (np.random.random(), np.random.random(), np.random.random())
+            plt.plot(x_list, y_lists[i], label=legends[i], color=col)
+        plt.xlabel(x_label)
+        plt.ylabel(y_label)
+        plt.legend(loc='best')
+        plt.savefig('{}/{}_{}_{}.pdf'.format(self.image_path, self.dataset, x_label, y_label))
+        plt.close('all')
 
     def plot_interaction_graph(self, pcmci:'PCMCI', contingency_array:'np.ndarray', fname='default', link_label_fontsize=0):
         var_names = pcmci.var_names

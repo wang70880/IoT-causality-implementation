@@ -20,7 +20,6 @@ evaluate_discovery_process() {
     done
 }
 
-
 ## Data preprocessing
 dataset="hh130"; preprocessing_verbosity=0
 ## Data loading
