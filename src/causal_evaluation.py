@@ -146,8 +146,9 @@ class Evaluator():
         drawer = Drawer(self.event_processor.dataset)
         pcmci = PCMCI(dataframe=frame.training_dataframe, cond_ind_test=ChiSquare(), verbosity=-1)
         drawer.plot_interaction_graph(pcmci, discovery_results==1, 'mined-interaction-bklevel{}-alpha{}-threshold{}'\
-                            .format(self.bk_level, int(1.0/self.pc_alpha), self.filter_threshold))
-        drawer.plot_interaction_graph(pcmci, golden_standard_array==1, 'golden-interaction-threshold{}'.format(int(self.filter_threshold)))
+                            .format(self.bk_level, int(1.0/self.pc_alpha), self.filter_threshold), link_label_fontsize=10)
+        drawer.plot_interaction_graph(pcmci, golden_standard_array==1, 'golden-interaction-threshold{}'\
+                                        .format(int(self.filter_threshold)))
         assert(discovery_results.shape == golden_standard_array.shape == (n_vars, n_vars, self.tau_max + 1))
         # 2. Calculate the precision and recall for discovered results.
         tp, fp, fn, precision, recall = self.precision_recall_calculation(golden_standard_array, discovery_results)

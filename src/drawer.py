@@ -50,7 +50,7 @@ class Drawer():
         plt.savefig('{}/{}_discovery_{}.pdf'.format(self.image_path, self.dataset, y_label))
         plt.close('all')
 
-    def plot_interaction_graph(self, pcmci:'PCMCI', contingency_array:'np.ndarray', fname='default'):
+    def plot_interaction_graph(self, pcmci:'PCMCI', contingency_array:'np.ndarray', fname='default', link_label_fontsize=0):
         var_names = pcmci.var_names
         tp.plot_graph(
             figsize=(8, 6),
@@ -60,7 +60,7 @@ class Drawer():
             vmax_edges=1.0,
             node_colorbar_label="auto-G^2",
             link_colorbar_label='G^2',
-            link_label_fontsize=0,
+            link_label_fontsize=link_label_fontsize,
             show_colorbar=False
         )
         plt.savefig("{}/{}.pdf".format(self.image_path, fname), bbox_inches='tight')
