@@ -182,18 +182,24 @@ class Evaluator():
         for cause in range(n_vars):
             outcomes = [outcome for outcome in range(n_vars) if tau_free_discovery_array[(cause, outcome)]==tau_free_golden_array[(cause, outcome)]==1 and outcome != cause]
             candidate_pairs = list(itertools.permutations(outcomes, 2))
-            removed_common_parent_associations += [pair for pair in candidate_pairs\
+            removed_common_parent_associations += [(pair[0], pair[1], cause) for pair in candidate_pairs\
                             if tau_free_discovery_array[pair]==tau_free_golden_array[pair]==0]
         ## 3.2 Identify the set of deducted associations with intermediate variables
         for cause in range(n_vars):
             outcomes = [outcome for outcome in range(n_vars) if tau_free_discovery_array[(cause, outcome)]==tau_free_golden_array[(cause, outcome)]==1 and outcome != cause]
             for outcome in outcomes:
                 further_outcomes = [further_outcome for further_outcome in range(n_vars) if tau_free_discovery_array[(outcome, further_outcome)]==tau_free_golden_array[(outcome, further_outcome)]==1 and further_outcome != outcome]
-                removed_chained_associations += [(cause, further_outcome) for further_outcome in further_outcomes if tau_free_discovery_array[(cause, further_outcome)]==tau_free_golden_array[(cause, further_outcome)]==0]
+                removed_chained_associations += [(cause, further_outcome, outcome) for further_outcome in further_outcomes if tau_free_discovery_array[(cause, further_outcome)]==tau_free_golden_array[(cause, further_outcome)]==0]
         ## 3.3 For each removed spurious associations, check its existence in the ARM array
-        n_spurious_cp_associations = len([spurious_link for spurious_link in removed_common_parent_associations if arm_results[spurious_link] == 1])
-        n_spurious_chained_associations = len([spurious_link for spurious_link in removed_chained_associations if arm_results[spurious_link] == 1])
+        spurious_cp_associations = [spurious_link for spurious_link in removed_common_parent_associations if arm_results[(spurious_link[0],spurious_link[1])] == 1]
+        spurious_chained_associations = [spurious_link for spurious_link in removed_chained_associations if arm_results[(spurious_link[0],spurious_link[1])] == 1]
+        n_spurious_cp_associations = len(spurious_cp_associations); n_spurious_chained_associations = len(spurious_chained_associations)
         print("Compared with ARM, causalIoT removes {} spurious common-parent edges and {} spurious chained edges.".format(n_spurious_cp_associations, n_spurious_chained_associations))
+        example_str = 'Example spurious cp associations:\n' + ','.join(['{}<-{}->{}'.format(spurious_cp_association[0], spurious_cp_association[2], spurious_cp_association[1])\
+                                                for spurious_cp_association in spurious_cp_associations]) + '\n'
+        example_str += 'Example spurious chained associations:\n' + ','.join(['{}->{}->{}'.format(spurious_chained_association[0], spurious_chained_association[2], spurious_chained_association[1])\
+                                                for spurious_chained_association in spurious_chained_associations]) + '\n'
+        print(example_str)
 
     """Function classes for anomaly detection evaluation."""
 
