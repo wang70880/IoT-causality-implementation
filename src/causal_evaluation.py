@@ -195,9 +195,9 @@ class Evaluator():
         spurious_chained_associations = [spurious_link for spurious_link in removed_chained_associations if arm_results[(spurious_link[0],spurious_link[1])] == 1]
         n_spurious_cp_associations = len(spurious_cp_associations); n_spurious_chained_associations = len(spurious_chained_associations)
         print("Compared with ARM, causalIoT removes {} spurious common-parent edges and {} spurious chained edges.".format(n_spurious_cp_associations, n_spurious_chained_associations))
-        example_str = 'Example spurious cp associations:\n' + ','.join(['{}<-{}->{}'.format(spurious_cp_association[0], spurious_cp_association[2], spurious_cp_association[1])\
+        example_str = 'Example spurious cp associations:\n' + ','.join(['{}<-{}->{}'.format(index_device_dict[spurious_cp_association[0]].name, index_device_dict[spurious_cp_association[2]].name, index_device_dict[spurious_cp_association[1]].name)\
                                                 for spurious_cp_association in spurious_cp_associations]) + '\n'
-        example_str += 'Example spurious chained associations:\n' + ','.join(['{}->{}->{}'.format(spurious_chained_association[0], spurious_chained_association[2], spurious_chained_association[1])\
+        example_str += 'Example spurious chained associations:\n' + ','.join(['{}->{}->{}'.format(index_device_dict[spurious_chained_association[0]].name, index_device_dict[spurious_chained_association[2]].name, index_device_dict[spurious_chained_association[1]].name)\
                                                 for spurious_chained_association in spurious_chained_associations]) + '\n'
         print(example_str)
 
