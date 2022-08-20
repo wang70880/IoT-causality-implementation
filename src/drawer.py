@@ -60,6 +60,7 @@ class Drawer():
             vmax_edges=1.0,
             node_colorbar_label="auto-G^2",
             link_colorbar_label='G^2',
+            link_label_fontsize=0,
             show_colorbar=False
         )
         plt.savefig("{}/{}.pdf".format(self.image_path, fname), bbox_inches='tight')

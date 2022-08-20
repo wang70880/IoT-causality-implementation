@@ -125,7 +125,7 @@ if COMM.rank == 0:
     print("     [Background Integration] # candidate edges = {}".format(n_candidate_edges))
 
 # 3. Construct the golden standard.
-evaluator = Evaluator(event_preprocessor, background_generator, None, bk_level, pc_alpha, filter_threshold=1) # As long as two adjacent devices are sequentially activated once, it will be counted as a golden interaction.
+evaluator = Evaluator(event_preprocessor, background_generator, None, bk_level, pc_alpha, filter_threshold=filter_threshold) # As long as two adjacent devices are sequentially activated once, it will be counted as a golden interaction.
 
 # 4. Initiate parallel causal discovery
 ## 4.1 Scatter the jobs
