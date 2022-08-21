@@ -134,7 +134,8 @@ class Evaluator():
                 fn += 1
         precision = tp * 1.0 / (tp + fp) if (tp+fp) != 0 else 0
         recall = tp * 1.0 / (tp + fn) if (tp+fn) != 0 else 0
-        return tp, fp, fn, precision, recall
+        f1_score = 2.0*precision*recall / (precision+recall) if (precision+recall) != 0 else 0
+        return tp, fp, fn, precision, recall, f1_score
 
     def evaluate_discovery_accuracy(self, discovery_results:'np.ndarray', golden_frame_id:'int', golden_type:'str'):
         # Auxillary variables
@@ -151,12 +152,12 @@ class Evaluator():
                                         .format(int(self.filter_threshold)))
         assert(discovery_results.shape == golden_standard_array.shape == (n_vars, n_vars, self.tau_max + 1))
         # 2. Calculate the precision and recall for discovered results.
-        tp, fp, fn, precision, recall = self.precision_recall_calculation(golden_standard_array, discovery_results)
+        tp, fp, fn, precision, recall, f1 = self.precision_recall_calculation(golden_standard_array, discovery_results)
         # 3. Calculate the tau-free-precision and tau-free-recall for discovered results
         tau_free_discovery_array = sum([discovery_results[:,:,tau] for tau in range(1, self.tau_max + 1)]); tau_free_discovery_array[tau_free_discovery_array > 0] = 1
         tau_free_golden_array = sum([golden_standard_array[:,:,tau] for tau in range(1, self.tau_max + 1)]); tau_free_golden_array[tau_free_golden_array > 0] = 1
-        tau_free_tp, tau_free_fp, tau_free_fn, tau_free_precision, tau_free_recall = self.precision_recall_calculation(tau_free_golden_array, tau_free_discovery_array)
-        return tau_free_tp+tau_free_fn, tau_free_precision, tau_free_recall
+        tau_free_tp, tau_free_fp, tau_free_fn, tau_free_precision, tau_free_recall, tau_free_f1 = self.precision_recall_calculation(tau_free_golden_array, tau_free_discovery_array)
+        return tau_free_tp+tau_free_fn, tau_free_precision, tau_free_recall, tau_free_f1
 
     def compare_with_arm(self, discovery_results:'np.ndarray', arm_results:'np.ndarray', golden_frame_id:'int', golden_type:'str'):
         # Auxillary variables
@@ -172,10 +173,10 @@ class Evaluator():
         assert(tau_free_discovery_array.shape == tau_free_golden_array.shape == (n_vars, n_vars))
 
         # 2. Calculate the discovery accuracy for ARM and our algorithm, respectively
-        causal_tp, causal_fp, causal_fn, causal_precision, causal_recall = self.precision_recall_calculation(tau_free_golden_array, tau_free_discovery_array)
-        arm_tp, arm_fp, arm_fn, arm_precision, arm_recall = self.precision_recall_calculation(tau_free_golden_array, arm_results)
-        print("Causal discovery tp, fp, fn, precision, recall = {}, {}, {}, {}, {}".format(causal_tp, causal_fp, causal_fn, causal_precision, causal_recall))
-        print("ARM tp, fp, fn, precision, recall = {}, {}, {}, {}, {}".format(arm_tp, arm_fp, arm_fn, arm_precision, arm_recall))
+        causal_tp, causal_fp, causal_fn, causal_precision, causal_recall, causal_f1 = self.precision_recall_calculation(tau_free_golden_array, tau_free_discovery_array)
+        arm_tp, arm_fp, arm_fn, arm_precision, arm_recall, arm_f1 = self.precision_recall_calculation(tau_free_golden_array, arm_results)
+        print("Causal discovery tp, fp, fn, precision, recall, f1 = {}, {}, {}, {}, {}, {}".format(causal_tp, causal_fp, causal_fn, causal_precision, causal_recall, causal_f1))
+        print("ARM tp, fp, fn, precision, recall, f1 = {}, {}, {}, {}, {}, {}".format(arm_tp, arm_fp, arm_fn, arm_precision, arm_recall, arm_f1))
 
         # 3. Analyze the situations of PC-filtered edges in ARM results
         removed_common_parent_associations = []; removed_chained_associations = []

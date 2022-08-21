@@ -176,9 +176,9 @@ if COMM.rank == 0:
 ## 5.1 Evaluate the discovery precision and recall for different levels of background knowledge
     interactions, interaction_types, n_paths = evaluator.interpret_discovery_results(interaction_array, golden_frame_id=frame_id, golden_type='user')
 ## 5.2 Evaluate the discovery precision and recall for different levels of background knowledge
-    n_golden_edges, precision, recall = evaluator.evaluate_discovery_accuracy(interaction_array, golden_frame_id=frame_id, golden_type='user')
-    print("     [Causal Discovery Evaluation] # golden edges = {}, precision = {}, recall = {}"\
-                        .format(n_golden_edges, precision, recall))
+    n_golden_edges, precision, recall, f1 = evaluator.evaluate_discovery_accuracy(interaction_array, golden_frame_id=frame_id, golden_type='user')
+    print("     [Causal Discovery Evaluation] # golden edges = {}, precision = {}, recall = {}, f1 = {}"\
+                        .format(n_golden_edges, precision, recall, f1))
     print("     [Causal Discovery Evaluation] Consumed time for preprocessing, background, causal discovery = {}, {}, {}"\
                 .format(preprocessing_consumed_time, bk_consumed_time, pc_consumed_time))
     # 5.3 Compare with ARM and analyze the result
