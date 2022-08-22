@@ -56,7 +56,7 @@ class Evaluator():
         # 2. Temporal requirement verification: For any two devices, they should be sequentially triggered at least once.
         frequency_matrix = np.zeros((n_vars, n_vars, self.tau_max + 1), dtype=np.int32)
         # 2.1 JC TODO: Count the frequency pair in the whole dataset, and normalize it.
-        frame: 'DataFrame' = frame_dict['all']
+        frame:'DataFrame' = frame_dict['all']
         training_events:'list[AttrEvent]' = [tup[0] for tup in frame.training_events_states] 
         last_act_dev = None; interval = 0
         for event in training_events:
