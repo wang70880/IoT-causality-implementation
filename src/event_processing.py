@@ -33,92 +33,6 @@ class Processor:
 		self.instrumented_automation_rule_dict: 'dict[str, str]' = {}
 		self.true_interactions_dict: 'dict[str, np.ndarray]' = {}
 
-		# Inferred variables
-		# self.device_count_dict: 'dict[str, int]' = {}; self.sensor_count_dict: 'dict[str, int]' = {}; self.actuator_count_dict: 'dict[str, int]' = {}
-		# self.interaction_graphs: 'dict[str, InteractionGraph]' = defaultdict(InteractionGraph)
-		# self.dependency_interval_dict: 'dict[str, list[float]]' = {}
-
-	def time_based_partition(self, act_label: str = ''): # Set the time interval as 1 hour. Therefore, the whole dataset will be partitioned to 24 parts.
-		start_time = act_label.split("_")[0]
-		end_time = act_label.split("_")[1]
-		start_time = datetime.datetime.strptime(start_time, '%H')
-		end_time = datetime.datetime.strptime(end_time, '%H')
-		fin = open(self.training_data, 'r') # The training dataset
-		Path(self.partition_path_prefix + act_label).mkdir(parents=True, exist_ok=True) # Create partition directories if not exist
-		fout_time = open(self.partition_path_prefix + act_label + '/data', 'w+') # The interested dataset given the activity label
-		involved_sensors = {}
-		for line in fin.readlines():
-			inp = line.strip().split(' ')
-			rec_time = datetime.datetime.strptime(inp[1].split('.')[0], '%H:%M:%S')
-			sensor_name = inp[2]
-			if (rec_time >= start_time and rec_time < end_time):
-				fout_time.write(line) # write data to act-label dataset
-				try: # Get the usage statistics for each sensor in the activity
-					involved_sensors[sensor_name] += 1
-				except:
-					involved_sensors[sensor_name] = 1
-			involved_sensors = dict(sorted(involved_sensors.items(), key = lambda item: item[1]))
-		fin.close()
-		fout_time.close()
-		return involved_sensors
-
-	def build_timerel_and_truth(self, act_label:'str' = '', devices_list:'list[str]' = [], process_index_dict:'dict[str, int]'= {}):
-		mixed_truth_mat = np.zeros( (len(devices_list), len(devices_list)) )
-		for process, process_index in process_index_dict.items(): # The 3rd step: Build the corresponding time order file and the truth file
-			time_mat = np.zeros( (len(devices_list), len(devices_list)) )
-			truth_mat = np.zeros( (len(devices_list), len(devices_list)) )
-			sensors = list(process.split(" ")); num_device = len(sensors)
-			for i in range(num_device): # Build the time order file
-				for j in range(num_device):
-					if i < j: 
-						time_mat[devices_list.index(sensors[i]), devices_list.index(sensors[j]) ] = 2
-						time_mat[devices_list.index(sensors[j]), devices_list.index(sensors[i]) ] = 1
-					elif i > j: 
-						time_mat[devices_list.index(sensors[i]), devices_list.index(sensors[j]) ] = 1
-						time_mat[devices_list.index(sensors[j]), devices_list.index(sensors[i]) ] = 2
-					else:
-						pass
-			for i in range(num_device - 1): # Build the truth file: Simply according to the time order
-				truth_mat[devices_list.index(sensors[i]), devices_list.index(sensors[i+1]) ] = 1; mixed_truth_mat[devices_list.index(sensors[i]), devices_list.index(sensors[i+1]) ] = 1
-			for trigger, responser in self.instrumented_automation_rule_dict.items(): # Build the truth file according to the instrumented automaiton rule
-					truth_mat[devices_list.index(trigger), devices_list.index(responser) ] = 1; mixed_truth_mat[devices_list.index(trigger), devices_list.index(responser) ] = 1				
-			df = pd.DataFrame(data=time_mat.astype(int))
-			df.to_csv(self.timeorder_path_prefix + act_label + '/{}.mat'.format(process_index), sep = ' ', header = devices_list, index = False) # write to time order file
-			df = pd.DataFrame(data=truth_mat.astype(int))
-			df.to_csv(self.priortruth_path_prefix + act_label + '/{}.mat'.format(process_index), sep = ' ', header = devices_list, index = False) # write to truth file
-		self.true_interactions_dict[act_label] = mixed_truth_mat
-		df = pd.DataFrame(data=mixed_truth_mat.astype(int))
-		df.to_csv(self.priortruth_path_prefix + act_label + '/mixed.mat', sep = ' ', header = devices_list, index = False) # write to truth file
-
-	def association_rule_mining(self, act_label_list, min_sup=2, min_conf=0.1):
-		for act_label in act_label_list:
-			sensors = list(pd.read_csv("{}{}/{}".format(self.adj_path_prefix, act_label, "mixed.mat"), delim_whitespace=True).columns.values)
-			mat_files = list(Path(self.mat_path_prefix + act_label).glob('*.mat'))
-			mixed_matrix = np.zeros((len(sensors), len(sensors)))
-			for process_file in mat_files:
-				df = pd.read_csv(process_file, delim_whitespace=True)
-				transactions = [] # The list of itemsets
-				tmp = df.mul(df.columns).apply(lambda x: ','.join(filter(bool, x)), 1) # Check those itemsets
-				for row in tmp:
-					if len(row) == 0:
-						continue
-					transactions.append(list(row.split(',')))
-				relim_input = itemmining.get_relim_input(transactions)
-				item_sets = itemmining.relim(relim_input, min_support=min_sup)
-				rules = assocrules.mine_assoc_rules(item_sets, min_support=min_sup, min_confidence=min_conf)
-				process_adj_matrix = np.zeros((len(sensors), len(sensors)))
-				for rule in rules:
-					trigger_sensors_set = rule[0]
-					action_sensors_set = rule[1]
-					for trigger_sensor in trigger_sensors_set:
-						for action_sensor in action_sensors_set:
-							# print("{} -> {}".format(trigger_sensor, action_sensor))
-							mixed_matrix[sensors.index(trigger_sensor), sensors.index(action_sensor)] = 1
-							process_adj_matrix[sensors.index(trigger_sensor), sensors.index(action_sensor)] = 1
-				final_df = pd.DataFrame(data=mixed_matrix.astype(int))
-				Path("{}{}".format(self.armadj_path_prefix, act_label)).mkdir(parents=True, exist_ok=True)
-				final_df.to_csv("{}{}/{}".format(self.armadj_path_prefix, act_label, "mixed.mat"), sep = ' ', header = sensors, index = False)
-
 class Hprocessor(Processor):
 
 	def __init__(self, dataset, verbosity=0, partition_days=None, training_ratio=None):
@@ -303,8 +217,15 @@ class Hprocessor(Processor):
 
 	def partition_data_frame(self, transition_events_states):
 		frame_dict = defaultdict(DataFrame)
+		# 0. Store all records.
 		states_array = np.stack([tup[1] for tup in transition_events_states], axis=0)
-		# 1. Get the segmentation points
+		dataframe = pp.DataFrame(data=states_array, var_names=self.attr_names)
+		dframe = DataFrame(id='all', var_names=self.attr_names, n_events=len(transition_events_states))
+		dframe.set_device_info(self.name_device_dict, self.index_device_dict)
+		dframe.set_training_data(transition_events_states, dataframe)
+		dframe.set_testing_data(transition_events_states, dataframe) # For this frame which stores all events, we did not separate training and testing data
+		frame_dict[dframe.id] = dframe
+		# 1. Segment all frames, and store each partition to the frame_dict.
 		last_timestamp = ''; count = 0
 		seg_points = []
 		for tup in transition_events_states:

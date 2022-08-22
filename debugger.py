@@ -406,14 +406,15 @@ class EvaluationResultRepo():
     def discovery_complexity_evaluation(self):
         n_devices = 8; n_golden_edges = 42
         bk_dsize_results_dict = {
-            (0, 20): {'precision':0.783, 'recall':0.857, 'time':0.730}, (0, 40): {'precision':0.787, 'recall':0.881, 'time':0.954}, (0, 60): {'precision':0.765, 'recall':0.929, 'time':1.170}, (0, 80): {'precision':0.769, 'recall':0.952, 'time':1.455}, (0, 100): {'precision':0.759, 'recall':0.976, 'time':1.841}, (0, 120): {'precision':0.695, 'recall':0.976, 'time':2.253}, (0, 140): {'precision':0.689, 'recall':1.000, 'time':2.441}, (0, 160): {'precision':0.689, 'recall':1.000, 'time':2.991},
-            (1, 20): {'precision':0.804, 'recall':0.881, 'time':0.672}, (1, 40): {'precision':0.804, 'recall':0.881, 'time':0.923}, (1, 60): {'precision':0.809, 'recall':0.905, 'time':1.118}, (1, 80): {'precision':0.809, 'recall':0.905, 'time':1.390}, (1, 100): {'precision':0.816, 'recall':0.952, 'time':1.747}, (1, 120): {'precision':0.804, 'recall':0.976, 'time':1.980}, (1, 140): {'precision':0.808, 'recall':1.000, 'time':2.251}, (1, 160): {'precision':0.808, 'recall':1.000, 'time':2.492},
-            (2, 20): {'precision':1.000, 'recall':0.881, 'time':0.602}, (2, 40): {'precision':1.000, 'recall':0.881, 'time':0.702}, (2, 60): {'precision':1.000, 'recall':0.905, 'time':0.888}, (2, 80): {'precision':1.000, 'recall':0.905, 'time':1.084}, (2, 100): {'precision':1.000, 'recall':0.952, 'time':1.444}, (2, 120): {'precision':1.000, 'recall':0.976, 'time':1.799}, (2, 140): {'precision':1.000, 'recall':1.000, 'time':1.873}, (2, 160): {'precision':1.000, 'recall':1.000, 'time':2.386},
+            (0, 20): {'precision':0.783, 'recall':0.857, 'f1':0.818, 'time':0.707}, (0, 30): {'precision':0.787, 'recall':0.881, 'f1':0.831, 'time':0.806}, (0, 40): {'precision':0.787, 'recall':0.881, 'f1':0.831, 'time':0.994}, (0, 50): {'precision':0.771, 'recall':0.881, 'f1':0.822, 'time':1.065}, (0, 60): {'precision':0.765, 'recall':0.929, 'f1':0.839, 'time':1.220}, (0, 70): {'precision':0.760, 'recall':0.905, 'f1':0.826, 'time':1.289}, (0, 80): {'precision':0.769, 'recall':0.952, 'f1':0.851, 'time':1.439}, (0, 90): {'precision':0.760, 'recall':0.905, 'f1':0.826, 'time':1.553}, (0, 100): {'precision':0.759, 'recall':0.976, 'f1':0.854, 'time':1.837}, (0, 110): {'precision':0.719, 'recall':0.976, 'f1':0.828, 'time':1.993}, (0, 120): {'precision':0.695, 'recall':0.976, 'f1':0.812, 'time':2.282},
+            (1, 20): {'precision':0.804, 'recall':0.881, 'f1':0.841, 'time':0.652}, (1, 30): {'precision':0.800, 'recall':0.857, 'f1':0.828, 'time':0.798}, (1, 40): {'precision':0.804, 'recall':0.881, 'f1':0.841, 'time':0.945}, (1, 50): {'precision':0.804, 'recall':0.881, 'f1':0.841, 'time':1.014}, (1, 60): {'precision':0.809, 'recall':0.905, 'f1':0.854, 'time':1.118}, (1, 70): {'precision':0.809, 'recall':0.905, 'f1':0.854, 'time':1.236}, (1, 80): {'precision':0.809, 'recall':0.905, 'f1':0.854, 'time':1.404}, (1, 90): {'precision':0.804, 'recall':0.881, 'f1':0.841, 'time':1.442}, (1, 100): {'precision':0.816, 'recall':0.952, 'f1':0.879, 'time':1.747}, (1, 110): {'precision':0.800, 'recall':0.952, 'f1':0.870, 'time':1.704}, (1, 120): {'precision':0.804, 'recall':0.976, 'f1':0.882, 'time':2.120},
+            (2, 20): {'precision':1.000, 'recall':0.881, 'f1':0.937, 'time':0.591}, (2, 30): {'precision':1.000, 'recall':0.857, 'f1':0.923, 'time':0.609}, (2, 40): {'precision':1.000, 'recall':0.881, 'f1':0.937, 'time':0.662}, (2, 50): {'precision':1.000, 'recall':0.881, 'f1':0.937, 'time':0.778}, (2, 60): {'precision':1.000, 'recall':0.905, 'f1':0.950, 'time':0.845}, (2, 70): {'precision':1.000, 'recall':0.905, 'f1':0.950, 'time':0.925}, (2, 80): {'precision':1.000, 'recall':0.905, 'f1':0.950, 'time':1.063}, (2, 90): {'precision':1.000, 'recall':0.881, 'f1':0.937, 'time':1.108}, (2, 100): {'precision':1.000, 'recall':0.952, 'f1':0.976, 'time':1.469}, (2, 110): {'precision':1.000, 'recall':0.952, 'f1':0.976, 'time':1.561}, (2, 120): {'precision':1.000, 'recall':0.976, 'f1':0.988, 'time':1.901},
         }
-        precision_lists = [[bk_dsize_results_dict[(bk, size)]['precision'] for size in [20, 40, 60, 80, 100, 120, 140, 160]] for bk in range(0, 3)]
-        recall_lists = [[bk_dsize_results_dict[(bk, size)]['recall'] for size in [20, 40, 60, 80, 100, 120, 140, 160]] for bk in range(0, 3)]
-        time_lists = [[bk_dsize_results_dict[(bk, size)]['time'] for size in [20, 40, 60, 80, 100, 120, 140, 160]] for bk in range(0, 3)]
-        return precision_lists, recall_lists, time_lists
+        precision_lists = [[bk_dsize_results_dict[(bk, size)]['precision'] for size in range(20, 110, 10)] for bk in range(0, 3)]
+        recall_lists = [[bk_dsize_results_dict[(bk, size)]['recall'] for size in range(20, 110, 10)] for bk in range(0, 3)]
+        f1_lists = [[bk_dsize_results_dict[(bk, size)]['f1'] for size in range(20, 110, 10)] for bk in range(0, 3)]
+        time_lists = [[bk_dsize_results_dict[(bk, size)]['time'] for size in range(20, 110, 10)] for bk in range(0, 3)]
+        return precision_lists, recall_lists, f1_lists, time_lists
 
     
 
@@ -436,11 +437,12 @@ if __name__ == '__main__':
     drawer.draw_histogram(precision_lists, legends, groups, 'Background', 'Precision')
     drawer.draw_histogram(recall_lists, legends, groups, 'Background', 'Recall')
     ## 2.2 Causal discovery learning complexity result
-    precision_lists, recall_lists, time_lists = evaluation_repo.discovery_complexity_evaluation()
-    x_list = [20, 40, 60, 80, 100, 120, 140, 160]
+    precision_lists, recall_lists, f1_lists, time_lists = evaluation_repo.discovery_complexity_evaluation()
+    x_list = [i for i in range(20, 110, 10)]
     legends = ['Pure-PC', 'BK-Temporal', 'BK-Spatial']
     drawer.draw_line_chart(x_list, precision_lists, legends, 'Data-size', 'Precision')
     drawer.draw_line_chart(x_list, recall_lists, legends, 'Data-size', 'Recall')
+    drawer.draw_line_chart(x_list, f1_lists, legends, 'Data-size', 'F1')
     drawer.draw_line_chart(x_list, time_lists, legends, 'Data-size', 'Time')
 
 

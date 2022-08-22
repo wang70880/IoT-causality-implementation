@@ -45,45 +45,35 @@ class Evaluator():
             (2) The identification of sequential activation is done by counting with a filtering mechanism (as specified by the filter_threshold parameter).
         """
         # Return variables
-        user_interaction_dict = defaultdict(dict)
+        user_interaction_dict:'dict[np.ndarray]' = {}
         # Auxillary variables
         name_device_dict = self.event_processor.name_device_dict; n_vars = self.event_processor.n_vars
         frame_dict:'dict[DataFrame]' = self.event_processor.frame_dict
-        # Fetch spatial-adjacency pairs
+
+        # 1. Spatial requirement verification: Fetch spatial-adjacency pairs and get the spatial background information.
         spatial_array:'np.ndarray' = self.background_generator.correlation_dict['spatial'][0][1] # The index does not matter, since for all frames and tau, the adjacency matrix is the same.
-        # 1. Temporal requirement verification: For any two devices, they should be sequentially triggered at least once.
-        activation_adjacency_dict = defaultdict(dict)
-        for frame_id in frame_dict.keys(): # Initialize the dict
-            for tau in range(1, self.tau_max + 1):
-                activation_adjacency_dict[frame_id][tau] = np.zeros((n_vars, n_vars), dtype=np.int32)
-        # 1.1 First analyze the activation frequency for each device pair.
+
+        # 2. Temporal requirement verification: For any two devices, they should be sequentially triggered at least once.
+        frequency_matrix = np.zeros((n_vars, n_vars, self.tau_max + 1), dtype=np.int32)
+        # 2.1 JC TODO: Count the frequency pair in the whole dataset, and normalize it.
+        frame: 'DataFrame' = frame_dict['all']
+        training_events:'list[AttrEvent]' = [tup[0] for tup in frame.training_events_states] 
+        last_act_dev = None; interval = 0
+        for event in training_events:
+            if event.dev.startswith(('M', 'D')) and event.value == 1: # An activation event is detected.
+                if last_act_dev and interval <= self.tau_max:
+                    frequency_matrix[name_device_dict[last_act_dev].index, name_device_dict[event.dev].index, interval] += 1
+                last_act_dev = event.dev
+                interval = 1
+            else:
+                interval += 1
+        frequency_matrix[frequency_matrix > 0] = 1
+
+        # 3. Spatial requirement verification: For those pairs which satisfy the temporal requirement, further integrate spatial knowledge.
+        golden_standard_array = np.zeros((n_vars, n_vars, self.tau_max + 1), dtype=np.int8)
+        for (i, j, tau), x in np.ndenumerate(frequency_matrix):
+            golden_standard_array[(i, j, tau)] = x * spatial_array[(i, j)]
         for frame_id in frame_dict.keys():
-            frame: 'DataFrame' = frame_dict[frame_id]
-            training_events:'list[AttrEvent]' = [tup[0] for tup in frame.training_events_states] 
-            last_act_dev = None; interval = 0
-            for event in training_events:
-                if event.dev.startswith(('M', 'D')) and event.value == 1: # An activation event is detected.
-                    if last_act_dev and interval <= self.tau_max:
-                        activation_adjacency_dict[frame_id][interval][name_device_dict[last_act_dev].index, name_device_dict[event.dev].index] += 1
-                    last_act_dev = event.dev
-                    interval = 1
-                elif event.dev.startswith(('M', 'D')) and event.value == 0:
-                    interval += 1
-        # 1.2 Normalize the activation frequency matrix.
-        for frame_id in frame_dict.keys():
-            for tau in range(1, self.tau_max + 1):
-                activation_adjacency_dict[frame_id][tau][activation_adjacency_dict[frame_id][tau] > 0] = 1
-                #activation_adjacency_dict[frame_id][tau][activation_adjacency_dict[frame_id][tau] >= self.filter_threshold] = 1
-        
-        user_interaction_dict:'dict[np.ndarray]' = {}
-        # 2. Spatial requirement verification: For those pairs which satisfy the temporal requirement, further integrate spatial knowledge.
-        for frame_id in frame_dict.keys():
-            golden_standard_array = np.zeros((n_vars, n_vars, self.tau_max + 1), dtype=np.int8)
-            for tau in range(1, self.tau_max + 1):
-                activation_adjacency_dict[frame_id][tau][spatial_array == 0] = 0
-                for i in range(n_vars):
-                    for j in range(n_vars):
-                        golden_standard_array[i, j, tau] = activation_adjacency_dict[frame_id][tau][i, j]
             user_interaction_dict[frame_id] = golden_standard_array
         return user_interaction_dict
 
