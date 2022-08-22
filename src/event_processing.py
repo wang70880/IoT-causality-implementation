@@ -243,6 +243,8 @@ class Hprocessor(Processor):
 		for seg_point in seg_points: # Get the data frame with range [last_point, seg_point]
 			testing_start_point = math.floor(last_point + self.training_ratio * (seg_point - last_point))
 			training_data = states_array[last_point:testing_start_point, ]; testing_data = states_array[testing_start_point: seg_point, ]
+			if testing_start_point-last_point < len(self.attr_names) or seg_point - testing_start_point < len(self.attr_names):
+				print("The current dataframe contains too few records! Training: {}. Testing: {}.".format(testing_start_point-last_point, seg_point - testing_start_point))
 			dataframe = pp.DataFrame(data=training_data, var_names=self.attr_names); testing_dataframe = pp.DataFrame(data=testing_data, var_names=self.attr_names)
 			dframe = DataFrame(id=frame_count, var_names=self.attr_names, n_events=seg_point-last_point)
 			dframe.set_device_info(self.name_device_dict, self.index_device_dict)
