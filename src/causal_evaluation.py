@@ -55,7 +55,7 @@ class Evaluator():
 
         # 2. Temporal requirement verification: For any two devices, they should be sequentially triggered at least once.
         frequency_matrix = np.zeros((n_vars, n_vars, self.tau_max + 1), dtype=np.int32)
-        # 2.1 JC TODO: Count the frequency pair in the whole dataset, and normalize it.
+        # 2.1 Count the frequency pair in the whole dataset, and normalize it.
         frame:'DataFrame' = frame_dict['all']
         training_events:'list[AttrEvent]' = [tup[0] for tup in frame.training_events_states] 
         last_act_dev = None; interval = 0
@@ -105,11 +105,11 @@ class Evaluator():
                 interactions.append((index_device_dict[i].name, index_device_dict[j].name))
                 interaction_types.add((index_device_dict[i].name[0], index_device_dict[j].name[0]))
                 discovered_golden_array[(i, j)] = 1
-        print("# of discovered interactions: {}".format(len(interactions)))
-        print("# of interaction types and type lists: {}, {}".format(len(interaction_types), interaction_types))
+        print("# of golden interactions, discovered interactions, interaction types, and type lists: {}(), {}(), {}, {}"\
+                .format(sum(tau_free_golden_array), sum(golden_standard_array), sum(tau_free_discovery_array), sum(discovery_results), len(interaction_types), interaction_types))
 
         # 2. Analyze the formed device interaction chains.
-        path_array = np.linalg.matrix_power(discovered_golden_array, 3); n_paths = np.sum(path_array)
+        path_array = np.linalg.matrix_power(tau_free_discovery_array, 3); n_paths = np.sum(path_array)
         print("# of interaction chains: {}".format(n_paths))
         return interactions, interaction_types, n_paths
 
