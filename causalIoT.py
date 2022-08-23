@@ -176,20 +176,19 @@ if COMM.rank == 0:
 ## 5.1 Evaluate the discovery precision and recall for different levels of background knowledge
     interactions, interaction_types, n_paths = evaluator.interpret_discovery_results(interaction_array, golden_frame_id=frame_id, golden_type='user')
 ## 5.2 Evaluate the discovery precision and recall for different levels of background knowledge
-    n_golden_edges, precision, recall, f1 = evaluator.evaluate_discovery_accuracy(interaction_array, golden_frame_id=frame_id, golden_type='user')
+    n_golden_edges, precision, recall, f1 = evaluator.evaluate_discovery_accuracy(interaction_array, golden_frame_id=frame_id, golden_type='user', verbosity=1)
     print("     [Causal Discovery Evaluation] # golden edges = {}, precision = {}, recall = {}, f1 = {}"\
                         .format(n_golden_edges, precision, recall, f1))
     print("     [Causal Discovery Evaluation] Consumed time for preprocessing, background, causal discovery = {}, {}, {}"\
                 .format(preprocessing_consumed_time, bk_consumed_time, pc_consumed_time))
     # 5.3 Compare with ARM and analyze the result
-    arm_start = time()
-    armer = ARMer(frame=frame, min_support=filter_threshold, min_confidence=1.0-pc_alpha)
-    association_array:'np.ndarray' = armer.association_rule_mining()
-    arm_consumed_time = _elapsed_minutes(arm_start)
-    print("     [Causal Discovery Evaluation] Consumed time for Association Rule Mining is {}".format(arm_consumed_time))
-    evaluator.compare_with_arm(discovery_results=interaction_array, arm_results=association_array,\
-                                    golden_frame_id=frame_id, golden_type='user')
-## 5.3 Efficiency analysis
+    #arm_start = time()
+    #armer = ARMer(frame=frame, min_support=filter_threshold, min_confidence=1.0-pc_alpha)
+    #association_array:'np.ndarray' = armer.association_rule_mining()
+    #arm_consumed_time = _elapsed_minutes(arm_start)
+    #print("     [Causal Discovery Evaluation] Consumed time for Association Rule Mining is {}".format(arm_consumed_time))
+    #evaluator.compare_with_arm(discovery_results=interaction_array, arm_results=association_array,\
+    #                                golden_frame_id=frame_id, golden_type='user')
 exit()
 
 # After parallel causal discovery is finished, only RANK-0 process is kept.

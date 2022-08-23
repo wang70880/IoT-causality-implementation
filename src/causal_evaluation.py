@@ -113,21 +113,29 @@ class Evaluator():
         print("# of interaction chains: {}".format(n_paths))
         return interactions, interaction_types, n_paths
 
-    def precision_recall_calculation(self, golden_array:'np.ndarray', evaluated_array:'np.ndarray'):
+    def precision_recall_calculation(self, golden_array:'np.ndarray', evaluated_array:'np.ndarray', verbosity=0):
+        # Auxillary variables
+        index_device_dict:'dict[DevAttribute]' = self.event_processor.index_device_dict
         tp = 0; fp = 0; fn = 0; precision = 0.0; recall = 0.0
+        fps = []; fns = []
         for index, x in np.ndenumerate(evaluated_array):
             if evaluated_array[index] == 1 and golden_array[index] == 1:
                 tp += 1
             elif evaluated_array[index] == 1 and golden_array[index] == 0:
                 fp += 1
+                fps.append('{}->{}'.format(index_device_dict[index[0]].name, index_device_dict[index[1]].name))
             elif evaluated_array[index] == 0 and golden_array[index] == 1:
                 fn += 1
+                fns.append('{}->{}'.format(index_device_dict[index[0]].name, index_device_dict[index[1]].name))
         precision = tp * 1.0 / (tp + fp) if (tp+fp) != 0 else 0
         recall = tp * 1.0 / (tp + fn) if (tp+fn) != 0 else 0
         f1_score = 2.0*precision*recall / (precision+recall) if (precision+recall) != 0 else 0
+        if verbosity:
+            print("Discovery FPs: {}".format(','.join(fps)))
+            print("Discovery FNs: {}".format(','.join(fns)))
         return tp, fp, fn, precision, recall, f1_score
 
-    def evaluate_discovery_accuracy(self, discovery_results:'np.ndarray', golden_frame_id:'int', golden_type:'str'):
+    def evaluate_discovery_accuracy(self, discovery_results:'np.ndarray', golden_frame_id:'int', golden_type:'str', verbosity=0):
         # Auxillary variables
         frame:'DataFrame' = self.event_processor.frame_dict[golden_frame_id]
         var_names = frame.var_names; n_vars = len(var_names)
@@ -142,7 +150,7 @@ class Evaluator():
                                         .format(int(self.filter_threshold)))
         assert(discovery_results.shape == golden_standard_array.shape == (n_vars, n_vars, self.tau_max + 1))
         # 2. Calculate the precision and recall for discovered results.
-        tp, fp, fn, precision, recall, f1 = self.precision_recall_calculation(golden_standard_array, discovery_results)
+        tp, fp, fn, precision, recall, f1 = self.precision_recall_calculation(golden_standard_array, discovery_results, verbosity=verbosity)
         # 3. Calculate the tau-free-precision and tau-free-recall for discovered results
         tau_free_discovery_array = sum([discovery_results[:,:,tau] for tau in range(1, self.tau_max + 1)]); tau_free_discovery_array[tau_free_discovery_array > 0] = 1
         tau_free_golden_array = sum([golden_standard_array[:,:,tau] for tau in range(1, self.tau_max + 1)]); tau_free_golden_array[tau_free_golden_array > 0] = 1
