@@ -105,7 +105,7 @@ class Evaluator():
                 interactions.append((index_device_dict[i].name, index_device_dict[j].name))
                 interaction_types.add((index_device_dict[i].name[0], index_device_dict[j].name[0]))
                 discovered_golden_array[(i, j)] = 1
-        print("# of golden interactions, discovered interactions, interaction types, and type lists: {}(), {}(), {}, {}"\
+        print("# of golden interactions, discovered interactions, interaction types, and type lists: {}({}), {}({}), {}, {}"\
                 .format(np.sum(tau_free_golden_array), np.sum(golden_standard_array), np.sum(tau_free_discovery_array), np.sum(discovery_results), len(interaction_types), interaction_types))
 
         # 2. Analyze the formed device interaction chains.
