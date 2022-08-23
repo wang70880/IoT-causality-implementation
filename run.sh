@@ -12,7 +12,7 @@ evaluate_discovery_process() {
                 for filter_threshold in ${filter_thresholds[@]}; do
                     mpiexec -n 8 python -u causalIoT.py ${dataset} \
                                                        ${partition_day} ${training_ratio} \
-                                                       ${tau_max} ${filter_threshold} ${bk_level} \
+                                                       ${tau_max} ${partition_day} ${bk_level} \
                                                        ${pc_alpha} ${max_conds_dim} ${max_comb} &>> discovery_evaluation.txt </dev/null
                 done
             done
@@ -23,11 +23,11 @@ evaluate_discovery_process() {
 ## Data preprocessing
 dataset="hh130"; preprocessing_verbosity=0
 ## Data loading
-declare -a partition_days=(100)
+declare -a partition_days=(20 40 60 80 100)
 training_ratio=0.8
 ## Background generator and application level
 tau_max=3
-declare -a bk_levels=(1)
+declare -a bk_levels=(0)
 declare -a filter_thresholds=(100)
 ## PC discovery process
 declare -a pc_alphas=(0.1)

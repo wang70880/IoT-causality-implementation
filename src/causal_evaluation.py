@@ -106,7 +106,7 @@ class Evaluator():
                 interaction_types.add((index_device_dict[i].name[0], index_device_dict[j].name[0]))
                 discovered_golden_array[(i, j)] = 1
         print("# of golden interactions, discovered interactions, interaction types, and type lists: {}(), {}(), {}, {}"\
-                .format(sum(tau_free_golden_array), sum(golden_standard_array), sum(tau_free_discovery_array), sum(discovery_results), len(interaction_types), interaction_types))
+                .format(np.sum(tau_free_golden_array), np.sum(golden_standard_array), np.sum(tau_free_discovery_array), np.sum(discovery_results), len(interaction_types), interaction_types))
 
         # 2. Analyze the formed device interaction chains.
         path_array = np.linalg.matrix_power(tau_free_discovery_array, 3); n_paths = np.sum(path_array)
@@ -150,7 +150,7 @@ class Evaluator():
                                         .format(int(self.filter_threshold)))
         assert(discovery_results.shape == golden_standard_array.shape == (n_vars, n_vars, self.tau_max + 1))
         # 2. Calculate the precision and recall for discovered results.
-        tp, fp, fn, precision, recall, f1 = self.precision_recall_calculation(golden_standard_array, discovery_results, verbosity=verbosity)
+        #tp, fp, fn, precision, recall, f1 = self.precision_recall_calculation(golden_standard_array, discovery_results, verbosity=verbosity)
         # 3. Calculate the tau-free-precision and tau-free-recall for discovered results
         tau_free_discovery_array = sum([discovery_results[:,:,tau] for tau in range(1, self.tau_max + 1)]); tau_free_discovery_array[tau_free_discovery_array > 0] = 1
         tau_free_golden_array = sum([golden_standard_array[:,:,tau] for tau in range(1, self.tau_max + 1)]); tau_free_golden_array[tau_free_golden_array > 0] = 1
