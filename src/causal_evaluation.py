@@ -154,7 +154,7 @@ class Evaluator():
         # 3. Calculate the tau-free-precision and tau-free-recall for discovered results
         tau_free_discovery_array = sum([discovery_results[:,:,tau] for tau in range(1, self.tau_max + 1)]); tau_free_discovery_array[tau_free_discovery_array > 0] = 1
         tau_free_golden_array = sum([golden_standard_array[:,:,tau] for tau in range(1, self.tau_max + 1)]); tau_free_golden_array[tau_free_golden_array > 0] = 1
-        tau_free_tp, tau_free_fp, tau_free_fn, tau_free_precision, tau_free_recall, tau_free_f1 = self.precision_recall_calculation(tau_free_golden_array, tau_free_discovery_array)
+        tau_free_tp, tau_free_fp, tau_free_fn, tau_free_precision, tau_free_recall, tau_free_f1 = self.precision_recall_calculation(tau_free_golden_array, tau_free_discovery_array, verbosity=verbosity)
         return tau_free_tp+tau_free_fn, tau_free_precision, tau_free_recall, tau_free_f1
 
     def compare_with_arm(self, discovery_results:'np.ndarray', arm_results:'np.ndarray', golden_frame_id:'int', golden_type:'str'):
