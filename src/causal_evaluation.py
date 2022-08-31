@@ -74,8 +74,7 @@ class Evaluator():
         golden_standard_array = np.zeros((n_vars, n_vars, self.tau_max + 1), dtype=np.int8)
         for (i, j, tau), x in np.ndenumerate(frequency_matrix):
             golden_standard_array[(i, j, tau)] = x * spatial_array[(i, j)]
-        for frame_id in frame_dict.keys():
-            user_interaction_dict[frame_id] = golden_standard_array
+        user_interaction_dict[self.frame_id] = golden_standard_array
         return user_interaction_dict
 
     def _identify_physical_interactions(self):
