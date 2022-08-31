@@ -112,24 +112,22 @@ if COMM.rank == 0:
 # 2. Identify the background knowledge, and use the background knowledge to prune edges
 bg_start=time()
 background_generator = BackgroundGenerator(event_preprocessor, tau_max, filter_threshold)
-selected_variables = list(range(n_vars))
 selected_links, candidate_matrix = background_generator.generate_candidate_interactions(bk_level, frame_id, n_vars) # Get candidate interactions
 n_candidate_edges = 0
 for worker_index, link_dict in selected_links.items():
     n_candidate_edges += sum([len(cause_list) for cause_list in link_dict.values()])
-    #for outcome, cause_list in link_dict.items():
-    #    if len(cause_list) > 0:
-    #        print("# of candidate edges for outcome {}: {} (Responsible worker: {})".format(outcome, len(cause_list), worker_index))
 bk_consumed_time = _elapsed_minutes(bg_start)
 if COMM.rank == 0:
     print("     [Background Integration] # candidate edges = {}".format(n_candidate_edges))
 
 # 3. Construct the golden standard.
-evaluator = Evaluator(event_preprocessor, background_generator, None, bk_level, pc_alpha, filter_threshold=filter_threshold) # As long as two adjacent devices are sequentially activated once, it will be counted as a golden interaction.
+evaluator = Evaluator(event_preprocessor, background_generator,\
+            None, bk_level, pc_alpha, filter_threshold, frame_id)
 
 # 4. Initiate parallel causal discovery
 ## 4.1 Scatter the jobs
 pc_start = time()
+selected_variables = list(range(n_vars))
 splitted_jobs = None
 results = []
 if COMM.rank == 0:

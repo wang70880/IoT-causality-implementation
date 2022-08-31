@@ -23,7 +23,7 @@ evaluate_discovery_process() {
 ## Data preprocessing
 dataset="hh130"; preprocessing_verbosity=0
 ## Data loading
-declare -a partition_days=(20 40 60 80 100)
+declare -a partition_days=(100)
 training_ratio=0.8
 ## Background generator and application level
 tau_max=3

@@ -19,11 +19,12 @@ from src.tigramite.tigramite.independence_tests.chi2 import ChiSquare
 
 class Evaluator():
 
-    def __init__(self, event_processor, background_generator, bayesian_fitter, bk_level=0, pc_alpha=0., filter_threshold=1) -> None:
+    def __init__(self, event_processor, background_generator,\
+         bayesian_fitter, bk_level=0, pc_alpha=0., filter_threshold=1, frame_id=0):
         self.event_processor:'Hprocessor' = event_processor
         self.background_generator:'BackgroundGenerator' = background_generator
         self.bayesian_fitter:'BayesianFitter' = bayesian_fitter
-        self.bk_level = bk_level; self.pc_alpha = pc_alpha; self.filter_threshold = filter_threshold
+        self.bk_level = bk_level; self.pc_alpha = pc_alpha; self.filter_threshold = filter_threshold; self.frame_id = frame_id
         self.tau_max = self.background_generator.tau_max
         self.golden_standard_dict = self._construct_golden_standard()
     
@@ -42,7 +43,7 @@ class Evaluator():
         In HH-series dataset, the user interaction is in the form of M->M, M->D, or D->M
         For any two devices, they have interactions iff (1) they are spatially adjacent, and (2) they are usually sequentially activated.
             (1) The identification of spatial adjacency is done by the background generator.
-            (2) The identification of sequential activation is done by counting with a filtering mechanism (as specified by the filter_threshold parameter).
+            (2) The identification of sequential activation is done by checking its occurrence within time lag tau_max.
         """
         # Return variables
         user_interaction_dict:'dict[np.ndarray]' = {}
@@ -56,7 +57,7 @@ class Evaluator():
         # 2. Temporal requirement verification: For any two devices, they should be sequentially triggered at least once.
         frequency_matrix = np.zeros((n_vars, n_vars, self.tau_max + 1), dtype=np.int32)
         # 2.1 Count the frequency pair in the whole dataset, and normalize it.
-        frame:'DataFrame' = frame_dict['all']
+        frame:'DataFrame' = frame_dict[self.frame_id]
         training_events:'list[AttrEvent]' = [tup[0] for tup in frame.training_events_states] 
         last_act_dev = None; interval = 0
         for event in training_events:

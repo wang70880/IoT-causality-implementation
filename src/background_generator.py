@@ -18,17 +18,15 @@ class BackgroundGenerator():
         self.tau_max = tau_max
         self.filter_threshold = filter_threshold
 
-        self.temporal_pair_dict, self.heuristic_temporal_pair_dict = self._temporal_pair_identification()
+        self.temporal_pair_dict = self._temporal_pair_identification()
         self.spatial_pair_dict = self._spatial_pair_identification()
         self.functionality_pair_dict = self._functionality_pair_identification()
         #self.candidate_pair_dict = self._candidate_pair_identification()
 
         self.correlation_dict = {
-            'heuristic-temporal': self.heuristic_temporal_pair_dict,
             'temporal': self.temporal_pair_dict,
             'spatial': self.spatial_pair_dict,
             'functionality': self.functionality_pair_dict,
-            #'candidate': self.candidate_pair_dict
         }
     
     def _temporal_pair_identification(self):
@@ -44,7 +42,6 @@ class BackgroundGenerator():
         """
         # Return variables
         temporal_pair_dict = defaultdict(dict) # frame_id -> lag -> adjacency array of shape num_attrs X num_attrs
-        heuristic_temporal_pair_dict = defaultdict(dict)
 
         # Auxillary variables
         name_device_dict:'dict[DevAttribute]' = self.event_processor.name_device_dict
@@ -56,24 +53,20 @@ class BackgroundGenerator():
             event_sequence:'list[AttrEvent]' = [tup[0] for tup in frame.training_events_states]
             for lag in range (1, self.tau_max + 1): # Initialize the count array
                 temporal_pair_dict[frame_id][lag] = np.zeros(shape=(num_attrs, num_attrs), dtype=np.int32)
-                heuristic_temporal_pair_dict[frame_id][lag] = np.zeros(shape=(num_attrs, num_attrs), dtype=np.int32)
             for i in range(len(event_sequence)): # Count the occurrence of each lagged attr pair
                 for lag in range (1, self.tau_max + 1):
                     if i + lag >= len(event_sequence):
                         continue
                     prior_attr_index = name_device_dict[event_sequence[i].dev].index; con_attr_index = name_device_dict[event_sequence[i + lag].dev].index
                     temporal_pair_dict[frame_id][lag][prior_attr_index, con_attr_index] += 1
-                    heuristic_temporal_pair_dict[frame_id][lag][prior_attr_index, con_attr_index] += 1
 
         for frame_id in frame_dict.keys():
             for lag in range (1, self.tau_max + 1):
                 count_array = temporal_pair_dict[frame_id][lag]
-                heuristic_count_array = heuristic_temporal_pair_dict[frame_id][lag]
                 for idx, x in np.ndenumerate(count_array):
-                    heuristic_count_array[idx] = 0 if x < self.filter_threshold else 1 
                     count_array[idx] = 0 if x < self.filter_threshold else 1  
 
-        return temporal_pair_dict, heuristic_temporal_pair_dict
+        return temporal_pair_dict
     
     def _testbed_area_information(self):
         area_list = None
@@ -200,10 +193,8 @@ class BackgroundGenerator():
         else:
             selected_links = {n: {m: [(i, -t) for i in range(N) if i != m for \
                 t in range(1, self.tau_max + 1)] if m == n else [] for m in range(N)} for n in range(N)}
-        if apply_bk == 0:
-            pass
         if apply_bk >= 1:
-            selected_links = self.apply_background_knowledge(selected_links, 'heuristic-temporal', frame_id)
+            selected_links = self.apply_background_knowledge(selected_links, 'temporal', frame_id)
         if apply_bk >= 2:
             selected_links = self.apply_background_knowledge(selected_links, 'spatial', frame_id)
             selected_links = self.apply_background_knowledge(selected_links, 'functionality', frame_id)
