@@ -1,6 +1,5 @@
 import os
 
-from torch import init_num_threads
 os.environ["KMP_DUPLICATE_LIB_OK"]='TRUE'
 from src.event_processing import Hprocessor
 from src.tigramite.tigramite.pcmci import PCMCI
@@ -29,35 +28,10 @@ from src.background_generator import BackgroundGenerator
 
 class DataDebugger():
 
-    def __init__(self, dataset, partition_days=30, filter_threshold=30, training_ratio=1.0, tau_max = 4, alpha=0.001) -> None:
-        self.dataset = dataset; self.partition_days = partition_days; self.filter_threshold = filter_threshold; self.training_ratio = training_ratio; self.tau_max = tau_max; self.alpha = alpha
+    def __init__(self, dataset, partition_days, training_ratio) -> None:
+        self.dataset = dataset; self.partition_days = partition_days; self.training_ratio = training_ratio
         self.preprocessor = Hprocessor(dataset=dataset, partition_days=partition_days, training_ratio=training_ratio)
         self.preprocessor.data_loading()
-        self.background_generator:'BackgroundGenerator' = BackgroundGenerator(self.preprocessor, tau_max, filter_threshold)
-        
-        self.golden_p_matrix = None; self.golden_val_matrix = None; self.golden_graph = None
-    
-    def validate_background_knowledge(self):
-        """
-        This function validates whether background knowledge filters out golden edges, which results in increasing false negatives.
-        """
-        frame_id = 0; int_type = 'user'
-        frame:'DataFrame' = self.preprocessor.frame_dict[frame_id]
-        var_names = frame.var_names; n_vars = len(var_names)
-        for bk_level in [0, 1, 2]:
-            #print("Current bk-level: {}".format(bk_level))
-            # 1. Derive the golden interaction matrix and the candidate matrix.
-            evaluator = Evaluator(self.preprocessor, self.background_generator, None, bk_level, self.alpha, self.filter_threshold)
-            golden_interaction_matrix:'np.ndarray' = evaluator.golden_standard_dict[int_type][frame_id]
-            selected_links, candidate_matrix = self.background_generator.generate_candidate_interactions(bk_level, frame_id, n_vars)
-            assert(golden_interaction_matrix.shape == candidate_matrix.shape == (n_vars, n_vars, self.tau_max + 1))
-            # 2. Suppress these two matrices, since we do not care the time lag for now
-            tau_free_golden_array = sum([golden_interaction_matrix[:,:,tau] for tau in range(1, self.tau_max + 1)]); tau_free_golden_array[tau_free_golden_array > 0] = 1
-            tau_free_candidate_array = sum([candidate_matrix[:,:,tau] for tau in range(1, self.tau_max + 1)]); tau_free_candidate_array[tau_free_candidate_array > 0] = 1
-            # 3. Verify whether the candidate matrix should contain golden interaction matrix
-            for index, x in np.ndenumerate(tau_free_golden_array):
-                if x == 1:
-                    assert(tau_free_candidate_array[index] == 1)
     
     def validate_discretization(self):
         for dev, tup in self.preprocessor.discretization_dict.items():
@@ -68,6 +42,37 @@ class DataDebugger():
             plt.xlabel('State')
             plt.ylabel('Frequency')
             plt.savefig("temp/image/{}_{}_states.pdf".format(self.dataset, dev))
+    
+class BackgroundDebugger():
+
+    def __init__(self, dataset, frame, tau_max, filter_threshold) -> None:
+        self.dataset = dataset; self.frame:'DataFrame' = frame
+        self.tau_max = tau_max; self.filter_threshold = filter_threshold
+        self.background_generator:'BackgroundGenerator' = BackgroundGenerator(dataset, frame, tau_max, filter_threshold)
+
+class MinerDebugger():
+    
+    def __init__(self, frame, background_generator:'BackgroundGenerator', alpha) -> None:
+        self.frame:'DataFrame' = frame; self.alpha = alpha
+        self.background_generator:'BackgroundGenerator' = background_generator
+        self.tau_max = background_generator.tau_max
+    
+    def check_false_positive(self, edge:'tuple'):
+        """
+        This function debugs a false-positive edge,
+        which is supposed to be removed due to mediating variables (e.g., D002->M003->M005)
+        1. First check the edge's temporal attributes (Do they sequentially occur frequently?)
+        2. Initiate the conditional independence testing: Are they CI given the underlying mediating variables?
+        """
+        # Auxiliary variables
+        name_device_dict:'dict[DevAttribute]' = self.frame.name_device_dict
+        frequency_array:'np.ndarray' = self.background_generator.frequency_array
+        former = name_device_dict[edge[0]].index; latter = name_device_dict[edge[1]].index
+
+        frequency_list = [self.background_generator.frequency_array[former, latter, lag] for lag in range(1, self.tau_max+1)]
+        activation_frequency_list = [self.background_generator.activation_frequency_array[former, latter, lag] for lag in range(1, self.tau_max+1)]
+        #print("Frequencies of pair ({}, {}): {}".format(edge[0], edge[1], frequency_list))
+        print("Activation frequencies of pair ({}, {}): {}".format(edge[0], edge[1], activation_frequency_list))
 
     def validate_ci_testing(self, tau_max, int_tau=-1):
         """
@@ -158,116 +163,6 @@ class DataDebugger():
             link_colorbar_label='G^2'
         )
         plt.savefig("temp/image/{}cmi_test_tau{}.pdf".format(self.dataset, tau_max))
-    
-    def derive_golden_standard(self, int_frame_id, int_type):
-        # Auxillary variables
-        tested_frame:'DataFrame' = self.preprocessor.frame_dict[int_frame_id]
-        n_vars = tested_frame.n_vars
-        matrix_shape = (n_vars, n_vars, self.tau_max + 1)
-        interaction_matrix:'np.ndarray' = np.zeros(matrix_shape)
-        evaluator = Evaluator(self.preprocessor, self.background_generator, None, 1, self.alpha, self.filter_threshold)
-        interaction_dict:'dict[np.ndarray]' = evaluator.golden_standard_dict[int_type]
-        interaction_matrix = interaction_dict[int_frame_id]
-        str = "[Picturing Golden Standard] Number of edges for each tau:\n"
-        for lag in range(1, self.tau_max + 1):
-            total = np.sum(interaction_matrix[:,:,lag])
-            str += 'tau = {}, count = {}\n'.format(lag, total)
-        return interaction_matrix
-
-    def analyze_golden_standard(self, int_frame_id=0, int_type='user'):
-        # Auxillary variables
-        tested_frame:'DataFrame' = self.preprocessor.frame_dict[int_frame_id]
-        var_names = tested_frame.var_names; n_vars = tested_frame.n_vars
-        matrix_shape = (n_vars, n_vars, self.tau_max + 1)
-        index_device_dict:'dict[DevAttribute]' = self.preprocessor.index_device_dict
-
-        # 1. Derive the golden standard matrix (with expert knowledge).
-        interaction_matrix:'np.ndarray' = self.derive_golden_standard(int_frame_id, int_type)
-
-        # 2. Calculate the p-value and CMI value for each edge.
-        golden_val_matrix:'np.ndarray' = np.zeros(matrix_shape); golden_p_matrix:'np.ndarray' = np.ones(matrix_shape)
-        val_matrix:'np.ndarray' = np.zeros(matrix_shape); p_matrix:'np.ndarray' = np.ones(matrix_shape)
-        pcmci = PCMCI(dataframe=tested_frame.training_dataframe, cond_ind_test=ChiSquare(), verbosity=-1)
-        for index, x in np.ndenumerate(interaction_matrix):
-            if x == 1:
-                i, j, lag = index
-                val, pval = pcmci.cond_ind_test.run_test(X=[(i, int(-lag))],
-                            Y=[(j, 0)],
-                            Z=[],
-                            tau_max=self.tau_max)
-                val_matrix[i, j, lag] = val; p_matrix[i, j, lag] = pval
-                golden_val_matrix[i, j, lag] = 11; golden_p_matrix[i, j, lag] = 0
-                #print("For index {}, val = {}, pval = {}".format(index, val ,pval))
-        
-        val_matrix[val_matrix >= 11] = 11 # We set a cut threshold for the calculated G^2 statistic: For values larger than 11, the p-value is 0.001
-        final_graph = p_matrix < self.alpha; golden_final_graph = golden_p_matrix < 1
-        drawer= Drawer(self.dataset)
-        drawer.plot_interaction_graph(pcmci, final_graph, "causal_minimality_{}.pdf".format(self.dataset))
-        drawer.plot_interaction_graph(pcmci, golden_final_graph, "golden_standard_{}.pdf".format(self.dataset))
-        # 3. Verify the causal assumptions
-        ## 3.1 Verify causal minimality assumptions
-        assert(interaction_matrix.shape == val_matrix.shape == p_matrix.shape)
-        n_violation = 0
-        for index, x in np.ndenumerate(interaction_matrix):
-            i, j, lag = index
-            if x == 1 and p_matrix[index] > self.alpha:
-                n_violation += 1
-                print("The edge {}(-{}) -> {} violates minimality assumption! p-value = {}, G^2 = {}"\
-                                    .format(index_device_dict[i].name, lag, index_device_dict[j].name, p_matrix[index], val_matrix[index]))
-        print("Total # of violations: {}\n".format(n_violation))
-        return interaction_matrix, p_matrix, val_matrix
-
-class MinerDebugger():
-    
-    def __init__(self, alpha = 0.001, data_debugger = None) -> None:
-        assert(data_debugger is not None)
-        self.alpha = alpha 
-        self.data_debugger:'DataDebugger' = data_debugger
-
-    def initiate_discovery_algorithm(self, int_frame_id):
-        # Auxillary variables
-        name_device_dict = self.data_debugger.preprocessor.name_device_dict; tested_frame:'DataFrame' = self.data_debugger.preprocessor.frame_dict[int_frame_id]
-        tau_max = self.data_debugger.tau_max; n_vars = tested_frame.n_vars
-        matrix_shape = (n_vars, n_vars, tau_max + 1)
-        # Return variables
-        interaction_matrix:'np.ndarray' = np.zeros(matrix_shape); p_matrix:'np.ndarray' = np.ones(matrix_shape); val_matrix:'np.ndarray' = np.zeros(matrix_shape)
-
-        # 1. Call pc algorithm to get the answer
-        # JC TODO: Implement the discovery logic here.
-        all_parents_with_name = {'D002': [('D002', -2), ('D002', -1), ('M001', -1), ('M001', -2), ('D002', -3), ('M001', -3), ('M002', -1)],\
-                                'M001': [('M001', -1), ('M001', -2), ('D002', -2), ('M001', -3), ('D002', -1), ('M002', -1), ('D002', -3), ('M005', -2), ('M004', -1), ('M002', -3), ('M003', -1), ('M005', -1), ('M006', -3), ('M002', -2), ('M005', -3), ('M004', -3)],\
-                                'M002': [('M002', -2), ('M002', -1), ('M001', -1), ('M002', -3), ('M004', -1), ('M005', -1), ('M001', -3), ('M005', -2), ('M003', -1), ('M006', -1), ('M001', -2), ('M004', -3), ('D002', -1)],\
-                                'M003': [('M003', -2), ('M003', -1), ('M004', -1), ('M004', -2), ('M001', -1), ('M002', -1), ('M005', -1), ('M005', -3), ('M003', -3)],\
-                                'M004': [('M004', -2), ('M004', -1), ('M005', -1), ('M002', -1), ('M003', -2), ('M001', -1), ('M003', -1), ('M006', -1), ('M005', -3), ('M002', -3)],\
-                                'M005': [('M005', -2), ('M005', -3), ('M004', -1), ('M003', -2), ('M005', -1), ('M003', -1), ('M002', -2), ('M002', -3), ('M001', -1), ('M001', -3), ('M002', -1), ('M004', -2), ('M006', -1), ('M006', -3), ('D002', -3), ('D002', -1), ('M001', -2), ('D002', -2)],\
-                                'M006': [('M006', -2), ('M011', -2), ('M005', -1), ('M003', -1), ('M004', -1), ('M001', -3), ('M006', -1), ('M002', -3), ('M002', -1), ('M004', -2), ('M002', -2)],\
-                                'M011': [('M011', -2), ('M006', -2), ('M011', -1)]}
-        # 2. Construct the interaction matrix given the pc-returned dict
-        for outcome in all_parents_with_name:
-            for (cause, lag) in all_parents_with_name[outcome]:
-                interaction_matrix[name_device_dict[cause].index, name_device_dict[outcome].index, abs(lag)] = 1
-
-        return interaction_matrix
-    
-    def analyze_discovery_result(self, int_frame_id=0, int_type='user'):
-
-        # 1. Fetch the golden interaction matrix
-        golden_interaction_matrix:'np.ndarray' = self.data_debugger.derive_golden_standard(int_frame_id, int_type)
-
-        # 2. Initiate PC discovery algorithm and get the discovered graph
-        discovered_interaction_matrix:'np.ndarray' = self.initiate_discovery_algorithm(int_frame_id)
-
-        total_count = np.sum(golden_interaction_matrix)
-        tp = np.sum(discovered_interaction_matrix[golden_interaction_matrix == 1])
-        fn = total_count - tp
-        fp = np.sum(discovered_interaction_matrix[golden_interaction_matrix == 0])
-
-        precision = 0. if (tp + fp) == 0 else 1.0 * tp / (tp + fp)
-        recall = 0. if (tp + fn) == 0 else 1.0 * tp / (tp + fn)
-
-        print("For alpha = {}, the discovered result statistics:\n\
-                * tp = {}, fp = {}, fn = {}\n\
-                * precision = {}, recall = {}\n".format(self.alpha, tp, fp, fn, precision, recall))
 
 class BayesianDebugger():
 
@@ -416,17 +311,29 @@ class EvaluationResultRepo():
         time_lists = [[bk_dsize_results_dict[(bk, size)]['time'] for size in range(20, 110, 10)] for bk in range(0, 3)]
         return precision_lists, recall_lists, f1_lists, time_lists
 
-    
-
 if __name__ == '__main__':
 
     dataset = 'hh130'; partition_days = 100; filter_threshold = 100; training_ratio = 0.8; tau_max = 3
-    alpha = 0.1; int_frame_id = 0; int_type = 'user'; analyze_golden_standard=False
-    data_debugger = DataDebugger(dataset, partition_days, filter_threshold, training_ratio, tau_max, alpha)
-    #data_debugger.validate_background_knowledge()
+    alpha = 0.01; int_frame_id = 0; analyze_golden_standard=False; frame_id = 0
 
-    # 1. Verify causal sufficiency assumptions on the dataset
-    #data_debugger.analyze_golden_standard(int_frame_id, int_type)
+    data_debugger = DataDebugger(dataset, partition_days, training_ratio)
+    frame:'DataFrame' = data_debugger.preprocessor.frame_dict[int_frame_id]
+
+    background_generator:'BackgroundGenerator' = BackgroundGenerator(dataset, frame, tau_max, filter_threshold)
+    #background_generator.print_background_knowledge()
+
+    evaluator = Evaluator(background_generator, None, 0, alpha)
+    #evaluator.print_golden_standard()
+
+    miner_debugger = MinerDebugger(frame, background_generator, alpha)
+    fp_edges = [('M001', 'M005'), ('D002', 'M005'), ('D002', 'M006'),\
+                ('M001', 'M006'), ('M002', 'M005'), ('M002', 'M006'),\
+                ('M005', 'M001'), ('M005', 'M002'), ('M006', 'M001'),\
+                ('M006', 'M002'), ('M011', 'M001'), ('M011', 'M004')]
+    for fp_edge in fp_edges:
+        miner_debugger.check_false_positive(fp_edge)
+
+    exit()
 
     # 2. Evaluate causal discovery
     evaluation_repo = EvaluationResultRepo(dataset)

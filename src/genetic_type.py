@@ -14,8 +14,8 @@ class AttrEvent():
 
 class DataFrame():
 
-    def __init__(self, id, var_names, n_events) -> None:
-        self.id = id; self.n_events = n_events
+    def __init__(self, id, var_names, n_events, n_days) -> None:
+        self.id = id; self.n_events = n_events; self.n_days = n_days
         self.var_names = var_names; self.n_vars = len(self.var_names)
         self.training_events_states:'list[tuple(AttrEvent, ndarray)]' = None
         self.testing_events_states:'list[tuple(AttrEvent, ndarray)]' = None

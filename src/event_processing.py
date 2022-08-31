@@ -35,7 +35,7 @@ class Processor:
 
 class Hprocessor(Processor):
 
-	def __init__(self, dataset, verbosity=0, partition_days=None, training_ratio=None):
+	def __init__(self, dataset, partition_days=None, training_ratio=None, verbosity=0):
 		super().__init__(dataset)
 		self.attr_names = None; self.n_vars = 0
 		self.name_device_dict = defaultdict(DevAttribute) # The str-DevAttribute dict using the attr name as the dict key
@@ -220,7 +220,10 @@ class Hprocessor(Processor):
 		# 0. Store all records.
 		states_array = np.stack([tup[1] for tup in transition_events_states], axis=0)
 		dataframe = pp.DataFrame(data=states_array, var_names=self.attr_names)
-		dframe = DataFrame(id='all', var_names=self.attr_names, n_events=len(transition_events_states))
+		final_timestamp = '{} {}'.format(transition_events_states[-1][0].date, transition_events_states[-1][0].time)
+		first_timestamp = '{} {}'.format(transition_events_states[0][0].date, transition_events_states[0][0].time)
+		dframe = DataFrame(id='all', var_names=self.attr_names, n_events=len(transition_events_states),\
+			n_days = ((datetime.fromisoformat(final_timestamp) - datetime.fromisoformat(first_timestamp)).total_seconds())*1.0/86400)
 		dframe.set_device_info(self.name_device_dict, self.index_device_dict)
 		dframe.set_training_data(transition_events_states, dataframe)
 		dframe.set_testing_data(transition_events_states, dataframe) # For this frame which stores all events, we did not separate training and testing data
@@ -247,7 +250,7 @@ class Hprocessor(Processor):
 				last_point = seg_point
 				continue
 			dataframe = pp.DataFrame(data=training_data, var_names=self.attr_names); testing_dataframe = pp.DataFrame(data=testing_data, var_names=self.attr_names)
-			dframe = DataFrame(id=frame_count, var_names=self.attr_names, n_events=seg_point-last_point)
+			dframe = DataFrame(id=frame_count, var_names=self.attr_names, n_events=seg_point-last_point, n_days=self.partition_days)
 			dframe.set_device_info(self.name_device_dict, self.index_device_dict)
 			dframe.set_training_data(transition_events_states[last_point:testing_start_point], dataframe)
 			dframe.set_testing_data(transition_events_states[testing_start_point:seg_point], testing_dataframe)

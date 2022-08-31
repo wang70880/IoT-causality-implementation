@@ -30,7 +30,7 @@ tau_max=3
 declare -a bk_levels=(0)
 declare -a filter_thresholds=(100)
 ## PC discovery process
-declare -a pc_alphas=(0.1)
+declare -a pc_alphas=(0.01)
 max_conds_dim=5; max_comb=10
 
 # 0. Cleanup process and parameter settings

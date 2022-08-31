@@ -100,7 +100,7 @@ if COMM.rank == 0:
 
 # 1. Load data and create data frame
 dl_start =time()
-event_preprocessor:'Hprocessor' = Hprocessor(dataset=dataset,verbosity=0, partition_days=partition_days, training_ratio=training_ratio)
+event_preprocessor:'Hprocessor' = Hprocessor(dataset=dataset, partition_days=partition_days, training_ratio=training_ratio)
 event_preprocessor.data_loading()
 frame:'DataFrame' = event_preprocessor.frame_dict[frame_id]
 dataframe:pp.DataFrame = frame.training_dataframe; attr_names = frame.var_names
@@ -111,8 +111,8 @@ if COMM.rank == 0:
 
 # 2. Identify the background knowledge, and use the background knowledge to prune edges
 bg_start=time()
-background_generator = BackgroundGenerator(event_preprocessor, tau_max, filter_threshold)
-selected_links, candidate_matrix = background_generator.generate_candidate_interactions(bk_level, frame_id, n_vars) # Get candidate interactions
+background_generator = BackgroundGenerator(dataset, frame, tau_max, filter_threshold)
+selected_links, candidate_matrix = background_generator.generate_candidate_interactions(bk_level) # Get candidate interactions
 n_candidate_edges = 0
 for worker_index, link_dict in selected_links.items():
     n_candidate_edges += sum([len(cause_list) for cause_list in link_dict.values()])
@@ -171,15 +171,16 @@ if COMM.rank == 0:
 
 # 5. Evaluate the discovery accuracy
 if COMM.rank == 0:
-## 5.1 Evaluate the discovery precision and recall for different levels of background knowledge
-    interactions, interaction_types, n_paths = evaluator.interpret_discovery_results(interaction_array, golden_frame_id=frame_id, golden_type='user')
-## 5.2 Evaluate the discovery precision and recall for different levels of background knowledge
+    ## 5.1 Evaluate the discovery precision and recall
     n_golden_edges, precision, recall, f1 = evaluator.evaluate_discovery_accuracy(interaction_array, golden_frame_id=frame_id, golden_type='user', verbosity=1)
-    print("     [Causal Discovery Evaluation] # golden edges = {}, precision = {}, recall = {}, f1 = {}"\
+    print("     [IM Accuracy] # golden edges = {}, precision = {}, recall = {}, f1 = {}"\
                         .format(n_golden_edges, precision, recall, f1))
-    print("     [Causal Discovery Evaluation] Consumed time for preprocessing, background, causal discovery = {}, {}, {}"\
+    ## 5.2 Chain analysis
+    #interactions, interaction_types, n_paths = evaluator.interpret_discovery_results(interaction_array, golden_frame_id=frame_id, golden_type='user')
+    ## 5.3 Time efficiency analysis
+    print("     [IM Efficiency] Consumed time for preprocessing, background, causal discovery = {}, {}, {}"\
                 .format(preprocessing_consumed_time, bk_consumed_time, pc_consumed_time))
-    # 5.3 Compare with ARM and analyze the result
+    ## 5.4 Compare with ARM and analyze the result
     #arm_start = time()
     #armer = ARMer(frame=frame, min_support=filter_threshold, min_confidence=1.0-pc_alpha)
     #association_array:'np.ndarray' = armer.association_rule_mining()

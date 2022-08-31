@@ -2,16 +2,16 @@ import collections
 import itertools
 import numpy as np
 import random
+import pandas as pd
 from src.tigramite.tigramite.pcmci import PCMCI
 import matplotlib.pyplot as plt
-from numpy import ndarray, var
+from numpy import ndarray
 from src.event_processing import Hprocessor
 from src.drawer import Drawer
 from src.background_generator import BackgroundGenerator
 from src.bayesian_fitter import BayesianFitter
 from src.genetic_type import DataFrame, AttrEvent, DevAttribute
 from src.tigramite.tigramite import plotting as ti_plotting
-import statistics
 from collections import defaultdict
 
 from src.tigramite.tigramite import pcmci
@@ -19,12 +19,11 @@ from src.tigramite.tigramite.independence_tests.chi2 import ChiSquare
 
 class Evaluator():
 
-    def __init__(self, event_processor, background_generator,\
-         bayesian_fitter, bk_level=0, pc_alpha=0., filter_threshold=1, frame_id=0):
-        self.event_processor:'Hprocessor' = event_processor
+    def __init__(self, background_generator, bayesian_fitter,\
+        bk_level=0, pc_alpha=0.):
         self.background_generator:'BackgroundGenerator' = background_generator
         self.bayesian_fitter:'BayesianFitter' = bayesian_fitter
-        self.bk_level = bk_level; self.pc_alpha = pc_alpha; self.filter_threshold = filter_threshold; self.frame_id = frame_id
+        self.bk_level = bk_level; self.pc_alpha = pc_alpha
         self.tau_max = self.background_generator.tau_max
         self.golden_standard_dict = self._construct_golden_standard()
     
@@ -36,68 +35,101 @@ class Evaluator():
         golden_standard_dict['user'] = self._identify_user_interactions()
         golden_standard_dict['physics'] = self._identify_physical_interactions()
         golden_standard_dict['automation'] = self._identify_automation_interactions()
+
+        aggregation_array = sum([golden_array for golden_array in golden_standard_dict.values()])
+        assert(all([x <= 1 for index, x in np.ndenumerate(aggregation_array)])) # We hope that for any two devices, there exists only one type of interactions
+        golden_standard_dict['aggregation'] = aggregation_array
+
         return golden_standard_dict
 
     def _identify_user_interactions(self):
         """
         In HH-series dataset, the user interaction is in the form of M->M, M->D, or D->M
-        For any two devices, they have interactions iff (1) they are spatially adjacent, and (2) they are usually sequentially activated.
+        In the current frame, for any two devices, they have interactions iff (1) they are spatially adjacent, and (2) they are usually sequentially activated.
             (1) The identification of spatial adjacency is done by the background generator.
             (2) The identification of sequential activation is done by checking its occurrence within time lag tau_max.
         """
-        # Return variables
-        user_interaction_dict:'dict[np.ndarray]' = {}
         # Auxillary variables
-        name_device_dict = self.event_processor.name_device_dict; n_vars = self.event_processor.n_vars
-        frame_dict:'dict[DataFrame]' = self.event_processor.frame_dict
+        frame:'DataFrame' = self.background_generator.frame
+        name_device_dict = frame.name_device_dict; n_vars = frame.n_vars
+        training_events:'list[AttrEvent]' = [tup[0] for tup in frame.training_events_states] 
+        # Return variables
+        golden_user_array:'np.ndarray' = np.zeros((n_vars, n_vars, self.tau_max+1), dtype=np.int8)
 
         # 1. Spatial requirement verification: Fetch spatial-adjacency pairs and get the spatial background information.
-        spatial_array:'np.ndarray' = self.background_generator.correlation_dict['spatial'][0][1] # The index does not matter, since for all frames and tau, the adjacency matrix is the same.
+        spatial_array:'np.ndarray' = self.background_generator.knowledge_dict['spatial']
 
         # 2. Temporal requirement verification: For any two devices, they should be sequentially triggered at least once.
-        frequency_matrix = np.zeros((n_vars, n_vars, self.tau_max + 1), dtype=np.int32)
-        # 2.1 Count the frequency pair in the whole dataset, and normalize it.
-        frame:'DataFrame' = frame_dict[self.frame_id]
-        training_events:'list[AttrEvent]' = [tup[0] for tup in frame.training_events_states] 
+        frequency_matrix:'np.ndarray' = np.zeros((n_vars, n_vars, self.tau_max+1), dtype=np.int32)
         last_act_dev = None; interval = 0
         for event in training_events:
-            if event.dev.startswith(('M', 'D')) and event.value == 1: # An activation event is detected.
+            if event.value == 1: # An activation event is detected.
                 if last_act_dev and interval <= self.tau_max:
                     frequency_matrix[name_device_dict[last_act_dev].index, name_device_dict[event.dev].index, interval] += 1
                 last_act_dev = event.dev
                 interval = 1
             else:
                 interval += 1
-        frequency_matrix[frequency_matrix > 0] = 1
+
+        for i in range(n_vars): # If the aggregated activation frequency is larger than n_days (e.g., 100), then the edge satisfies the rule.
+            for j in range(n_vars):
+                frequency_matrix[i,j,:] = 1 if np.sum(frequency_matrix[i,j,:]) >= frame.n_days else 0
 
         # 3. Spatial requirement verification: For those pairs which satisfy the temporal requirement, further integrate spatial knowledge.
-        golden_standard_array = np.zeros((n_vars, n_vars, self.tau_max + 1), dtype=np.int8)
-        for (i, j, tau), x in np.ndenumerate(frequency_matrix):
-            golden_standard_array[(i, j, tau)] = x * spatial_array[(i, j)]
-        user_interaction_dict[self.frame_id] = golden_standard_array
-        return user_interaction_dict
+        assert(frequency_matrix.shape == spatial_array.shape)
+        golden_user_array = sum([frequency_matrix, spatial_array])
+        golden_user_array[golden_user_array <= 1] = 0; golden_user_array[golden_user_array > 1] = 1
+
+        return golden_user_array
 
     def _identify_physical_interactions(self):
-        # In HH-series dataset, there is no physical interactions...
-        return {}
+        # Auxillary variables
+        frame:'DataFrame' = self.background_generator.frame
+        name_device_dict = frame.name_device_dict; n_vars = frame.n_vars
+        # Return variables
+        golden_physical_array:'np.ndarray' = np.zeros((n_vars, n_vars, self.tau_max+1), dtype=np.int8)
+
+        # JC TODO: Implement the logic here.
+
+        return golden_physical_array
     
     def _identify_automation_interactions(self):
-        # In HH-series dataset, there is no automation interactions...
-        return {}
+        # Auxillary variables
+        frame:'DataFrame' = self.background_generator.frame
+        name_device_dict = frame.name_device_dict; n_vars = frame.n_vars
+        # Return variables
+        golden_automation_array:'np.ndarray' = np.zeros((n_vars, n_vars, self.tau_max+1), dtype=np.int8)
+
+        # JC TODO: Implement the logic here.
+
+        return golden_automation_array
+
+    def print_golden_standard(self, golden_type='aggregation'):
+        # Auxillary variables
+        frame:'DataFrame' = self.background_generator.frame
+        tau_max = self.background_generator.tau_max; var_names = frame.var_names
+
+        golden_array = self.golden_standard_dict[golden_type]
+        tau_free_golden_array = sum(
+            [golden_array[:,:,tau] for tau in range(1, tau_max+1)]
+        )
+        print("Golden array with type {} (After lag aggregation):".format(golden_type))
+        df = pd.DataFrame(tau_free_golden_array, columns=var_names, index=var_names)
+        print(df)
 
     """Function classes for causal discovery evaluation."""
 
-    def interpret_discovery_results(self, discovery_results:'np.ndarray', golden_frame_id:'int', golden_type:'str'):
+    def interpret_discovery_results(self, discovery_results:'np.ndarray'):
         # Return variables
         interactions:'list[tuple]' = []; interaction_types:'set' = set(); n_paths:'int' = 0
         # Auxillary variables
-        frame:'DataFrame' = self.event_processor.frame_dict[golden_frame_id]
+        frame:'DataFrame' = self.background_generator.frame
         var_names = frame.var_names; n_vars = len(var_names); index_device_dict:'dict[DevAttribute]' = frame.index_device_dict
-        golden_standard_array:'np.ndarray' = self.golden_standard_dict[golden_type][golden_frame_id]
+        golden_standard_array:'np.ndarray' = self.golden_standard_dict['aggregation']
 
-        # 1. Analyze the discovered device interactions
-        tau_free_discovery_array = sum([discovery_results[:,:,tau] for tau in range(1, self.tau_max + 1)]); tau_free_discovery_array[tau_free_discovery_array > 0] = 1
-        tau_free_golden_array = sum([golden_standard_array[:,:,tau] for tau in range(1, self.tau_max + 1)]); tau_free_golden_array[tau_free_golden_array > 0] = 1
+        # 1. Analyze the discovered device interactions (After aggregation of time lag)
+        tau_free_discovery_array:'np.ndarray' = sum([discovery_results[:,:,tau] for tau in range(1, self.tau_max + 1)]); tau_free_discovery_array[tau_free_discovery_array > 0] = 1
+        tau_free_golden_array:'np.ndarray' = sum([golden_standard_array[:,:,tau] for tau in range(1, self.tau_max + 1)]); tau_free_golden_array[tau_free_golden_array > 0] = 1
         discovered_golden_array = np.zeros((n_vars, n_vars))
         assert(tau_free_discovery_array.shape == tau_free_golden_array.shape == (n_vars, n_vars))
         for (i, j), x in np.ndenumerate(tau_free_golden_array):
@@ -115,7 +147,8 @@ class Evaluator():
 
     def precision_recall_calculation(self, golden_array:'np.ndarray', evaluated_array:'np.ndarray', verbosity=0):
         # Auxillary variables
-        index_device_dict:'dict[DevAttribute]' = self.event_processor.index_device_dict
+        frame:'DataFrame' = self.background_generator.frame
+        index_device_dict:'dict[DevAttribute]' = frame.index_device_dict
         tp = 0; fp = 0; fn = 0; precision = 0.0; recall = 0.0
         fps = []; fns = []
         for index, x in np.ndenumerate(evaluated_array):
@@ -135,19 +168,19 @@ class Evaluator():
             print("Discovery FNs: {}".format(','.join(fns)))
         return tp, fp, fn, precision, recall, f1_score
 
-    def evaluate_discovery_accuracy(self, discovery_results:'np.ndarray', golden_frame_id:'int', golden_type:'str', verbosity=0):
+    def evaluate_discovery_accuracy(self, discovery_results:'np.ndarray', verbosity=0):
         # Auxillary variables
-        frame:'DataFrame' = self.event_processor.frame_dict[golden_frame_id]
+        frame:'DataFrame' = self.background_generator.frame
         var_names = frame.var_names; n_vars = len(var_names)
-        golden_standard_array:'np.ndarray' = self.golden_standard_dict[golden_type][golden_frame_id]
+        golden_standard_array:'np.ndarray' = self.golden_standard_dict['aggregation']
 
         # 1. Plot the golden standard graph and the discovered graph. Note that the plot functionality requires PCMCI objects
-        drawer = Drawer(self.event_processor.dataset)
+        drawer = Drawer(self.background_generator.dataset)
         pcmci = PCMCI(dataframe=frame.training_dataframe, cond_ind_test=ChiSquare(), verbosity=-1)
         drawer.plot_interaction_graph(pcmci, discovery_results==1, 'mined-interaction-bklevel{}-alpha{}-threshold{}'\
-                            .format(self.bk_level, int(1.0/self.pc_alpha), self.filter_threshold), link_label_fontsize=10)
+                            .format(self.bk_level, int(1.0/self.pc_alpha), self.background_generator.filter_threshold), link_label_fontsize=10)
         drawer.plot_interaction_graph(pcmci, golden_standard_array==1, 'golden-interaction-threshold{}'\
-                                        .format(int(self.filter_threshold)))
+                                        .format(int(self.background_generator.filter_threshold)))
         assert(discovery_results.shape == golden_standard_array.shape == (n_vars, n_vars, self.tau_max + 1))
         # 2. Calculate the precision and recall for discovered results.
         #tp, fp, fn, precision, recall, f1 = self.precision_recall_calculation(golden_standard_array, discovery_results, verbosity=verbosity)
@@ -157,11 +190,11 @@ class Evaluator():
         tau_free_tp, tau_free_fp, tau_free_fn, tau_free_precision, tau_free_recall, tau_free_f1 = self.precision_recall_calculation(tau_free_golden_array, tau_free_discovery_array, verbosity=verbosity)
         return tau_free_tp+tau_free_fn, tau_free_precision, tau_free_recall, tau_free_f1
 
-    def compare_with_arm(self, discovery_results:'np.ndarray', arm_results:'np.ndarray', golden_frame_id:'int', golden_type:'str'):
+    def compare_with_arm(self, discovery_results:'np.ndarray', arm_results:'np.ndarray'):
         # Auxillary variables
-        frame:'DataFrame' = self.event_processor.frame_dict[golden_frame_id]
-        var_names = frame.var_names; n_vars = len(var_names); index_device_dict:'dict[DevAttribute]' = frame.index_device_dict
-        golden_standard_array:'np.ndarray' = self.golden_standard_dict[golden_type][golden_frame_id]
+        frame:'DataFrame' = self.background_generator.frame
+        var_names = frame.var_names; n_vars = frame.n_vars; index_device_dict:'dict[DevAttribute]' = frame.index_device_dict
+        golden_standard_array:'np.ndarray' = self.golden_standard_dict['aggregation']
         assert(discovery_results.shape == (n_vars, n_vars, self.tau_max + 1))
         assert(arm_results.shape == (n_vars, n_vars))
 
@@ -203,21 +236,21 @@ class Evaluator():
 
     """Function classes for anomaly detection evaluation."""
 
-    def construct_golden_standard_bayesian_fitter(self, int_frame_id=0, int_type='user'):
+    def construct_golden_standard_bayesian_fitter(self):
         # Auxillary variables
-        int_frame:'DataFrame' = self.event_processor.frame_dict[int_frame_id]
-        var_names = self.bayesian_fitter.var_names
+        frame:'DataFrame' = self.background_generator.frame
+        var_names = frame.var_names
 
-        golden_standard_interaction_matrix:'np.ndarray' = self.golden_standard_dict[int_type][int_frame_id]
+        golden_standard_interaction_matrix:'np.ndarray' = self.golden_standard_dict['aggregation']
         link_dict = defaultdict(list)
         for (i, j, lag), x in np.ndenumerate(golden_standard_interaction_matrix):
             if x == 1:
                 link_dict[var_names[j]].append((var_names[i],-lag))
-        golden_bayesian_fitter = BayesianFitter(int_frame, self.tau_max, link_dict)
+        golden_bayesian_fitter = BayesianFitter(frame, self.tau_max, link_dict)
         golden_bayesian_fitter.construct_bayesian_model()
         return golden_bayesian_fitter
 
-    def simulate_malicious_control(self, int_frame_id, n_anomaly, maximum_length, anomaly_case):
+    def simulate_malicious_control(self, n_anomaly, maximum_length, anomaly_case):
         """
         The function injects anomalous events to the benign testing data, and generates the testing event sequences (simulating Malicious Control Attack).
         1. Randomly select n_anomaly positions.
@@ -239,14 +272,14 @@ class Evaluator():
         # Return variables
         testing_event_states:'list[tuple(AttrEvent,ndarray)]' = []; anomaly_positions = []; testing_benign_dict:'dict[int]' = {}
         # Auxillary variables
-        frame:'DataFrame' = self.event_processor.frame_dict[int_frame_id]
+        frame:'DataFrame' = self.background_generator.frame
         name_device_dict:'dict[DevAttribute]' = frame.name_device_dict
         benign_event_states:'list[tuple(AttrEvent,ndarray)]' = frame.testing_events_states
 
         # 1. Determine the set of anomaly events according to the anomaly case
         candidate_positions = []; anomalous_event_states = []; real_candidate_positions = []
         if anomaly_case == 1: # Outlier Intrusion: Ghost motion sensor activation event
-            golden_bayesian_fitter = self.construct_golden_standard_bayesian_fitter(int_frame_id, 'user')
+            golden_bayesian_fitter = self.construct_golden_standard_bayesian_fitter()
             motion_devices = [dev for dev in frame.var_names if dev.startswith('M')]
             candidate_positions = sorted(random.sample(\
                                     range(self.tau_max, len(benign_event_states) - 1, self.tau_max + maximum_length),\
