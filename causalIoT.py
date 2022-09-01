@@ -148,7 +148,7 @@ pc_consumed_time = _elapsed_minutes(pc_start)
 
 ## 4.3 Gather the distributed pc-discovery result, and collect information of filtered edges
 if COMM.rank == 0:
-    n_discovered_edges = 0; interaction_array:'np.ndarray' = np.zeros((n_vars, n_vars, tau_max + 1), dtype=np.int8)
+    interaction_array:'np.ndarray' = np.zeros((n_vars, n_vars, tau_max+1), dtype=np.int8)
     index_device_dict:'dict[DevAttribute]' = event_preprocessor.index_device_dict
     all_parents = {}; pcmci_objects = {}; all_parents_with_name = {}
     filtered_edges = {}; filtered_edge_infos = defaultdict(list)
@@ -165,7 +165,7 @@ if COMM.rank == 0:
         for (cause_id, lag) in cause_list:
             all_parents_with_name[index_device_dict[outcome_id].name] = (index_device_dict[cause_id].name, lag)
             interaction_array[cause_id, outcome_id, abs(lag)] = 1
-            n_discovered_edges += 1
+    n_discovered_edges = np.sum(interaction_array)
         #print("# discovered edges for outcome {}: {}".format(outcome_id, len(cause_list)))
 
 # 5. Evaluate the discovery accuracy

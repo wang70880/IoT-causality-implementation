@@ -58,6 +58,7 @@ class Evaluator():
 
         # 1. Spatial requirement verification: Fetch spatial-adjacency pairs and get the spatial background information.
         spatial_array:'np.ndarray' = self.background_generator.knowledge_dict['spatial']
+        self.background_generator.print_background_knowledge()
 
         # 2. Temporal requirement verification: For any two devices, they should be sequentially triggered at least once.
         frequency_matrix:'np.ndarray' = np.zeros((n_vars, n_vars, self.tau_max+1), dtype=np.int32)
@@ -73,7 +74,7 @@ class Evaluator():
 
         for i in range(n_vars): # If the aggregated activation frequency is larger than n_days (e.g., 100), then the edge satisfies the rule.
             for j in range(n_vars):
-                frequency_matrix[i,j,:] = 1 if np.sum(frequency_matrix[i,j,:]) >= frame.n_days else 0
+                frequency_matrix[i,j,:] = 1 if np.sum(frequency_matrix[i,j,:]) >= .5 * frame.n_days else 0
 
         # 3. Spatial requirement verification: For those pairs which satisfy the temporal requirement, further integrate spatial knowledge.
         assert(frequency_matrix.shape == spatial_array.shape)
