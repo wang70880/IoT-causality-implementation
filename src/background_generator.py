@@ -67,17 +67,18 @@ class BackgroundGenerator():
 
         if self.dataset == 'hh101':
             # In the list, each element (which is also a list) represents a physical area and deployed devices in that area.
-            area_list = [['T102', 'D002', 'M001', 'LS001', 'M010', 'LS010'], \
-                         ['M011', 'LS011', 'D003', 'T103', 'MA015', 'LS015'], \
-                         ['M009', 'LS009', 'MA014', 'LS014', 'M012', 'LS012'], \
-                         ['D001', 'T101', 'T104', 'T105', 'M005', 'LS005', 'MA013', 'LS013', 'M008', 'LS008', 'M004', 'LS004'], \
-                         ['MA016', 'LS016', 'M003', 'LS003', 'M002', 'LS002', 'M007', 'LS007', 'M006', 'LS006']]
+            area_list = [['T102', 'D002', 'M001', 'LS001',\
+                          'M011', 'LS011', 'M009', 'LS009', 'MA014', 'LS014', 'M012', 'LS012',\
+                          'M010', 'LS010', 'D001', 'T101', 'T104', 'T105', 'M005', 'LS005', 'MA013', 'LS013', 'M008', 'LS008', 'M004', 'LS004',\
+                          'MA016', 'LS016', 'M003', 'LS003'], \
+                         ['D003', 'T103', 'MA015', 'LS015'], \
+                         ['M002', 'LS002', 'M007', 'LS007', 'M006', 'LS006']]
             num_areas = len(area_list)
             area_connectivity_array = np.zeros(shape=(num_areas, num_areas), dtype=np.int64)
             for i in range(num_areas):
                 area_connectivity_array[i, i] = 1
-            area_connectivity_array[0, 1] = 1; area_connectivity_array[1, 2] = 1; area_connectivity_array[0, 3] = 1; area_connectivity_array[3, 4] = 1
-            area_connectivity_array[1, 0] = 1; area_connectivity_array[2, 1] = 1; area_connectivity_array[3, 0] = 1; area_connectivity_array[4, 3] = 1
+            area_connectivity_array[0, 1] = 1; area_connectivity_array[0, 2] = 1
+            area_connectivity_array[1, 0] = 1; area_connectivity_array[2, 0] = 1
         elif self.dataset == 'hh130':
             area_list = [['D002', 'T102', 'M001', 'LS001', 'M003', 'M004', 'LS003', 'LS004', 'T106', 'M005', 'LS005', 'LS009', 'LS010', 'M006', 'LS006'], \
                          ['M002', 'LS002', 'T103', 'LS008'], \

@@ -313,7 +313,7 @@ class EvaluationResultRepo():
 
 if __name__ == '__main__':
 
-    dataset = 'hh130'; partition_days = 100; filter_threshold = 100; training_ratio = 0.8; tau_max = 3
+    dataset = 'hh101'; partition_days = 100; filter_threshold = 100; training_ratio = 0.8; tau_max = 3
     alpha = 0.01; int_frame_id = 0; analyze_golden_standard=False; frame_id = 0
 
     data_debugger = DataDebugger(dataset, partition_days, training_ratio)
@@ -325,12 +325,10 @@ if __name__ == '__main__':
     evaluator = Evaluator(background_generator, None, 0, alpha)
     evaluator.print_golden_standard('aggregation')
 
-    miner_debugger = MinerDebugger(frame, background_generator, alpha)
-    fp_edges = [('D002', 'M004'), ('M004', 'D002'), ('D002', 'M006'), ('M006', 'D002'),\
-                ('M006', 'M001'), ('M001', 'M006'), ('M002', 'M006'), ('M006', 'M002'),\
-                ('M002', 'D002'), ('M011', 'M004'), ('M011', 'M005')]
-    for fp_edge in fp_edges:
-        miner_debugger.check_false_positive(fp_edge)
+    #miner_debugger = MinerDebugger(frame, background_generator, alpha)
+    #fp_edges = [('M004', 'D002'),('M006', 'M001'),('M011', 'M004'), ('M011', 'M005')]
+    #for fp_edge in fp_edges:
+    #    miner_debugger.check_false_positive(fp_edge)
     exit()
 
     # 2. Evaluate causal discovery
