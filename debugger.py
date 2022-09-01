@@ -323,15 +323,16 @@ if __name__ == '__main__':
     #background_generator.print_background_knowledge()
 
     evaluator = Evaluator(background_generator, None, 0, alpha)
-    #evaluator.print_golden_standard()
+    evaluator.print_golden_standard('user')
+    evaluator.print_golden_standard('aggregation')
 
     miner_debugger = MinerDebugger(frame, background_generator, alpha)
     fp_edges = [('M001', 'M005'), ('D002', 'M005'), ('D002', 'M006'),\
                 ('M001', 'M006'), ('M002', 'M005'), ('M002', 'M006'),\
                 ('M005', 'M001'), ('M005', 'M002'), ('M006', 'M001'),\
                 ('M006', 'M002'), ('M011', 'M001'), ('M011', 'M004')]
-    for fp_edge in fp_edges:
-        miner_debugger.check_false_positive(fp_edge)
+    #for fp_edge in fp_edges:
+    #    miner_debugger.check_false_positive(fp_edge)
 
     exit()
 

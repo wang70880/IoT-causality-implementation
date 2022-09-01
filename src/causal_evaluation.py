@@ -20,7 +20,7 @@ from src.tigramite.tigramite.independence_tests.chi2 import ChiSquare
 class Evaluator():
 
     def __init__(self, background_generator, bayesian_fitter,\
-        bk_level=0, pc_alpha=0.):
+        bk_level, pc_alpha):
         self.background_generator:'BackgroundGenerator' = background_generator
         self.bayesian_fitter:'BayesianFitter' = bayesian_fitter
         self.bk_level = bk_level; self.pc_alpha = pc_alpha
@@ -145,7 +145,7 @@ class Evaluator():
         print("# of interaction chains: {}".format(n_paths))
         return interactions, interaction_types, n_paths
 
-    def precision_recall_calculation(self, golden_array:'np.ndarray', evaluated_array:'np.ndarray', verbosity=0):
+    def precision_recall_calculation(self, golden_array:'np.ndarray', evaluated_array:'np.ndarray', verbosity):
         # Auxillary variables
         frame:'DataFrame' = self.background_generator.frame
         index_device_dict:'dict[DevAttribute]' = frame.index_device_dict
@@ -181,7 +181,7 @@ class Evaluator():
                             .format(self.bk_level, int(1.0/self.pc_alpha), self.background_generator.filter_threshold), link_label_fontsize=10)
         drawer.plot_interaction_graph(pcmci, golden_standard_array==1, 'golden-interaction-threshold{}'\
                                         .format(int(self.background_generator.filter_threshold)))
-        assert(discovery_results.shape == golden_standard_array.shape == (n_vars, n_vars, self.tau_max + 1))
+        assert(discovery_results.shape == golden_standard_array.shape == (n_vars, n_vars, self.tau_max+1))
         # 2. Calculate the precision and recall for discovered results.
         #tp, fp, fn, precision, recall, f1 = self.precision_recall_calculation(golden_standard_array, discovery_results, verbosity=verbosity)
         # 3. Calculate the tau-free-precision and tau-free-recall for discovered results

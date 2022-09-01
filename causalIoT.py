@@ -121,8 +121,7 @@ if COMM.rank == 0:
     print("     [Background Integration] # candidate edges = {}".format(n_candidate_edges))
 
 # 3. Construct the golden standard.
-evaluator = Evaluator(event_preprocessor, background_generator,\
-            None, bk_level, pc_alpha, filter_threshold, frame_id)
+evaluator = Evaluator(background_generator, None, bk_level, pc_alpha)
 
 # 4. Initiate parallel causal discovery
 ## 4.1 Scatter the jobs
@@ -172,7 +171,7 @@ if COMM.rank == 0:
 # 5. Evaluate the discovery accuracy
 if COMM.rank == 0:
     ## 5.1 Evaluate the discovery precision and recall
-    n_golden_edges, precision, recall, f1 = evaluator.evaluate_discovery_accuracy(interaction_array, golden_frame_id=frame_id, golden_type='user', verbosity=1)
+    n_golden_edges, precision, recall, f1 = evaluator.evaluate_discovery_accuracy(interaction_array, verbosity=1)
     print("     [IM Accuracy] # golden edges = {}, precision = {}, recall = {}, f1 = {}"\
                         .format(n_golden_edges, precision, recall, f1))
     ## 5.2 Chain analysis
