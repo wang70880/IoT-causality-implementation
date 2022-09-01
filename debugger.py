@@ -65,14 +65,25 @@ class MinerDebugger():
         2. Initiate the conditional independence testing: Are they CI given the underlying mediating variables?
         """
         # Auxiliary variables
-        name_device_dict:'dict[DevAttribute]' = self.frame.name_device_dict
-        frequency_array:'np.ndarray' = self.background_generator.frequency_array
+        name_device_dict:'dict[DevAttribute]' = self.frame.name_device_dict; index_device_dict:'dict[DevAttribute]' = self.frame.index_device_dict
+        adjacency_array:'np.ndarray' = self.background_generator.spatial_array
+        var_names = self.frame.var_names; n_vars = len(var_names)
         former = name_device_dict[edge[0]].index; latter = name_device_dict[edge[1]].index
 
+        # 1. For each false-positive edge, its activation frequency is low (< .5 * n_days)
         frequency_list = [self.background_generator.frequency_array[former, latter, lag] for lag in range(1, self.tau_max+1)]
         activation_frequency_list = [self.background_generator.activation_frequency_array[former, latter, lag] for lag in range(1, self.tau_max+1)]
-        #print("Frequencies of pair ({}, {}): {}".format(edge[0], edge[1], frequency_list))
-        print("Activation frequencies of pair ({}, {}): {}".format(edge[0], edge[1], activation_frequency_list))
+        print("Frequencies, activation frequencies of pair ({}, {}): {}, {}".format(edge[0], edge[1], frequency_list, activation_frequency_list))
+
+        # 2. Check the conditional independence testing result
+        pcmci = PCMCI(self.frame.training_dataframe, ChiSquare(), verbosity=1)
+        neighbors = [x for x in range(n_vars) if np.count_nonzero(adjacency_array[x, latter, :])>0 and x not in [former, latter]]
+
+        vals = []; pvals = []
+        for lag in range(1, self.tau_max+1):
+            val, pval = pcmci.cond_ind_test.run_test(X=[(former, (-lag))], Y=[(latter, 0)], Z=[], tau_max=self.tau_max)
+            vals.append(val); pvals.append(pval)
+        print("vals, pvals: {}, {}".format(vals, pvals))
 
     def validate_ci_testing(self, tau_max, int_tau=-1):
         """
@@ -313,8 +324,8 @@ class EvaluationResultRepo():
 
 if __name__ == '__main__':
 
-    dataset = 'hh101'; partition_days = 100; filter_threshold = 100; training_ratio = 0.8; tau_max = 3
-    alpha = 0.01; int_frame_id = 0; analyze_golden_standard=False; frame_id = 0
+    dataset = 'hh130'; partition_days = 100; filter_threshold = 100; training_ratio = 0.8; tau_max = 3
+    alpha = 0.01; int_frame_id = 1; analyze_golden_standard=False; frame_id = 0
 
     data_debugger = DataDebugger(dataset, partition_days, training_ratio)
     frame:'DataFrame' = data_debugger.preprocessor.frame_dict[int_frame_id]
@@ -325,10 +336,10 @@ if __name__ == '__main__':
     evaluator = Evaluator(background_generator, None, 0, alpha)
     evaluator.print_golden_standard('aggregation')
 
-    #miner_debugger = MinerDebugger(frame, background_generator, alpha)
-    #fp_edges = [('M004', 'D002'),('M006', 'M001'),('M011', 'M004'), ('M011', 'M005')]
-    #for fp_edge in fp_edges:
-    #    miner_debugger.check_false_positive(fp_edge)
+    miner_debugger = MinerDebugger(frame, background_generator, alpha)
+    fp_edges = [('D002', 'M006')]
+    for fp_edge in fp_edges:
+        miner_debugger.check_false_positive(fp_edge)
     exit()
 
     # 2. Evaluate causal discovery
@@ -347,7 +358,6 @@ if __name__ == '__main__':
     drawer.draw_line_chart(x_list, recall_lists, legends, 'Data-size', 'Recall')
     drawer.draw_line_chart(x_list, f1_lists, legends, 'Data-size', 'F1')
     drawer.draw_line_chart(x_list, time_lists, legends, 'Data-size', 'Time')
-
 
     #n_anomalies = 50; maximum_length = 1; anomaly_case = 1
     #sig_levels = list(np.arange(0.1, 1., 0.1)); sig_levels = [0.95]

@@ -60,24 +60,14 @@ class Evaluator():
         spatial_array:'np.ndarray' = self.background_generator.knowledge_dict['spatial']
 
         # 2. Temporal requirement verification: For any two devices, they should be sequentially triggered at least once.
-        frequency_matrix:'np.ndarray' = np.zeros((n_vars, n_vars, self.tau_max+1), dtype=np.int32)
-        last_act_dev = None; interval = 0
-        for event in training_events:
-            if event.value == 1: # An activation event is detected.
-                if last_act_dev and interval <= self.tau_max:
-                    frequency_matrix[name_device_dict[last_act_dev].index, name_device_dict[event.dev].index, interval] += 1
-                last_act_dev = event.dev
-                interval = 1
-            else:
-                interval += 1
-
-        for i in range(n_vars): # If the aggregated activation frequency is larger than n_days (e.g., 100), then the edge satisfies the rule.
+        activation_frequency_array:'np.ndarray' = self.background_generator.activation_frequency_array
+        normalized_frequency_array:'np.ndarray' = np.zeros((n_vars, n_vars, self.tau_max+1), dtype=np.int8)
+        for i in range(n_vars): # JC NOTE: Ad-hoc temporal rules for golden standard identification (< half of days)
             for j in range(n_vars):
-                frequency_matrix[i,j,:] = 1 if np.sum(frequency_matrix[i,j,:]) >= .5 * frame.n_days else 0 # JC NOTE: Ad-hoc temporal rules for golden standard identification (< half of days)
+                normalized_frequency_array[i,j,:] = 1 if np.sum(activation_frequency_array[i,j,:]) >= .5 * frame.n_days else 0
 
         # 3. Spatial requirement verification: For those pairs which satisfy the temporal requirement, further integrate spatial knowledge.
-        assert(frequency_matrix.shape == spatial_array.shape)
-        golden_user_array = sum([frequency_matrix, spatial_array])
+        golden_user_array = sum([normalized_frequency_array, spatial_array])
         golden_user_array[golden_user_array <= 1] = 0; golden_user_array[golden_user_array > 1] = 1
 
         return golden_user_array
@@ -116,6 +106,7 @@ class Evaluator():
         print("Golden array with type {} (After lag aggregation):".format(golden_type))
         df = pd.DataFrame(tau_free_golden_array, columns=var_names, index=var_names)
         print(df)
+        print("# golden edges: {}".format(np.count_nonzero(tau_free_golden_array > 0)))
 
     """Function classes for causal discovery evaluation."""
 
