@@ -69,6 +69,6 @@ if __name__ == '__main__':
     preprocessor.data_loading()
 
     frame:'DataFrame' = preprocessor.frame_dict[int_frame_id]
-    dataframe:pp.DataFrame = frame.training_dataframe; attr_names = frame.var_names
+    dataframe:pp.DataFrame = frame.training_dataframe; var_names = frame.var_names
     armer = ARMer(frame=frame, min_support=min_support, min_confidence=min_confidence)
     association_array = armer.association_rule_mining()

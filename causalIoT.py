@@ -104,7 +104,7 @@ dl_start =time()
 event_preprocessor:'Hprocessor' = Hprocessor(dataset=dataset, partition_days=partition_days, training_ratio=training_ratio)
 event_preprocessor.data_loading()
 frame:'DataFrame' = event_preprocessor.frame_dict[frame_id]
-dataframe:pp.DataFrame = frame.training_dataframe; attr_names = frame.var_names
+dataframe:pp.DataFrame = frame.training_dataframe; var_names = frame.var_names
 n_records = dataframe.T; n_vars = dataframe.N
 preprocessing_consumed_time = _elapsed_minutes(dl_start)
 if COMM.rank == 0:

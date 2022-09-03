@@ -85,96 +85,6 @@ class MinerDebugger():
             vals.append(val); pvals.append(pval)
         print("vals, pvals: {}, {}".format(vals, pvals))
 
-    def validate_ci_testing(self, tau_max, int_tau=-1):
-        """
-        Initiate independence testing (without conditioning variables) for all variables
-        Args:
-            tau_max (int, optional): _description_. Defaults to 3.
-            int_tau (int, optional): It is used to determine the links of interest (specified by the parameter). If -1, Test all links
-        """
-
-        # 1. Load data and related attributes
-        index_device_dict:'dict[DevAttribute]' = self.preprocessor.index_device_dict
-        tested_frame:'DataFrame' = self.preprocessor.frame_dict[0]
-        int_device_indices = [k for k in index_device_dict.keys() if index_device_dict[k].name.startswith(('M', 'D'))]
-        n_vars = len(int_device_indices)
-        # Initialize the conditional independence tester
-        if int_tau > 0:
-            selected_links = {n: [(i, int(-int_tau)) for i in int_device_indices] for n in int_device_indices}
-        else:
-            selected_links = {n: [(i, int(-k)) for k in range(1, tau_max + 1) for i in int_device_indices] for n in int_device_indices}
-        pcmci = PCMCI(
-            dataframe=tested_frame.training_dataframe,
-            cond_ind_test=ChiSquare(),
-            verbosity=-1)
-
-        # 2. Test the dependency relationship among motion sensors
-        all_parents = defaultdict(dict); all_vals = defaultdict(dict); all_pvals = defaultdict(dict)
-        for i in int_device_indices: # Calculate the statistic values and the p value
-            parents = []
-            val_dict = defaultdict(float); pval_dict = defaultdict(float)
-            for j in int_device_indices:
-                for tau in range(1, tau_max + 1):
-                    lag = int(-tau)
-                    Z = []
-                    val, pval = pcmci.cond_ind_test.run_test(X=[(j, lag)],
-                                                        Y=[(i, 0)],
-                                                        Z=Z,
-                                                        tau_max=tau_max)
-                    parents.append((j, lag))
-                    val_dict[(j, lag)] = val
-                    pval_dict[(j, lag)] = pval
-            all_parents[i] = parents
-            all_vals[i] = val_dict
-            all_pvals[i] = pval_dict
-
-        # 3. Aggregate all results and draw the figure.
-        def dict_to_matrix(all_vals, tau_max, int_attrs, default=1): # Inner helpful functions for output format transformation
-            n_vars = len(int_attrs)
-            matrix = np.ones((n_vars, n_vars, tau_max + 1))
-            matrix *= default
-            for j in all_vals.keys():
-                for link in all_vals[j].keys():
-                    k, tau = link
-                    matrix[int_attrs.index(k), int_attrs.index(j), abs(tau)] = all_vals[j][link]
-            return matrix
-        val_matrix = dict_to_matrix(all_vals, tau_max, int_device_indices, default=0.)
-        p_matrix = dict_to_matrix(all_pvals, tau_max, int_device_indices, default=1.)
-        selected_links_matrix = np.ones((n_vars, n_vars, tau_max + 1))
-        n_selected_edges = 0
-        for j in selected_links.keys():
-            for link in selected_links[j]:
-                k, tau = link
-                selected_links_matrix[int_device_indices.index(k), int_device_indices.index(j), abs(tau)] = 0.
-                n_selected_edges += 1
-        final_graph = p_matrix + selected_links_matrix # Adjust graph according to the selected links: For non-selected links, penalize its p-value by adding 1.1
-        final_graph = final_graph <= self.alpha # Adjust graph according to hypothesis testing
-        print("# of filtered edges: {}".format(n_selected_edges - np.sum(final_graph)))
-        graph = pcmci.convert_to_string_graph(final_graph)
-        val_matrix[val_matrix >= 11] = 11
-
-        # 3.1 Sorting all parents according to the statistic value
-        #for dev_index in int_device_indices:
-        #    print("Sorted parents for device {}:".format(index_device_dict[dev_index].name))
-        #    parents = [x for x in int_device_indices if final_graph[int_device_indices.index(x), int_device_indices.index(dev_index), int_tau]]
-        #    parent_vals = [(x, val_matrix[int_device_indices.index(x) , int_device_indices.index(dev_index), int_tau])
-        #                         for x in parents]
-        #    parent_vals.sort(key=lambda tup: tup[1], reverse=True)
-        #    print(" -> ".join( [index_device_dict[x[0]].name for x in parent_vals] ))
-
-        # 3.2 Plotting the final graph
-        var_names = [index_device_dict[k].name for k in int_device_indices]
-        tp.plot_time_series_graph(
-            figsize=(6, 4),
-            val_matrix=val_matrix,
-            graph=graph,
-            vmin_edges=0,
-            vmax_edges=np.max(val_matrix),
-            var_names=var_names,
-            link_colorbar_label='G^2'
-        )
-        plt.savefig("temp/image/{}cmi_test_tau{}.pdf".format(self.dataset, tau_max))
-
 class BayesianDebugger():
 
     def __init__(self, data_debugger = None, verbosity=1, analyze_golden_standard=True) -> None:
@@ -325,7 +235,7 @@ class EvaluationResultRepo():
 if __name__ == '__main__':
 
     dataset = 'hh130'; partition_days = 100; filter_threshold = 100; training_ratio = 0.8; tau_max = 3
-    alpha = 0.01; int_frame_id = 1; analyze_golden_standard=False; frame_id = 0
+    alpha = 0.01; int_frame_id = 1; analyze_golden_standard=False
 
     data_debugger = DataDebugger(dataset, partition_days, training_ratio)
     frame:'DataFrame' = data_debugger.preprocessor.frame_dict[int_frame_id]

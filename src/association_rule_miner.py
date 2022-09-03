@@ -25,6 +25,6 @@ if __name__ == '__main__':
     dataset = 'hh101'; partition_config = 20
     tau_max = 1
     event_preprocessor = evt_proc.Hprocessor(dataset)
-    attr_names, dataframes = event_preprocessor.initiate_data_preprocessing(partition_config=partition_config)
+    var_names, dataframes = event_preprocessor.initiate_data_preprocessing(partition_config=partition_config)
     armer = ARMer(dataset, event_preprocessor, tau_max)
     armer._transactions_generation()

@@ -2,6 +2,7 @@ from os import stat, path
 import jenkspy
 import math
 import numpy as np
+import pandas as pd
 from datetime import datetime
 from collections import defaultdict
 from pprint import pprint
@@ -9,80 +10,243 @@ from pprint import pprint
 from src.tigramite.tigramite import data_processing as pp
 from src.genetic_type import DevAttribute, AttrEvent, DataFrame
 
-class Processor:
+def _enum_unification(val: 'str') -> 'int':
+	act_list = ["ON", "OPEN", "HIGH", "1"]
+	de_list = ["OFF", "CLOSE", "CLOSED", "LOW", "0"]
+	unified_val = ''
+	if val in act_list:
+		unified_val = 1
+	elif val in de_list:
+		unified_val = 0
+	else:
+		print("Unknown values detected: {}".format(val))
+		assert(0)
+	return unified_val
 
-	def __init__(self, dataset):
+class GeneralProcessor():
+	def __init__(self, dataset, partition_days, training_ratio, verbosity=0):
 		self.dataset = dataset
-		self.data_path = './data'
-		self.origin_data = '{}/{}/data-origin'.format(self.data_path, self.dataset)
-		self.transition_data = '{}/{}/data-transition'.format(self.data_path, self.dataset) # The default name of the original data file should be "data"
-		self.training_data = '{}/{}/data-traning'.format(self.data_path, self.dataset)
-		self.testing_data = '{}/{}/data-testing'.format(self.data_path, self.dataset)
-		# Path variables
-		self.adj_path_prefix = '{}/{}/adj/'.format(self.data_path, self.dataset)
-		self.armadj_path_prefix = '{}/{}/armadj/'.format(self.data_path, self.dataset)
-		self.stableadj_path_prefix = '{}/{}/stableadj/'.format(self.data_path, self.dataset)
-		self.mat_path_prefix = '{}/{}/mat/'.format(self.data_path, self.dataset)
-		self.partition_path_prefix = '{}/{}/partition/'.format(self.data_path, self.dataset)
-		self.timeorder_path_prefix = '{}/{}/timeorder/'.format(self.data_path, self.dataset)
-		self.priortruth_path_prefix = '{}/{}/priortruth/'.format(self.data_path, self.dataset)
-		self.plot_path_prefix = '{}/{}/rplot/'.format(self.data_path, self.dataset)
-		self.truth_path_prefix = '{}/{}/truth/'.format(self.data_path, self.dataset)
+		self.data_path = './data/{}/'.format(self.dataset)
+		self.origin_data = '{}data-origin'.format(self.data_path)
+		self.transition_data = '{}data-transition'.format(self.data_path)
 
-		# Golden standards
-		self.instrumented_automation_rule_dict: 'dict[str, str]' = {}
-		self.true_interactions_dict: 'dict[str, np.ndarray]' = {}
+		self.partition_days = partition_days
+		self.training_ratio = training_ratio
+		self.verbosity = verbosity
 
-class Hprocessor(Processor):
-
-	def __init__(self, dataset, partition_days=None, training_ratio=None, verbosity=0):
-		super().__init__(dataset)
-		self.attr_names = None; self.n_vars = 0
+		self.var_names = []; self.n_vars = 0
 		self.name_device_dict = defaultdict(DevAttribute) # The str-DevAttribute dict using the attr name as the dict key
 		self.index_device_dict = defaultdict(DevAttribute) # The str-DevAttribute dict using the attr index as the dict key
 		self.attr_count_dict = defaultdict(int); self.dev_count_dict = defaultdict(int)
 		self.transition_events_states = None # Lists of all (event, state array) tuple
 		self.frame_dict:'defaultdict(DataFrame)' = None # A dict with key, value = (frame_id, dict['number', 'day-interval', 'start-date', 'end-date', 'attr-sequence', 'attr-type-sequence', 'state-sequence'])
 		self.frame_count = None
-		self.verbosity = verbosity; self.partition_days = partition_days; self.training_ratio = training_ratio
 		# Variables for testing purposes
 		self.discretization_dict:'dict[tuple]' = {}
 
-	def _parse_raw_events(self, raw_event: "str"):
-		"""Transform raw events into well-formed tuples
+class Cprocessor(GeneralProcessor):
 
-		Args:
-			raw_event (str): The raw event logs
+	def __init__(self, dataset, partition_days, training_ratio, verbosity=0):
+		super().__init__(dataset, partition_days, training_ratio, verbosity)
+		self.device_description_dict = self._load_device_attribute_files()
+		self.int_attrs = {'binary': ['Switch', 'Smart electrical outlet', 'Infrared Movement Sensor', 'Contact Sensor'],\
+						  'discrete': ['Water Meter', 'Rollershutter', 'Dimmer'],\
+						  'continuous': []}
+						  #'continuous': ['Power Sensor', 'Humidity Sensor', 'Brightness Sensor']}
+	
+	def _load_device_attribute_files(self):
+		"""
+		The contextact dataset has a variable description excel file, which records dev_name - dev_attr mappings.
+		Need to first read the file, and get the mapping tables.
+		Returns:
+			device_description_dict (defaultdict(dict)): dev-name -> {dev-name, attr, description, val-type, val-unit, location}
+		"""
+		device_description_dict = defaultdict(dict)
+		df = pd.read_excel('{}variable-description.xlsx'.format(self.data_path), header=0, )
+		df.fillna('missing', inplace=True)
+		df.columns = ['dev', 'attr', 'description', 'val-type', 'val-unit', 'location']
+		for row_index in range(len(df)):
+			dev_info = [df.loc[row_index, col_index] for col_index in df.columns]
+			for i in range(len(dev_info)):
+				device_description_dict[dev_info[0]][df.columns[i]] = dev_info[i]
+		return device_description_dict 
+
+	def _parse_raw_events(self, raw_event: "str"):
+		"""
+		Transform raw events into well-formed tuples
+		Returns:
+			event_tuple (AttrEvent): AttrEvent(date, time, dev, attr, value)
+			Note that dev segment should uniquely identify a device.
+		"""
+		raw_event = raw_event.replace("\"", "")
+		try:
+			inp = raw_event.strip().split(';')
+			assert(len(inp)==3) # (Date-time, dev, dev-value) pair
+		except:
+			return None
+		datetime = inp[0]; dev = inp[1]; dev_val = inp[2]
+		return AttrEvent(datetime.split(' ')[0], datetime.split(' ')[1], dev,\
+								self.device_description_dict[dev]['attr'], dev_val)
+
+	def sanitize_raw_events(self):
+		"""This function aims to filter unnecessary attributes and imperfect devices.
 
 		Returns:
-			event_tuple (AttrEvent): AttrEvent(date, time, dev, dev, value)
+			qualified_events: list[AttrEvent]: The list of qualified parsed events
+		"""
+		fin = open(self.origin_data, 'r', encoding='utf-8', errors='ignore')
+		lines = fin.readlines()
+
+		device_count_dict = defaultdict(int)
+		for line in lines:
+			parsed_event:'AttrEvent' = self._parse_raw_events(line) # (date, time, dev_name, dev_attr, value)
+			if not parsed_event:
+				continue
+			device_count_dict[parsed_event.dev] += 1
+		less_frequent_devices = [dev for dev in device_count_dict.keys()\
+				if device_count_dict[dev] < 5]
+
+		qualified_events: list[AttrEvent] = []
+		device_state_dict = defaultdict(str)
+		attr_occurrence_dict = defaultdict(dict)
+		missed_attr_dicts = defaultdict(int)
+		for line in lines:
+			'''
+			0. Filter noisy events.
+				Some datasets contain noisy events including typos and setup events.
+				As a result, the preprocessor should remove them.
+			'''
+			parsed_event:'AttrEvent' = self._parse_raw_events(line) # (date, time, dev_name, dev_attr, value)
+			if not parsed_event:
+				continue
+			'''
+			1. Event filtering.
+				* Remove events of uninterested attributes and specific devices.
+				* Remove events which indicate redundant state reports.
+			'''
+			# 1.0 Filter events based on device frequencies.
+			if parsed_event.dev in less_frequent_devices:
+				continue
+			# 1.1 Filter events based on attributes.
+			if all(parsed_event.attr not in sublist for sublist in self.int_attrs.values()):
+				missed_attr_dicts["{}".format(parsed_event.attr)] += 1
+				continue
+			# 1.2 For some attributes, filter some unnecessary devices
+			if parsed_event.attr == 'Water Meter' and "Total" in parsed_event.dev:
+				continue
+			if parsed_event.attr == 'Switch' and parsed_event.dev.startswith('I'):
+				inp = parsed_event.dev.split("_")
+				if len(inp) <= 1:
+					continue
+				parsed_event.dev = inp[0]
+			# 1.3 Remove redundant events (which implies no state transitions)
+			if device_state_dict[parsed_event.dev] == parsed_event.value:
+				continue
+			# 1.4 Count legitimate events.
+			attr_occurrence_dict[parsed_event.attr][parsed_event.dev] = 1 if parsed_event.dev not in attr_occurrence_dict[parsed_event.attr].keys()\
+					else attr_occurrence_dict[parsed_event.attr][parsed_event.dev] + 1
+			device_state_dict[parsed_event.dev] = parsed_event.value
+			qualified_events.append(parsed_event)
+		if self.verbosity:
+			#print("[Data Sanitization] Missed attr dict during data preprocessing:")
+			#pprint(missed_attr_dicts)
+			attrs = list(attr_occurrence_dict.keys())
+			attr_n_devs = [len(attr_occurrence_dict[attr].keys()) for attr in attrs]
+			attr_n_events = [sum(list(attr_occurrence_dict[attr].values())) for attr in attrs]
+			print("[Data Sanitization] Candidate attrs, n_devices, and n_events: {}".format(list(zip(attrs, attr_n_devs, attr_n_events))))
+		return qualified_events
+
+	def unify_value_type(self, parsed_events: "list[AttrEvent]") -> "list[AttrEvent]":
+		"""
+		This function unifies the attribute values by the following two steps.
+		1. Initiate the numeric-enum conversion.
+		2. Unify the enum variables and map their ranges to {0, 1}
+		Returns:
+			unified_parsed_events (list[list[str]]): The unified events
+		"""
+		# Return variables
+		unified_parsed_events: "list[AttrEvent]" = []
+
+		# 1. Numeric-to-enum conversion
+		continuous_dev_dict = defaultdict(list);  numeric_attr_dict = defaultdict(float)
+		for parsed_event in parsed_events:
+			if parsed_event.attr in self.int_attrs['discrete']:
+				float_val = float(parsed_event.value)
+				parsed_event.value = 'ON' if float_val > 0 else 'OFF'
+			elif parsed_event.attr in self.int_attrs['continuous']:
+				float_val = float(parsed_event.value)
+				continuous_dev_dict[parsed_event.dev].append(float_val)
+
+		# 2. For continuous variables, use natural breaks algorithm to discretize it.
+		for k, v in continuous_dev_dict.items(): # Then call natural breaks algorithms to get the break for each attribute
+			numeric_attr_dict[k] = jenkspy.jenks_breaks(v, nb_class=2)[1]
+			self.discretization_dict[k] = (v, numeric_attr_dict[k])
+		for parsed_event in parsed_events:
+			if parsed_event.dev in numeric_attr_dict.keys():
+				parsed_event.value = "HIGH" if float(parsed_event.value) > numeric_attr_dict[parsed_event.dev] else "LOW"
+
+		# 3. Finally, transform the numeric attribute to low-high enum attribute 
+		for parsed_event in parsed_events:
+			parsed_event.value = _enum_unification(parsed_event.value)
+			unified_parsed_events.append(parsed_event)
+			if parsed_event.attr == 'Water Meter':
+				# These devices do not record idle states. Therefore,\
+				# after each usage, we need to add an additional events, which indicate its idle states.
+				unified_parsed_events.append(AttrEvent(parsed_event.date, parsed_event.time,\
+										parsed_event.dev, parsed_event.attr, 0))
+		return unified_parsed_events
+
+	def create_preprocessed_data_file(self, unified_parsed_events: "list[AttrEvent]"):
+		fout = open(self.transition_data, 'w+')
+		# 1. Identify all devices in the dataset
+		var_names = set()
+		for unified_event in unified_parsed_events:
+			var_names.add(unified_event.dev)
+		var_names = list(var_names); var_names.sort()
+		# 2. Build the index for each device
+		for i in range(len(var_names)):
+			device = DevAttribute(attr_name=var_names[i], attr_index=i, lag=0)
+			self.name_device_dict[var_names[i]] = device; self.index_device_dict[i] = device
+		assert(len(self.name_device_dict.keys()) == len(self.index_device_dict.keys())) # The violation indicates that there exists devices with the same name
+		# 3. Filter redundant events which do not imply state changes
+		last_states = [0] * len(var_names)
+		n_events = 0
+		for unified_event in unified_parsed_events:
+			cur_states = last_states.copy()
+			if cur_states[self.name_device_dict[unified_event.dev].index] == unified_event.value:
+				continue
+			unified_event.dev = unified_event.dev.replace(' ', '-') # Remove the space in original records
+			unified_event.attr = unified_event.attr.replace(' ', '-')
+			fout.write(unified_event.__str__() + '\n')
+			cur_states[self.name_device_dict[unified_event.dev].index] = unified_event.value
+			last_states = cur_states; n_events += 1
+		print("[Data File Creation] # qualified events, devices = {}, {}".format(n_events, len(var_names)))
+		fout.close()
+
+	def initiate_data_preprocessing(self):
+		parsed_events = self.sanitize_raw_events()
+		unified_parsed_events = self.unify_value_type(parsed_events)
+		self.create_preprocessed_data_file(unified_parsed_events)
+
+class Hprocessor(GeneralProcessor):
+
+	def __init__(self, dataset, partition_days, training_ratio, verbosity=0):
+		super().__init__(dataset, partition_days, training_ratio, verbosity)
+
+	def _parse_raw_events(self, raw_event: "str"):
+		"""
+		Transform raw events into well-formed tuples
+		Returns:
+			event_tuple (AttrEvent): AttrEvent(date, time, dev, attr, value)
+			Note that dev segment should uniquely identify a device.
 		"""
 		raw_event = ' '.join(raw_event.split())
 		inp = raw_event.strip().split(' ')
 		return AttrEvent(inp[0], inp[1], inp[2], inp[6], inp[5])
 
-	def _enum_unification(self, val: 'str') -> 'str':
-		act_list = ["ON", "OPEN", "HIGH", "1"]
-		de_list = ["OFF", "CLOSE", "LOW", "0"]
-		unified_val = ''
-		if val in act_list:
-			unified_val = 1
-		elif val in de_list:
-			unified_val = 0
-		else:
-			print("Unknown values detected: {}".format(val))
-			assert(0)
-		return unified_val
-
-	def _timestr2Seconds(timestr):
-		timestamp = timestr.split('.')[0]
-		hh, mm, ss = timestamp.split(':')
-		sec = int(hh) * 3600 + int(mm) * 60 + int(ss)
-		return sec
-
 	def sanitize_raw_events(self):
-		"""This function aims to filter unnecessary attributes and imperfect devices.
-
+		"""
+		This function aims to filter unnecessary attributes and imperfect devices.
 		Returns:
 			qualified_events: list[AttrEvent]: The list of qualified parsed events
 		"""
@@ -110,7 +274,7 @@ class Hprocessor(Processor):
 			# 1. Select interested attributes.
 			int_attrs = ['Control4-Motion',  'Control4-Door'] # JC NOTE: We only keep motion sensor and door events in the dataset
 			if parsed_event.attr not in int_attrs:
-				missed_attr_dicts[parsed_event.attr] += 1
+				missed_attr_dicts["{} -- {}".format(parsed_event.dev, parsed_event.attr)] += 1
 				continue
 			if self.dataset == 'hh130':
 				if parsed_event.attr == 'Control4-LightSensor' and parsed_event.dev not in ['LS007', 'LS008', 'LS009', 'LS010']:
@@ -129,7 +293,8 @@ class Hprocessor(Processor):
 		return qualified_events
 
 	def unify_value_type(self, parsed_events: "list[AttrEvent]") -> "list[AttrEvent]":
-		"""This function unifies the attribute values by the following two steps.
+		"""
+		This function unifies the attribute values by the following two steps.
 		1. Initiate the numeric-enum conversion.
 		2. Unify the enum variables and map their ranges to {0, 1}
 
@@ -142,40 +307,37 @@ class Hprocessor(Processor):
 
 		# 1. Numeric-to-enum conversion
 		continuous_attr_dict = defaultdict(list);  numeric_attr_dict = defaultdict(float)
-		if path.isfile(self.transition_data):
-			pass
-		else:
-			for parsed_event in parsed_events: # First collect all float values for each numeric attribute
-				try:
-					float_val = float(parsed_event.value)
-					continuous_attr_dict[parsed_event.dev].append(float_val) # In this dataset, the device name is actually the attribute name.
-				except:
-					continue
-			for k, v in continuous_attr_dict.items(): # Then call natural breaks algorithms to get the break for each attribute
-				numeric_attr_dict[k] = jenkspy.jenks_breaks(v, nb_class=2)[1]
-				self.discretization_dict[k] = (v, numeric_attr_dict[k])
-			for parsed_event in parsed_events: # Finally, transform the numeric attribute to low-high enum attribute 
-				if parsed_event.dev in numeric_attr_dict.keys():
-					parsed_event.value = "HIGH" if float(parsed_event.value) > numeric_attr_dict[parsed_event.dev] else "LOW"
+		for parsed_event in parsed_events: # First collect all float values for each numeric attribute
+			try:
+				float_val = float(parsed_event.value)
+				continuous_attr_dict[parsed_event.dev].append(float_val) # In this dataset, the device name is actually the attribute name.
+			except:
+				continue
+		for k, v in continuous_attr_dict.items(): # Then call natural breaks algorithms to get the break for each attribute
+			numeric_attr_dict[k] = jenkspy.jenks_breaks(v, nb_class=2)[1]
+			self.discretization_dict[k] = (v, numeric_attr_dict[k])
+		for parsed_event in parsed_events: # Finally, transform the numeric attribute to low-high enum attribute 
+			if parsed_event.dev in numeric_attr_dict.keys():
+				parsed_event.value = "HIGH" if float(parsed_event.value) > numeric_attr_dict[parsed_event.dev] else "LOW"
 		# 2. Enum unification
 		for parsed_event in parsed_events: # Unify the range of all enum variables to {0, 1}
-			parsed_event.value = self._enum_unification(parsed_event.value)
+			parsed_event.value = _enum_unification(parsed_event.value)
 		return parsed_events
 	
 	def create_preprocessed_data_file(self, unified_parsed_events: "list[AttrEvent]"):
 		fout = open(self.transition_data, 'w+')
 		# 1. Identify all devices in the dataset
-		attr_names = set()
+		var_names = set()
 		for unified_event in unified_parsed_events:
-			attr_names.add(unified_event.dev)
-		attr_names = list(attr_names); attr_names.sort()
+			var_names.add(unified_event.dev)
+		var_names = list(var_names); var_names.sort()
 		# 2. Build the index for each device
-		for i in range(len(attr_names)):
-			device = DevAttribute(attr_name=attr_names[i], attr_index=i, lag=0)
-			self.name_device_dict[attr_names[i]] = device; self.index_device_dict[i] = device
+		for i in range(len(var_names)):
+			device = DevAttribute(attr_name=var_names[i], attr_index=i, lag=0)
+			self.name_device_dict[var_names[i]] = device; self.index_device_dict[i] = device
 		assert(len(self.name_device_dict.keys()) == len(self.index_device_dict.keys())) # The violation indicates that there exists devices with the same name
 		# 3. Filter redundant events which do not imply state changes
-		last_states = [0] * len(attr_names)
+		last_states = [0] * len(var_names)
 		for unified_event in unified_parsed_events:
 			cur_states = last_states.copy()
 			if cur_states[self.name_device_dict[unified_event.dev].index] == unified_event.value:
@@ -194,20 +356,20 @@ class Hprocessor(Processor):
 			inp = line.strip().split(' ')
 			unified_parsed_events.append(AttrEvent(inp[0], inp[1], inp[2], inp[3], int(inp[4])))
 		# 2. Construct the device list and corresponding index dictionary
-		attr_names = set(); name_device_dict = defaultdict(DevAttribute); index_device_dict = defaultdict(DevAttribute)
+		var_names = set(); name_device_dict = defaultdict(DevAttribute); index_device_dict = defaultdict(DevAttribute)
 		for unified_event in unified_parsed_events:
-			attr_names.add(unified_event.dev)
-		attr_names = list(attr_names); attr_names.sort()
-		for i in range(len(attr_names)):
-			device = DevAttribute(attr_name=attr_names[i], attr_index=i, lag=0)
+			var_names.add(unified_event.dev)
+		var_names = list(var_names); var_names.sort()
+		for i in range(len(var_names)):
+			device = DevAttribute(attr_name=var_names[i], attr_index=i, lag=0)
 			name_device_dict[device.name] = device; index_device_dict[device.index] = device
 		assert(len(name_device_dict.keys()) == len(index_device_dict.keys())) # Otherwise, the violation indicates that there exists devices with the same name
 		# 3. Store the device information into the class
-		self.attr_names = attr_names; self.n_vars = len(attr_names)
+		self.var_names = var_names; self.n_vars = len(var_names)
 		self.name_device_dict = name_device_dict; self.index_device_dict = index_device_dict
 		# 4. Construct the state vector for each event, and return the result
 		transition_events_states = []
-		last_states = [0] * len(attr_names)
+		last_states = [0] * len(var_names)
 		for unified_event in unified_parsed_events:
 			cur_states = last_states.copy(); cur_states[name_device_dict[unified_event.dev].index] = unified_event.value
 			transition_events_states.append((unified_event, np.array(cur_states)))
@@ -219,10 +381,10 @@ class Hprocessor(Processor):
 		frame_dict = defaultdict(DataFrame)
 		# 0. Store all records.
 		states_array = np.stack([tup[1] for tup in transition_events_states], axis=0)
-		dataframe = pp.DataFrame(data=states_array, var_names=self.attr_names)
+		dataframe = pp.DataFrame(data=states_array, var_names=self.var_names)
 		final_timestamp = '{} {}'.format(transition_events_states[-1][0].date, transition_events_states[-1][0].time)
 		first_timestamp = '{} {}'.format(transition_events_states[0][0].date, transition_events_states[0][0].time)
-		dframe = DataFrame(id='all', var_names=self.attr_names, n_events=len(transition_events_states),\
+		dframe = DataFrame(id='all', var_names=self.var_names, n_events=len(transition_events_states),\
 			n_days = ((datetime.fromisoformat(final_timestamp) - datetime.fromisoformat(first_timestamp)).total_seconds())*1.0/86400)
 		dframe.set_device_info(self.name_device_dict, self.index_device_dict)
 		dframe.set_training_data(transition_events_states, dataframe)
@@ -246,11 +408,11 @@ class Hprocessor(Processor):
 		for seg_point in seg_points: # Get the data frame with range [last_point, seg_point]
 			testing_start_point = math.floor(last_point + self.training_ratio * (seg_point - last_point))
 			training_data = states_array[last_point:testing_start_point, ]; testing_data = states_array[testing_start_point: seg_point, ]
-			if testing_start_point-last_point < len(self.attr_names) or seg_point - testing_start_point < len(self.attr_names): # If the current frame contains too few records
+			if testing_start_point-last_point < len(self.var_names) or seg_point - testing_start_point < len(self.var_names): # If the current frame contains too few records
 				last_point = seg_point
 				continue
-			dataframe = pp.DataFrame(data=training_data, var_names=self.attr_names); testing_dataframe = pp.DataFrame(data=testing_data, var_names=self.attr_names)
-			dframe = DataFrame(id=frame_count, var_names=self.attr_names, n_events=seg_point-last_point, n_days=self.partition_days)
+			dataframe = pp.DataFrame(data=training_data, var_names=self.var_names); testing_dataframe = pp.DataFrame(data=testing_data, var_names=self.var_names)
+			dframe = DataFrame(id=frame_count, var_names=self.var_names, n_events=seg_point-last_point, n_days=self.partition_days)
 			dframe.set_device_info(self.name_device_dict, self.index_device_dict)
 			dframe.set_training_data(transition_events_states[last_point:testing_start_point], dataframe)
 			dframe.set_testing_data(transition_events_states[testing_start_point:seg_point], testing_dataframe)
