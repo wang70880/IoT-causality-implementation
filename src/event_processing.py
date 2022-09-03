@@ -182,8 +182,9 @@ class Cprocessor(GeneralProcessor):
 			assert(len(inp)==3) # (Date-time, dev, dev-value) pair
 		except:
 			return None
-		datetime = inp[0]; dev = inp[1]; dev_val = inp[2]
-		return AttrEvent(datetime.split(' ')[0], datetime.split(' ')[1], dev,\
+		date = inp[0].split(' ')[0]; time = inp[0].split(' ')[1].replace(",", ".")
+		dev = inp[1]; dev_val = inp[2]
+		return AttrEvent(date, time, dev,\
 								self.device_description_dict[dev]['attr'], dev_val)
 
 	def sanitize_raw_events(self):
