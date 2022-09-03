@@ -19,7 +19,7 @@ from src.tigramite.tigramite.independence_tests import ChiSquare
 from src.tigramite.tigramite import plotting as tp
 
 from src.background_generator import BackgroundGenerator
-from src.event_processing import Hprocessor
+from src.event_processing import Hprocessor, Cprocessor
 from src.bayesian_fitter import BayesianFitter
 from src.security_guard import SecurityGuard
 from src.causal_evaluation import Evaluator
@@ -101,7 +101,10 @@ if COMM.rank == 0:
 
 # 1. Load data and create data frame
 dl_start =time()
-event_preprocessor:'Hprocessor' = Hprocessor(dataset=dataset, partition_days=partition_days, training_ratio=training_ratio)
+if dataset.startswith('hh'):
+    event_preprocessor:'Hprocessor' = Hprocessor(dataset=dataset, partition_days=partition_days, training_ratio=training_ratio)
+elif dataset.startswith('contextact'):
+    event_preprocessor:'Cprocessor' = Cprocessor(dataset, partition_days, training_ratio, 1)
 event_preprocessor.data_loading()
 frame:'DataFrame' = event_preprocessor.frame_dict[frame_id]
 dataframe:pp.DataFrame = frame.training_dataframe; var_names = frame.var_names

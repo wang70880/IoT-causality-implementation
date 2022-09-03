@@ -24,6 +24,7 @@ def _enum_unification(val: 'str') -> 'int':
 	return unified_val
 
 class GeneralProcessor():
+
 	def __init__(self, dataset, partition_days, training_ratio, verbosity=0):
 		self.dataset = dataset
 		self.data_path = './data/{}/'.format(self.dataset)
@@ -34,6 +35,7 @@ class GeneralProcessor():
 		self.training_ratio = training_ratio
 		self.verbosity = verbosity
 
+		# Initialized in function read_preprocessed_data_file()
 		self.var_names = []; self.n_vars = 0
 		self.name_device_dict = defaultdict(DevAttribute) # The str-DevAttribute dict using the attr name as the dict key
 		self.index_device_dict = defaultdict(DevAttribute) # The str-DevAttribute dict using the attr index as the dict key
@@ -44,6 +46,103 @@ class GeneralProcessor():
 		# Variables for testing purposes
 		self.discretization_dict:'dict[tuple]' = {}
 
+	def read_preprocessed_data_file(self):
+		# Return variables
+		transition_events_states = []
+		# Debugging variables
+		var_names = set()
+		name_device_dict = defaultdict(DevAttribute); index_device_dict = defaultdict(DevAttribute)
+		attr_count_dict = defaultdict(int); dev_count_dict = defaultdict(int)
+
+		# 1. Read data file and create AttrEvent object for each event
+		unified_parsed_events = []
+		fin = open(self.transition_data, 'r')
+		for line in fin.readlines():
+			inp = line.strip().split(' ')
+			unified_parsed_events.append(AttrEvent(inp[0], inp[1], inp[2], inp[3], int(inp[4])))
+
+		# 2. Construct the device list and corresponding index dictionary
+		for unified_event in unified_parsed_events:
+			var_names.add(unified_event.dev)
+		var_names = list(var_names); var_names.sort()
+		for i in range(len(var_names)):
+			device = DevAttribute(attr_name=var_names[i], attr_index=i, lag=0)
+			name_device_dict[device.name] = device; index_device_dict[device.index] = device
+		assert(len(name_device_dict.keys()) == len(index_device_dict.keys())) # Otherwise, the violation indicates that there exists devices with the same name
+
+		# 3. Construct the state vector for each event, and return the result
+		last_states = [0] * len(var_names)
+		for unified_event in unified_parsed_events:
+			cur_states = last_states.copy(); cur_states[name_device_dict[unified_event.dev].index] = unified_event.value
+			transition_events_states.append((unified_event, np.array(cur_states)))
+			dev_count_dict[unified_event.dev] += 1; attr_count_dict[unified_event.attr] += 1
+			last_states = cur_states
+
+		# 4. Store the device information into the class
+		self.var_names = var_names; self.n_vars = len(var_names)
+		self.name_device_dict = name_device_dict; self.index_device_dict = index_device_dict
+		self.attr_count_dict = attr_count_dict; self.dev_count_dict = dev_count_dict
+		if self.verbosity > 0:
+			print("[Data Loading] # records, attrs, devices = {}, {}, {}".format(
+				len(unified_parsed_events), len(self.attr_count_dict.keys()), len(self.dev_count_dict.keys())
+			))
+
+		return transition_events_states
+
+	def partition_data_frame(self, transition_events_states):
+		frame_dict = defaultdict(DataFrame)
+
+		# 0. Store all records.
+		states_array = np.stack([tup[1] for tup in transition_events_states], axis=0)
+		dataframe = pp.DataFrame(data=states_array, var_names=self.var_names)
+		final_timestamp = '{} {}'.format(transition_events_states[-1][0].date, transition_events_states[-1][0].time)
+		first_timestamp = '{} {}'.format(transition_events_states[0][0].date, transition_events_states[0][0].time)
+		dframe = DataFrame(id='all', var_names=self.var_names, n_events=len(transition_events_states),\
+			n_days = ((datetime.fromisoformat(final_timestamp) - datetime.fromisoformat(first_timestamp)).total_seconds())*1.0/86400)
+		dframe.set_device_info(self.name_device_dict, self.index_device_dict)
+		dframe.set_training_data(transition_events_states, dataframe)
+		dframe.set_testing_data(transition_events_states, dataframe) # For this frame which stores all events, we did not separate training and testing data
+		frame_dict[dframe.id] = dframe
+
+		# 1. Segment all frames, and store each partition to the frame_dict.
+		last_timestamp = ''; count = 0
+		seg_points = []
+		for tup in transition_events_states:
+			transition_event:'AttrEvent' = tup[0]
+			cur_timestamp = '{} {}'.format(transition_event.date, transition_event.time)
+			last_timestamp = cur_timestamp if last_timestamp == '' else last_timestamp
+			past_days = ((datetime.fromisoformat(cur_timestamp) - datetime.fromisoformat(last_timestamp)).total_seconds()) * 1.0 / 86400
+			if past_days >= self.partition_days:
+				seg_points.append(count)
+				last_timestamp = cur_timestamp
+			count += 1
+		seg_points.append(count - 1)
+
+		# 2. Create DataFrames for logs in each segmentation interval
+		last_point = 0; frame_count = 0
+		for seg_point in seg_points: # Get the data frame with range [last_point, seg_point]
+			testing_start_point = math.floor(last_point + self.training_ratio * (seg_point - last_point))
+			training_data = states_array[last_point:testing_start_point, ]; testing_data = states_array[testing_start_point: seg_point, ]
+			if testing_start_point-last_point < len(self.var_names) or seg_point - testing_start_point < len(self.var_names): # If the current frame contains too few records
+				last_point = seg_point
+				continue
+			dataframe = pp.DataFrame(data=training_data, var_names=self.var_names); testing_dataframe = pp.DataFrame(data=testing_data, var_names=self.var_names)
+			dframe = DataFrame(id=frame_count, var_names=self.var_names, n_events=seg_point-last_point, n_days=self.partition_days)
+			dframe.set_device_info(self.name_device_dict, self.index_device_dict)
+			dframe.set_training_data(transition_events_states[last_point:testing_start_point], dataframe)
+			dframe.set_testing_data(transition_events_states[testing_start_point:seg_point], testing_dataframe)
+			frame_dict[frame_count] = dframe
+			frame_count += 1; last_point = seg_point
+
+		# 3. Store the frame information into the class
+		self.transition_events_states = transition_events_states
+		self.frame_dict = frame_dict
+		self.frame_count = frame_count
+
+	def data_loading(self):
+		transition_events_states = self.read_preprocessed_data_file()
+		self.partition_data_frame(transition_events_states)
+
 class Cprocessor(GeneralProcessor):
 
 	def __init__(self, dataset, partition_days, training_ratio, verbosity=0):
@@ -53,7 +152,6 @@ class Cprocessor(GeneralProcessor):
 						  'discrete': ['Water Meter', 'Rollershutter', 'Dimmer'],\
 						  'continuous': []}
 						  #'continuous': ['Power Sensor', 'Humidity Sensor', 'Brightness Sensor']}
-	
 	def _load_device_attribute_files(self):
 		"""
 		The contextact dataset has a variable description excel file, which records dev_name - dev_attr mappings.
@@ -348,86 +446,7 @@ class Hprocessor(GeneralProcessor):
 		# 4. Write legitimate events to the data file
 		fout.close()
 
-	def read_preprocessed_data_file(self):
-		# 1. Read data file and create AttrEvent object for each event
-		unified_parsed_events = []
-		fin = open(self.transition_data, 'r')
-		for line in fin.readlines():
-			inp = line.strip().split(' ')
-			unified_parsed_events.append(AttrEvent(inp[0], inp[1], inp[2], inp[3], int(inp[4])))
-		# 2. Construct the device list and corresponding index dictionary
-		var_names = set(); name_device_dict = defaultdict(DevAttribute); index_device_dict = defaultdict(DevAttribute)
-		for unified_event in unified_parsed_events:
-			var_names.add(unified_event.dev)
-		var_names = list(var_names); var_names.sort()
-		for i in range(len(var_names)):
-			device = DevAttribute(attr_name=var_names[i], attr_index=i, lag=0)
-			name_device_dict[device.name] = device; index_device_dict[device.index] = device
-		assert(len(name_device_dict.keys()) == len(index_device_dict.keys())) # Otherwise, the violation indicates that there exists devices with the same name
-		# 3. Store the device information into the class
-		self.var_names = var_names; self.n_vars = len(var_names)
-		self.name_device_dict = name_device_dict; self.index_device_dict = index_device_dict
-		# 4. Construct the state vector for each event, and return the result
-		transition_events_states = []
-		last_states = [0] * len(var_names)
-		for unified_event in unified_parsed_events:
-			cur_states = last_states.copy(); cur_states[name_device_dict[unified_event.dev].index] = unified_event.value
-			transition_events_states.append((unified_event, np.array(cur_states)))
-			self.dev_count_dict[unified_event.dev] += 1; self.attr_count_dict[unified_event.attr] += 1
-			last_states = cur_states
-		return transition_events_states
-
-	def partition_data_frame(self, transition_events_states):
-		frame_dict = defaultdict(DataFrame)
-		# 0. Store all records.
-		states_array = np.stack([tup[1] for tup in transition_events_states], axis=0)
-		dataframe = pp.DataFrame(data=states_array, var_names=self.var_names)
-		final_timestamp = '{} {}'.format(transition_events_states[-1][0].date, transition_events_states[-1][0].time)
-		first_timestamp = '{} {}'.format(transition_events_states[0][0].date, transition_events_states[0][0].time)
-		dframe = DataFrame(id='all', var_names=self.var_names, n_events=len(transition_events_states),\
-			n_days = ((datetime.fromisoformat(final_timestamp) - datetime.fromisoformat(first_timestamp)).total_seconds())*1.0/86400)
-		dframe.set_device_info(self.name_device_dict, self.index_device_dict)
-		dframe.set_training_data(transition_events_states, dataframe)
-		dframe.set_testing_data(transition_events_states, dataframe) # For this frame which stores all events, we did not separate training and testing data
-		frame_dict[dframe.id] = dframe
-		# 1. Segment all frames, and store each partition to the frame_dict.
-		last_timestamp = ''; count = 0
-		seg_points = []
-		for tup in transition_events_states:
-			transition_event:'AttrEvent' = tup[0]
-			cur_timestamp = '{} {}'.format(transition_event.date, transition_event.time)
-			last_timestamp = cur_timestamp if last_timestamp == '' else last_timestamp
-			past_days = ((datetime.fromisoformat(cur_timestamp) - datetime.fromisoformat(last_timestamp)).total_seconds()) * 1.0 / 86400
-			if past_days >= self.partition_days:
-				seg_points.append(count)
-				last_timestamp = cur_timestamp
-			count += 1
-		seg_points.append(count - 1)
-		# 2. Create DataFrames for logs in each segmentation interval
-		last_point = 0; frame_count = 0
-		for seg_point in seg_points: # Get the data frame with range [last_point, seg_point]
-			testing_start_point = math.floor(last_point + self.training_ratio * (seg_point - last_point))
-			training_data = states_array[last_point:testing_start_point, ]; testing_data = states_array[testing_start_point: seg_point, ]
-			if testing_start_point-last_point < len(self.var_names) or seg_point - testing_start_point < len(self.var_names): # If the current frame contains too few records
-				last_point = seg_point
-				continue
-			dataframe = pp.DataFrame(data=training_data, var_names=self.var_names); testing_dataframe = pp.DataFrame(data=testing_data, var_names=self.var_names)
-			dframe = DataFrame(id=frame_count, var_names=self.var_names, n_events=seg_point-last_point, n_days=self.partition_days)
-			dframe.set_device_info(self.name_device_dict, self.index_device_dict)
-			dframe.set_training_data(transition_events_states[last_point:testing_start_point], dataframe)
-			dframe.set_testing_data(transition_events_states[testing_start_point:seg_point], testing_dataframe)
-			frame_dict[frame_count] = dframe
-			frame_count += 1; last_point = seg_point
-		# 3. Store the frame information into the class
-		self.transition_events_states = transition_events_states
-		self.frame_dict = frame_dict
-		self.frame_count = frame_count
-
 	def initiate_data_preprocessing(self):
 		parsed_events = self.sanitize_raw_events()
 		unified_parsed_events = self.unify_value_type(parsed_events)
 		self.create_preprocessed_data_file(unified_parsed_events)
-
-	def data_loading(self):
-		transition_events_states = self.read_preprocessed_data_file()
-		self.partition_data_frame(transition_events_states)
