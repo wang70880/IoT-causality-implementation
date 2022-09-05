@@ -6,15 +6,17 @@ import pandas as pd
 
 from collections import defaultdict 
 
-from src.event_processing import Hprocessor
+from src.event_processing import Hprocessor, Cprocessor, GeneralProcessor
 from src.genetic_type import DevAttribute, AttrEvent, DataFrame
 from src.tigramite.tigramite import data_processing as pp
 
 class BackgroundGenerator():
 
-    def __init__(self, dataset:'str', frame:'DataFrame', tau_max, filter_threshold) -> None:
-        self.dataset = dataset; self.frame:'DataFrame' = frame
-        self.tau_max = tau_max; self.filter_threshold = filter_threshold
+    def __init__(self, event_preprocessor:'GeneralProcessor', frame_id, tau_max) -> None:
+        self.event_preprocessor = event_preprocessor
+        self.dataset = event_preprocessor.dataset
+        self.frame_id = frame_id; self.frame:'DataFrame' = event_preprocessor.frame_dict[frame_id]
+        self.tau_max = tau_max
 
         # Each background array is of shape (n_vars, n_vars, tau_max+1)
         self.frequency_array, self.activation_frequency_array, self.normalized_frequency_array = self._temporal_identification()
@@ -56,7 +58,7 @@ class BackgroundGenerator():
                     continue
                 former = name_device_dict[event_sequence[i].dev].index; latter = name_device_dict[event_sequence[i + lag].dev].index
                 frequency_array[(former, latter, lag)] += 1
-        normalized_frequency_array[frequency_array>=self.filter_threshold] = 1
+        normalized_frequency_array[frequency_array>=self.frame.n_days] = 1
 
         return frequency_array, activation_frequency_array, normalized_frequency_array
     
@@ -65,21 +67,7 @@ class BackgroundGenerator():
         area_list = None
         area_connectivity_array = None
 
-        if self.dataset == 'hh101':
-            # In the list, each element (which is also a list) represents a physical area and deployed devices in that area.
-            area_list = [['T102', 'D002', 'M001', 'LS001',\
-                          'M011', 'LS011', 'M009', 'LS009', 'MA014', 'LS014', 'M012', 'LS012',\
-                          'M010', 'LS010', 'D001', 'T101', 'T104', 'T105', 'M005', 'LS005', 'MA013', 'LS013', 'M008', 'LS008', 'M004', 'LS004',\
-                          'MA016', 'LS016', 'M003', 'LS003'], \
-                         ['D003', 'T103', 'MA015', 'LS015'], \
-                         ['M002', 'LS002', 'M007', 'LS007', 'M006', 'LS006']]
-            num_areas = len(area_list)
-            area_connectivity_array = np.zeros(shape=(num_areas, num_areas), dtype=np.int64)
-            for i in range(num_areas):
-                area_connectivity_array[i, i] = 1
-            area_connectivity_array[0, 1] = 1; area_connectivity_array[0, 2] = 1
-            area_connectivity_array[1, 0] = 1; area_connectivity_array[2, 0] = 1
-        elif self.dataset == 'hh130':
+        if self.dataset == 'hh130':
             area_list = [['D002', 'T102', 'M001', 'LS001', 'M003', 'M004', 'LS003', 'LS004', 'T106', 'M005', 'LS005', 'LS009', 'LS010', 'M006', 'LS006'], \
                          ['M002', 'LS002', 'T103', 'LS008'], \
                          ['M011', 'T104', 'LS011', 'LS007']]
@@ -89,6 +77,28 @@ class BackgroundGenerator():
                 area_connectivity_array[i, i] = 1
             area_connectivity_array[0, 1] = 1; area_connectivity_array[0, 2] = 1
             area_connectivity_array[1, 0] = 1; area_connectivity_array[2, 0] = 1
+        elif self.dataset == 'contextact':
+            # 1. Put all devices which are in the same location into a list, and construct the area_list
+            device_description_dict:'dict' = self.event_preprocessor.device_description_dict
+            location_devices_dict:'dict' = defaultdict(list)
+            location_index_dict:'dict' = defaultdict(int)
+            for dev in device_description_dict.keys():
+                dev_entry = device_description_dict[dev]
+                location_devices_dict[dev_entry['location']].append(dev)
+            area_list = []
+            for i, area in enumerate(location_devices_dict):
+                location_index_dict[area] = i
+                area_list.append(location_devices_dict[area])
+            # 2. Manually identify the spatial adjacency of different locations.
+            num_areas = len(area_list)
+            area_connectivity_array = np.zeros(shape=(num_areas, num_areas), dtype=np.int64)
+            adjacent_areas_list = [['Kitchen', 'Stove', 'Dining Room', 'Living Room', 'Hallway First Floor', 'First Floor', 'Main Entrance'],\
+                              ['Hallway First Floor', 'Stairway', 'Hallway Second Floor'],\
+                              ['Hallway Second Floor', 'Bathroom', 'Study Room', 'Bedroom']]
+            for adjacent_areas in adjacent_areas_list:
+                adjacent_pairs = list(itertools.permutations(adjacent_areas, r=2))
+                for pair in adjacent_pairs:
+                    area_connectivity_array[location_index_dict[pair[0]],location_index_dict[pair[1]]] = 1
 
         return area_list, area_connectivity_array
 

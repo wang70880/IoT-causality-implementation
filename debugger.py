@@ -1,7 +1,7 @@
 import os
 
 os.environ["KMP_DUPLICATE_LIB_OK"]='TRUE'
-from src.event_processing import Hprocessor
+from src.event_processing import Hprocessor, Cprocessor
 from src.tigramite.tigramite.pcmci import PCMCI
 from src.tigramite.tigramite.independence_tests import ChiSquare
 from src.tigramite.tigramite import plotting as tp
@@ -30,7 +30,11 @@ class DataDebugger():
 
     def __init__(self, dataset, partition_days, training_ratio) -> None:
         self.dataset = dataset; self.partition_days = partition_days; self.training_ratio = training_ratio
-        self.preprocessor = Hprocessor(dataset=dataset, partition_days=partition_days, training_ratio=training_ratio)
+        if self.dataset.startswith('hh'):
+            self.preprocessor = Hprocessor(dataset=dataset, partition_days=partition_days, training_ratio=training_ratio)
+        elif self.dataset.startswith('contextact'):
+            self.preprocessor = Cprocessor(dataset=dataset, partition_days=partition_days, training_ratio=training_ratio, verbosity=0)
+        self.preprocessor.initiate_data_preprocessing()
         self.preprocessor.data_loading()
     
     def validate_discretization(self):
@@ -45,10 +49,12 @@ class DataDebugger():
     
 class BackgroundDebugger():
 
-    def __init__(self, dataset, frame, tau_max, filter_threshold) -> None:
-        self.dataset = dataset; self.frame:'DataFrame' = frame
-        self.tau_max = tau_max; self.filter_threshold = filter_threshold
-        self.background_generator:'BackgroundGenerator' = BackgroundGenerator(dataset, frame, tau_max, filter_threshold)
+    def __init__(self, event_preprocessor, frame_id, tau_max) -> None:
+        self.event_preprocessor = event_preprocessor
+        self.dataset = dataset
+        self.frame_id = frame_id; self.frame:'DataFrame' = event_preprocessor.frame_dict[frame_id]
+        self.tau_max = tau_max
+        self.background_generator:'BackgroundGenerator' = BackgroundGenerator(event_preprocessor, frame_id, tau_max)
 
 class MinerDebugger():
     
@@ -135,8 +141,8 @@ class BayesianDebugger():
         if self.verbosity > 0:
             print("[Bayesian Debugger] Average cpds for golden standard edges:\n{}".format(average_cpds))
         drawer = Drawer()
-        drawer.draw_1d_distribution(activation_ratios, fname='activation-cpt-threshold{}'.format(self.data_debugger.filter_threshold))
-        drawer.draw_1d_distribution(deactivation_ratios, fname='deactivation-cpt-threshold{}'.format(self.data_debugger.filter_threshold))
+        drawer.draw_1d_distribution(activation_ratios, fname='activation-cpt')
+        drawer.draw_1d_distribution(deactivation_ratios, fname='deactivation-cpt')
 
         return bayesian_fitter
 
@@ -159,7 +165,8 @@ class GuardDebugger():
         #print("[Guard Debugger] small-pscore-dict:"); pprint(dict(security_guard.small_pscore_dict))
         print("Average anomaly score = {}".format(sum(training_anomaly_scores)*1.0/len(training_anomaly_scores)))
         
-        self.drawer.draw_1d_distribution(training_anomaly_scores, xlabel='Score', ylabel='Occurrence', title='Training event detection using golden standard model', fname='prediction-probability-distribution-threshold{}'.format(self.data_debugger.filter_threshold))
+        self.drawer.draw_1d_distribution(training_anomaly_scores, xlabel='Score', ylabel='Occurrence',\
+            title='Training event detection using golden standard model', fname='prediction-probability-distribution')
         return security_guard
     
     def score_anomaly_detection(self, int_frame_id, sig_level=None, n_anomalies=None, maximum_length=None, anomaly_case=None):
@@ -173,7 +180,7 @@ class GuardDebugger():
         print("The anomaly score threshold is {}".format(security_guard.score_threshold))
         # 2. Inject anomalies and generate testing event sequences
         evaluator = Evaluator(event_processor=event_preprocessor, background_generator=background_generator,\
-                                             bayesian_fitter = bayesian_fitter, tau_max=tau_max, filter_threshold=self.data_debugger.filter_threshold)
+                                             bayesian_fitter = bayesian_fitter, tau_max=tau_max)
         testing_event_states, anomaly_positions, testing_benign_dict = evaluator.simulate_malicious_control(\
                                     int_frame_id=int_frame_id, n_anomaly=n_anomalies, maximum_length=maximum_length, anomaly_case=anomaly_case)
         print("# of testing events: {}".format(len(testing_event_states)))
@@ -234,14 +241,16 @@ class EvaluationResultRepo():
 
 if __name__ == '__main__':
 
-    dataset = 'hh130'; partition_days = 100; filter_threshold = 100; training_ratio = 0.8; tau_max = 3
-    alpha = 0.01; int_frame_id = 1; analyze_golden_standard=False
+    dataset = 'contextact'; partition_days = 8; training_ratio = 0.8; tau_max = 3
+    alpha = 0.01; int_frame_id = 0; analyze_golden_standard=False
 
     data_debugger = DataDebugger(dataset, partition_days, training_ratio)
+    #data_debugger.validate_discretization()
     frame:'DataFrame' = data_debugger.preprocessor.frame_dict[int_frame_id]
 
-    background_generator:'BackgroundGenerator' = BackgroundGenerator(dataset, frame, tau_max, filter_threshold)
-    #background_generator.print_background_knowledge()
+    background_generator:'BackgroundGenerator' = BackgroundGenerator(data_debugger.preprocessor, int_frame_id, tau_max)
+    background_generator.print_background_knowledge()
+    exit()
 
     evaluator = Evaluator(background_generator, None, 0, alpha)
     evaluator.print_golden_standard('aggregation')
@@ -250,7 +259,6 @@ if __name__ == '__main__':
     fp_edges = [('D002', 'M006')]
     for fp_edge in fp_edges:
         miner_debugger.check_false_positive(fp_edge)
-    exit()
 
     # 2. Evaluate causal discovery
     evaluation_repo = EvaluationResultRepo(dataset)

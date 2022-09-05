@@ -89,15 +89,15 @@ def _run_pc_stable_parallel(j, dataframe, cond_ind_test, selected_links,\
     # 0.1 Data-loading parameters
 dataset = sys.argv[1]; partition_days = int(sys.argv[2]); training_ratio = float(sys.argv[3]); frame_id = 0 # JC NOTE: By default, we use the first data frame
     # 0.2 Background knowledge parameters
-tau_max = int(sys.argv[4]); tau_min = 1; filter_threshold=float(sys.argv[5]); bk_level=int(sys.argv[6])
+tau_max = int(sys.argv[4]); tau_min = 1; bk_level=int(sys.argv[5])
     # 0.3 PC discovery parameters
-pc_alpha = float(sys.argv[7]); max_conds_dim = int(sys.argv[8]); maximum_comb = int(sys.argv[9]); max_n_edges = 15
+pc_alpha = float(sys.argv[6]); max_conds_dim = int(sys.argv[7]); maximum_comb = int(sys.argv[8]); max_n_edges = 15
     # 0.4 Anomaly generation parameters
 n_anomalies = 100; case = 1; max_length = 1; sig_level = 0.9
 
 if COMM.rank == 0:
     print("\n\n********************** Parameter Settings **********************\n"\
-     + "bk = {}, pc-alpha = {}, partition_days = {}, filter-threshold = {}".format(bk_level, pc_alpha, partition_days, filter_threshold))
+     + "bk = {}, pc-alpha = {}, partition_days = {}".format(bk_level, pc_alpha, partition_days))
 
 # 1. Load data and create data frame
 dl_start =time()
@@ -115,7 +115,7 @@ if COMM.rank == 0:
 
 # 2. Identify the background knowledge, and use the background knowledge to prune edges
 bg_start=time()
-background_generator = BackgroundGenerator(dataset, frame, tau_max, filter_threshold)
+background_generator = BackgroundGenerator(event_preprocessor, frame_id, tau_max)
 selected_links, candidate_matrix = background_generator.generate_candidate_interactions(bk_level) # Get candidate interactions
 n_candidate_edges = 0
 for worker_index, link_dict in selected_links.items():
@@ -186,7 +186,7 @@ if COMM.rank == 0:
                 .format(preprocessing_consumed_time, bk_consumed_time, pc_consumed_time))
     ## 5.4 Compare with ARM and analyze the result
     #arm_start = time()
-    #armer = ARMer(frame=frame, min_support=filter_threshold, min_confidence=1.0-pc_alpha)
+    #armer = ARMer(frame=frame, min_support=frame.n_days, min_confidence=1.0-pc_alpha)
     #association_array:'np.ndarray' = armer.association_rule_mining()
     #arm_consumed_time = _elapsed_minutes(arm_start)
     #print("     [Causal Discovery Evaluation] Consumed time for Association Rule Mining is {}".format(arm_consumed_time))

@@ -1,6 +1,7 @@
 from os import stat, path
 import jenkspy
 import math
+import statistics
 import numpy as np
 import pandas as pd
 from datetime import datetime
@@ -106,28 +107,30 @@ class GeneralProcessor():
 
 		# 1. Segment all frames, and store each partition to the frame_dict.
 		last_timestamp = ''; count = 0
-		seg_points = []
+		seg_points = []; seg_days = []; past_days = 0
 		for tup in transition_events_states:
 			transition_event:'AttrEvent' = tup[0]
 			cur_timestamp = '{} {}'.format(transition_event.date, transition_event.time)
 			last_timestamp = cur_timestamp if last_timestamp == '' else last_timestamp
 			past_days = ((datetime.fromisoformat(cur_timestamp) - datetime.fromisoformat(last_timestamp)).total_seconds()) * 1.0 / 86400
 			if past_days >= self.partition_days:
+				seg_days.append(past_days)
 				seg_points.append(count)
 				last_timestamp = cur_timestamp
 			count += 1
 		seg_points.append(count - 1)
+		seg_days.append(past_days)
 
 		# 2. Create DataFrames for logs in each segmentation interval
 		last_point = 0; frame_count = 0
-		for seg_point in seg_points: # Get the data frame with range [last_point, seg_point]
+		for i, seg_point in enumerate(seg_points): # Get the data frame with range [last_point, seg_point]
 			testing_start_point = math.floor(last_point + self.training_ratio * (seg_point - last_point))
 			training_data = states_array[last_point:testing_start_point, ]; testing_data = states_array[testing_start_point: seg_point, ]
 			if testing_start_point-last_point < len(self.var_names) or seg_point - testing_start_point < len(self.var_names): # If the current frame contains too few records
 				last_point = seg_point
 				continue
 			dataframe = pp.DataFrame(data=training_data, var_names=self.var_names); testing_dataframe = pp.DataFrame(data=testing_data, var_names=self.var_names)
-			dframe = DataFrame(id=frame_count, var_names=self.var_names, n_events=seg_point-last_point, n_days=self.partition_days)
+			dframe = DataFrame(id=frame_count, var_names=self.var_names, n_events=seg_point-last_point, n_days=seg_days[i])
 			dframe.set_device_info(self.name_device_dict, self.index_device_dict)
 			dframe.set_training_data(transition_events_states[last_point:testing_start_point], dataframe)
 			dframe.set_testing_data(transition_events_states[testing_start_point:seg_point], testing_dataframe)
@@ -150,8 +153,11 @@ class Cprocessor(GeneralProcessor):
 		self.device_description_dict = self._load_device_attribute_files()
 		self.int_attrs = {'binary': ['Switch', 'Smart electrical outlet', 'Infrared Movement Sensor', 'Contact Sensor'],\
 						  'discrete': ['Water Meter', 'Rollershutter', 'Dimmer'],\
-						  'continuous': []}
-						  #'continuous': ['Power Sensor', 'Humidity Sensor', 'Brightness Sensor']}
+						  #'continuous': []}
+						  'continuous': ['Power Sensor', 'Humidity Sensor', 'Brightness Sensor']}
+		self.int_locations = ['Bathroom', 'Bedroom', 'Dining Room', 'First Floor', 'Hallway', 'Hallway First Floor', 'Hallway Second Floor',\
+						'Kitchen', 'Living Room', 'Main Entrance', 'Stairway', 'Stove', 'Study Room']
+
 	def _load_device_attribute_files(self):
 		"""
 		The contextact dataset has a variable description excel file, which records dev_name - dev_attr mappings.
@@ -188,8 +194,8 @@ class Cprocessor(GeneralProcessor):
 								self.device_description_dict[dev]['attr'], dev_val)
 
 	def sanitize_raw_events(self):
-		"""This function aims to filter unnecessary attributes and imperfect devices.
-
+		"""
+		This function aims to filter unnecessary attributes and imperfect devices.
 		Returns:
 			qualified_events: list[AttrEvent]: The list of qualified parsed events
 		"""
@@ -226,9 +232,11 @@ class Cprocessor(GeneralProcessor):
 			# 1.0 Filter events based on device frequencies.
 			if parsed_event.dev in less_frequent_devices:
 				continue
-			# 1.1 Filter events based on attributes.
+			# 1.1 Filter events based on attributes and locations.
 			if all(parsed_event.attr not in sublist for sublist in self.int_attrs.values()):
 				missed_attr_dicts["{}".format(parsed_event.attr)] += 1
+				continue
+			if self.device_description_dict[parsed_event.dev]['location'] not in self.int_locations:
 				continue
 			# 1.2 For some attributes, filter some unnecessary devices
 			if parsed_event.attr == 'Water Meter' and "Total" in parsed_event.dev:
@@ -266,8 +274,8 @@ class Cprocessor(GeneralProcessor):
 		# Return variables
 		unified_parsed_events: "list[AttrEvent]" = []
 
-		# 1. Numeric-to-enum conversion
-		continuous_dev_dict = defaultdict(list);  numeric_attr_dict = defaultdict(float)
+		# 1. Preprocess discrete variables, and get summary of continuous variables.
+		continuous_dev_dict = defaultdict(list);  continuous_threshold_dict = defaultdict(float)
 		for parsed_event in parsed_events:
 			if parsed_event.attr in self.int_attrs['discrete']:
 				float_val = float(parsed_event.value)
@@ -275,17 +283,31 @@ class Cprocessor(GeneralProcessor):
 			elif parsed_event.attr in self.int_attrs['continuous']:
 				float_val = float(parsed_event.value)
 				continuous_dev_dict[parsed_event.dev].append(float_val)
+		
+		# 2. For continuous variables, filter extreme values using 3-sigma rules
+		continuous_stat_dict = defaultdict(dict)
+		for k, v in continuous_dev_dict.items():
+			mean = statistics.mean(v); continuous_stat_dict[k]['mean'] = mean
+			std_dev = statistics.stdev(v); continuous_stat_dict[k]['std-dev'] = std_dev
+			continuous_dev_dict[k] = [x for x in v if mean-3.*std_dev <=x<= mean+3.*std_dev]
 
-		# 2. For continuous variables, use natural breaks algorithm to discretize it.
-		for k, v in continuous_dev_dict.items(): # Then call natural breaks algorithms to get the break for each attribute
-			numeric_attr_dict[k] = jenkspy.jenks_breaks(v, nb_class=2)[1]
-			self.discretization_dict[k] = (v, numeric_attr_dict[k])
+		# 3. For continuous variables, use natural breaks algorithm to get the threshold.
+		for k, v in continuous_dev_dict.items():
+			continuous_threshold_dict[k] = jenkspy.jenks_breaks(v, nb_class=2)[1]
+			self.discretization_dict[k] = (v, continuous_threshold_dict[k])
+		
+		# 4. Collect events which passes 3-sigma rule tests, and unify their values to HIGH/LOW
+		filtered_parsed_event = []
 		for parsed_event in parsed_events:
-			if parsed_event.dev in numeric_attr_dict.keys():
-				parsed_event.value = "HIGH" if float(parsed_event.value) > numeric_attr_dict[parsed_event.dev] else "LOW"
+			if parsed_event.dev not in continuous_threshold_dict.keys():
+				filtered_parsed_event.append(parsed_event)
+			if parsed_event.dev in continuous_threshold_dict.keys() and \
+				continuous_stat_dict[parsed_event.dev]['mean']-3.*continuous_stat_dict[parsed_event.dev]['std-dev'] <= float(parsed_event.value) <= continuous_stat_dict[parsed_event.dev]['mean']+3.*continuous_stat_dict[parsed_event.dev]['std-dev']:
+				parsed_event.value = "HIGH" if float(parsed_event.value) > continuous_threshold_dict[parsed_event.dev] else "LOW"
+				filtered_parsed_event.append(parsed_event)
 
-		# 3. Finally, transform the numeric attribute to low-high enum attribute 
-		for parsed_event in parsed_events:
+		# 5. Finally, transform all unified attribute values to 0/1
+		for parsed_event in filtered_parsed_event:
 			parsed_event.value = _enum_unification(parsed_event.value)
 			unified_parsed_events.append(parsed_event)
 			if parsed_event.attr == 'Water Meter':
@@ -307,19 +329,31 @@ class Cprocessor(GeneralProcessor):
 			device = DevAttribute(attr_name=var_names[i], attr_index=i, lag=0)
 			self.name_device_dict[var_names[i]] = device; self.index_device_dict[i] = device
 		assert(len(self.name_device_dict.keys()) == len(self.index_device_dict.keys())) # The violation indicates that there exists devices with the same name
-		# 3. Filter redundant events which do not imply state changes
+		# 3. Filter redundant events which do not imply state changes, and get summary of qualified events
 		last_states = [0] * len(var_names)
 		n_events = 0
+		attr_occurrence_dict = defaultdict(dict)
 		for unified_event in unified_parsed_events:
 			cur_states = last_states.copy()
 			if cur_states[self.name_device_dict[unified_event.dev].index] == unified_event.value:
 				continue
+			# Update the dataset summary
+			n_events += 1
+			attr_occurrence_dict[unified_event.attr][unified_event.dev] = 1 if unified_event.dev not in attr_occurrence_dict[unified_event.attr].keys()\
+					else attr_occurrence_dict[unified_event.attr][unified_event.dev] + 1
+			# Write the event to file
 			unified_event.dev = unified_event.dev.replace(' ', '-') # Remove the space in original records
 			unified_event.attr = unified_event.attr.replace(' ', '-')
 			fout.write(unified_event.__str__() + '\n')
+			# Update the current state vector
 			cur_states[self.name_device_dict[unified_event.dev].index] = unified_event.value
-			last_states = cur_states; n_events += 1
-		print("[Data File Creation] # qualified events, devices = {}, {}".format(n_events, len(var_names)))
+			last_states = cur_states
+		if self.verbosity:
+			attrs = list(attr_occurrence_dict.keys())
+			attr_n_devs = [len(attr_occurrence_dict[attr].keys()) for attr in attrs]
+			attr_n_events = [sum(list(attr_occurrence_dict[attr].values())) for attr in attrs]
+			print("[Event Conversion] # qualified events, devices = {}, {}".format(n_events, len(var_names)))
+			print("[Event Conversion] Candidate attrs, n_devices, and n_events: {}".format(list(zip(attrs, attr_n_devs, attr_n_events))))
 		fout.close()
 
 	def initiate_data_preprocessing(self):
@@ -405,7 +439,7 @@ class Hprocessor(GeneralProcessor):
 		"""
 
 		# 1. Numeric-to-enum conversion
-		continuous_attr_dict = defaultdict(list);  numeric_attr_dict = defaultdict(float)
+		continuous_attr_dict = defaultdict(list);  continuous_threshold_dict = defaultdict(float)
 		for parsed_event in parsed_events: # First collect all float values for each numeric attribute
 			try:
 				float_val = float(parsed_event.value)
@@ -413,11 +447,11 @@ class Hprocessor(GeneralProcessor):
 			except:
 				continue
 		for k, v in continuous_attr_dict.items(): # Then call natural breaks algorithms to get the break for each attribute
-			numeric_attr_dict[k] = jenkspy.jenks_breaks(v, nb_class=2)[1]
-			self.discretization_dict[k] = (v, numeric_attr_dict[k])
+			continuous_threshold_dict[k] = jenkspy.jenks_breaks(v, nb_class=2)[1]
+			self.discretization_dict[k] = (v, continuous_threshold_dict[k])
 		for parsed_event in parsed_events: # Finally, transform the numeric attribute to low-high enum attribute 
-			if parsed_event.dev in numeric_attr_dict.keys():
-				parsed_event.value = "HIGH" if float(parsed_event.value) > numeric_attr_dict[parsed_event.dev] else "LOW"
+			if parsed_event.dev in continuous_threshold_dict.keys():
+				parsed_event.value = "HIGH" if float(parsed_event.value) > continuous_threshold_dict[parsed_event.dev] else "LOW"
 		# 2. Enum unification
 		for parsed_event in parsed_events: # Unify the range of all enum variables to {0, 1}
 			parsed_event.value = _enum_unification(parsed_event.value)

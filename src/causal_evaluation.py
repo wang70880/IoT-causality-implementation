@@ -44,7 +44,6 @@ class Evaluator():
 
     def _identify_user_interactions(self):
         """
-        In HH-series dataset, the user interaction is in the form of M->M, M->D, or D->M
         In the current frame, for any two devices, they have interactions iff (1) they are spatially adjacent, and (2) they are usually sequentially activated.
             (1) The identification of spatial adjacency is done by the background generator.
             (2) The identification of sequential activation is done by checking its occurrence within time lag tau_max.
@@ -168,10 +167,9 @@ class Evaluator():
         # 1. Plot the golden standard graph and the discovered graph. Note that the plot functionality requires PCMCI objects
         drawer = Drawer(self.background_generator.dataset)
         pcmci = PCMCI(dataframe=frame.training_dataframe, cond_ind_test=ChiSquare(), verbosity=-1)
-        drawer.plot_interaction_graph(pcmci, discovery_results==1, 'mined-interaction-bklevel{}-alpha{}-threshold{}'\
-                            .format(self.bk_level, int(1.0/self.pc_alpha), self.background_generator.filter_threshold), link_label_fontsize=10)
-        drawer.plot_interaction_graph(pcmci, golden_standard_array==1, 'golden-interaction-threshold{}'\
-                                        .format(int(self.background_generator.filter_threshold)))
+        drawer.plot_interaction_graph(pcmci, discovery_results==1, 'mined-interaction-bklevel{}-alpha{}'\
+                            .format(self.bk_level, int(1.0/self.pc_alpha)), link_label_fontsize=10)
+        drawer.plot_interaction_graph(pcmci, golden_standard_array==1, 'golden-interaction')
         assert(discovery_results.shape == golden_standard_array.shape == (n_vars, n_vars, self.tau_max+1))
         # 2. Calculate the precision and recall for discovered results.
         #tp, fp, fn, precision, recall, f1 = self.precision_recall_calculation(golden_standard_array, discovery_results, verbosity=verbosity)
