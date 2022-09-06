@@ -252,7 +252,7 @@ if __name__ == '__main__':
     background_generator.print_background_knowledge()
     exit()
 
-    evaluator = Evaluator(background_generator, None, 0, alpha)
+    evaluator = Evaluator(data_debugger.preprocessor, background_generator, None, 0, alpha)
     evaluator.print_golden_standard('aggregation')
 
     miner_debugger = MinerDebugger(frame, background_generator, alpha)

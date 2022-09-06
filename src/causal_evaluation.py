@@ -6,7 +6,7 @@ import pandas as pd
 from src.tigramite.tigramite.pcmci import PCMCI
 import matplotlib.pyplot as plt
 from numpy import ndarray
-from src.event_processing import Hprocessor
+from src.event_processing import Hprocessor, Cprocessor, GeneralProcessor
 from src.drawer import Drawer
 from src.background_generator import BackgroundGenerator
 from src.bayesian_fitter import BayesianFitter
@@ -19,8 +19,9 @@ from src.tigramite.tigramite.independence_tests.chi2 import ChiSquare
 
 class Evaluator():
 
-    def __init__(self, background_generator, bayesian_fitter,\
+    def __init__(self, event_preprocessor, background_generator, bayesian_fitter,\
         bk_level, pc_alpha):
+        self.event_preprocessor:'GeneralProcessor' = event_preprocessor
         self.background_generator:'BackgroundGenerator' = background_generator
         self.bayesian_fitter:'BayesianFitter' = bayesian_fitter
         self.bk_level = bk_level; self.pc_alpha = pc_alpha
@@ -152,21 +153,42 @@ class Evaluator():
         index_device_dict:'dict[DevAttribute]' = frame.index_device_dict
         tp = 0; fp = 0; fn = 0; precision = 0.0; recall = 0.0
         fps = []; fns = []
+
         for index, x in np.ndenumerate(evaluated_array):
             if evaluated_array[index] == 1 and golden_array[index] == 1:
                 tp += 1
             elif evaluated_array[index] == 1 and golden_array[index] == 0:
                 fp += 1
-                fps.append('{}->{}'.format(index_device_dict[index[0]].name, index_device_dict[index[1]].name))
+                if index_device_dict[index[0]].location is not None:
+                    fps.append('{}->{} ({} -> {}) at location {} -> {}'\
+                        .format(
+                            index_device_dict[index[0]].name, index_device_dict[index[1]].name,
+                            index_device_dict[index[0]].attr, index_device_dict[index[1]].attr,
+                            index_device_dict[index[0]].location, index_device_dict[index[1]].location
+                            ))
+                else:
+                    fps.append('{}->{}'.format(index_device_dict[index[0]].name, index_device_dict[index[1]].name))
             elif evaluated_array[index] == 0 and golden_array[index] == 1:
                 fn += 1
-                fns.append('{}->{}'.format(index_device_dict[index[0]].name, index_device_dict[index[1]].name))
+                if index_device_dict[index[0]].location is not None:
+                    fns.append('{}->{} ({} -> {}) at location {} -> {}'\
+                        .format(
+                            index_device_dict[index[0]].name, index_device_dict[index[1]].name,
+                            index_device_dict[index[0]].attr, index_device_dict[index[1]].attr,
+                            index_device_dict[index[0]].location, index_device_dict[index[1]].location
+                            ))
+                else:
+                    fns.append('{}->{}'.format(index_device_dict[index[0]].name, index_device_dict[index[1]].name))
         precision = tp * 1.0 / (tp + fp) if (tp+fp) != 0 else 0
         recall = tp * 1.0 / (tp + fn) if (tp+fn) != 0 else 0
         f1_score = 2.0*precision*recall / (precision+recall) if (precision+recall) != 0 else 0
         if verbosity:
-            print("Discovery FPs: {}".format(','.join(fps)))
-            print("Discovery FNs: {}".format(','.join(fns)))
+            print("Discovered fps:")
+            for fp in fps:
+                print("     {}".format(fp))
+            print("Discovered fns:")
+            for fn in fns:
+                print("     {}".format(fn))
         return tp, fp, fn, precision, recall, f1_score
 
     def evaluate_discovery_accuracy(self, discovery_results:'np.ndarray', verbosity=0):
@@ -188,6 +210,7 @@ class Evaluator():
         tau_free_discovery_array = sum([discovery_results[:,:,tau] for tau in range(1, self.tau_max + 1)]); tau_free_discovery_array[tau_free_discovery_array > 0] = 1
         tau_free_golden_array = sum([golden_standard_array[:,:,tau] for tau in range(1, self.tau_max + 1)]); tau_free_golden_array[tau_free_golden_array > 0] = 1
         tau_free_tp, tau_free_fp, tau_free_fn, tau_free_precision, tau_free_recall, tau_free_f1 = self.precision_recall_calculation(tau_free_golden_array, tau_free_discovery_array, verbosity=verbosity)
+        assert(tau_free_tp+tau_free_fn == np.sum(tau_free_golden_array))
         return tau_free_tp+tau_free_fn, tau_free_precision, tau_free_recall, tau_free_f1
 
     def compare_with_arm(self, discovery_results:'np.ndarray', arm_results:'np.ndarray'):

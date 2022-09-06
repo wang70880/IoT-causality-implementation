@@ -326,7 +326,8 @@ class Cprocessor(GeneralProcessor):
 		var_names = list(var_names); var_names.sort()
 		# 2. Build the index for each device
 		for i in range(len(var_names)):
-			device = DevAttribute(attr_name=var_names[i], attr_index=i, lag=0)
+			device = DevAttribute(name=var_names[i], index=i, attr=self.device_description_dict[var_names[i]]['attr'],\
+								location=self.device_description_dict[var_names[i]]['location'])
 			self.name_device_dict[var_names[i]] = device; self.index_device_dict[i] = device
 		assert(len(self.name_device_dict.keys()) == len(self.index_device_dict.keys())) # The violation indicates that there exists devices with the same name
 		# 3. Filter redundant events which do not imply state changes, and get summary of qualified events
@@ -466,7 +467,7 @@ class Hprocessor(GeneralProcessor):
 		var_names = list(var_names); var_names.sort()
 		# 2. Build the index for each device
 		for i in range(len(var_names)):
-			device = DevAttribute(attr_name=var_names[i], attr_index=i, lag=0)
+			device = DevAttribute(name=var_names[i], index=i)
 			self.name_device_dict[var_names[i]] = device; self.index_device_dict[i] = device
 		assert(len(self.name_device_dict.keys()) == len(self.index_device_dict.keys())) # The violation indicates that there exists devices with the same name
 		# 3. Filter redundant events which do not imply state changes

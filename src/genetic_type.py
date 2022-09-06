@@ -43,7 +43,9 @@ class DataFrame():
 
 class DevAttribute():
 
-    def __init__(self, attr_name=None, attr_index=None, lag=0):
-        self.index = attr_index
-        self.name = attr_name
+    def __init__(self, name, index, attr=None, location=None, lag=0):
+        self.index = index 
+        self.name = name 
+        self.attr = attr
+        self.location = location
         self.lag = abs(lag)
