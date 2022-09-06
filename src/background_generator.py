@@ -97,9 +97,9 @@ class BackgroundGenerator():
                               ['Hallway First Floor', 'Stairway', 'Hallway Second Floor'],\
                               ['Hallway Second Floor', 'Bathroom', 'Study Room', 'Bedroom']]
             for adjacent_areas in adjacent_areas_list:
-                adjacent_pairs = list(itertools.permutations(adjacent_areas, r=2))
-                for pair in adjacent_pairs:
-                    area_connectivity_array[location_index_dict[pair[0]],location_index_dict[pair[1]]] = 1
+                for prior in adjacent_areas:
+                    for latter in adjacent_areas:
+                        area_connectivity_array[location_index_dict[prior],location_index_dict[latter]] = 1
 
         return area_list, area_connectivity_array
 

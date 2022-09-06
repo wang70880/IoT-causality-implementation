@@ -42,7 +42,7 @@ class Evaluator():
         activation_frequency_array:'np.ndarray' = self.background_generator.activation_frequency_array
         for i in range(n_vars):
             for j in range(n_vars):
-                ground_truth_dict['temporal'][i, j] = 1 if np.sum(activation_frequency_array[i,j,:]) > 0 else 0
+                ground_truth_dict['temporal'][i, j] = 1 if np.sum(activation_frequency_array[i,j,:]) > .5 * frame.n_days else 0
 
         ground_truth_dict['spatial'] = np.zeros((n_vars, n_vars), dtype=np.int8)
         spatial_array:'np.ndarray' = self.background_generator.knowledge_dict['spatial']
