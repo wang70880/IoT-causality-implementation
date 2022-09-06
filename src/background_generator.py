@@ -19,7 +19,7 @@ class BackgroundGenerator():
         self.tau_max = tau_max
 
         # Each background array is of shape (n_vars, n_vars, tau_max+1)
-        self.frequency_array, self.activation_frequency_array, self.normalized_frequency_array = self._temporal_identification()
+        self.frequency_array, self.activation_frequency_array,self.normalized_frequency_array = self._temporal_identification()
         self.spatial_array = self._spatial_identification()
         self.knowledge_dict = {
             'temporal': self.normalized_frequency_array,
@@ -39,7 +39,7 @@ class BackgroundGenerator():
         event_sequence:'list[AttrEvent]' = [tup[0] for tup in self.frame.training_events_states]
         # Return variables
         frequency_array = np.zeros(shape=(n_vars, n_vars, self.tau_max+1), dtype=np.int32)
-        normalized_frequency_array = np.zeros(shape=(n_vars, n_vars, self.tau_max+1), dtype=np.int32)
+        normalized_frequency_array = np.zeros(shape=(n_vars, n_vars, self.tau_max+1), dtype=np.int8)
         activation_frequency_array = np.zeros(shape=(n_vars, n_vars, self.tau_max+1), dtype=np.int32)
 
         last_act_dev = None; interval = 0
@@ -58,6 +58,7 @@ class BackgroundGenerator():
                     continue
                 former = name_device_dict[event_sequence[i].dev].index; latter = name_device_dict[event_sequence[i + lag].dev].index
                 frequency_array[(former, latter, lag)] += 1
+
         normalized_frequency_array[frequency_array>=self.frame.n_days] = 1
 
         return frequency_array, activation_frequency_array, normalized_frequency_array

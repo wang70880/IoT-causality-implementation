@@ -26,9 +26,31 @@ class Evaluator():
         self.bayesian_fitter:'BayesianFitter' = bayesian_fitter
         self.bk_level = bk_level; self.pc_alpha = pc_alpha
         self.tau_max = self.background_generator.tau_max
+        self.ground_truth_dict = self._construct_ground_truth()
         self.golden_standard_dict = self._construct_golden_standard()
     
     """Function classes for golden standard construction."""
+
+    def _construct_ground_truth(self):
+        # Auxillary variables
+        frame:'DataFrame' = self.background_generator.frame
+        n_vars = frame.n_vars
+        # Return variables
+        ground_truth_dict = defaultdict(np.ndarray)
+
+        ground_truth_dict['temporal'] = np.zeros((n_vars, n_vars), dtype=np.int8)
+        activation_frequency_array:'np.ndarray' = self.background_generator.activation_frequency_array
+        for i in range(n_vars):
+            for j in range(n_vars):
+                ground_truth_dict['temporal'][i, j] = 1 if np.sum(activation_frequency_array[i,j,:]) > 0 else 0
+
+        ground_truth_dict['spatial'] = np.zeros((n_vars, n_vars), dtype=np.int8)
+        spatial_array:'np.ndarray' = self.background_generator.knowledge_dict['spatial']
+        for i in range(n_vars):
+            for j in range(n_vars):
+                ground_truth_dict['spatial'][i, j] = 1 if np.sum(spatial_array[i,j,:]) > 0 else 0
+
+        return ground_truth_dict
 
     def _construct_golden_standard(self):
         # JC NOTE: Currently we only consider hh-series datasets
@@ -51,24 +73,11 @@ class Evaluator():
             (2) The identification of sequential activation is done by checking its occurrence within time lag tau_max.
         """
         # Auxillary variables
-        frame:'DataFrame' = self.background_generator.frame
-        name_device_dict = frame.name_device_dict; n_vars = frame.n_vars
-        training_events:'list[AttrEvent]' = [tup[0] for tup in frame.training_events_states] 
+        frame:'DataFrame' = self.background_generator.frame; n_vars = frame.n_vars
         # Return variables
-        golden_user_array:'np.ndarray' = np.zeros((n_vars, n_vars, self.tau_max+1), dtype=np.int8)
+        golden_user_array = np.zeros((n_vars, n_vars), dtype=np.int8)
 
-        # 1. Spatial requirement verification: Fetch spatial-adjacency pairs and get the spatial background information.
-        spatial_array:'np.ndarray' = self.background_generator.knowledge_dict['spatial']
-
-        # 2. Temporal requirement verification: For any two devices, they should be sequentially triggered at least once.
-        activation_frequency_array:'np.ndarray' = self.background_generator.activation_frequency_array
-        normalized_frequency_array:'np.ndarray' = np.zeros((n_vars, n_vars, self.tau_max+1), dtype=np.int8)
-        for i in range(n_vars): # JC NOTE: Ad-hoc temporal rules for golden standard identification (< half of days)
-            for j in range(n_vars):
-                normalized_frequency_array[i,j,:] = 1 if np.sum(activation_frequency_array[i,j,:]) >= .5 * frame.n_days else 0
-
-        # 3. Spatial requirement verification: For those pairs which satisfy the temporal requirement, further integrate spatial knowledge.
-        golden_user_array = sum([normalized_frequency_array, spatial_array])
+        golden_user_array = sum([self.ground_truth_dict['temporal'], self.ground_truth_dict['spatial']])
         golden_user_array[golden_user_array <= 1] = 0; golden_user_array[golden_user_array > 1] = 1
 
         return golden_user_array
@@ -78,7 +87,7 @@ class Evaluator():
         frame:'DataFrame' = self.background_generator.frame
         name_device_dict = frame.name_device_dict; n_vars = frame.n_vars
         # Return variables
-        golden_physical_array:'np.ndarray' = np.zeros((n_vars, n_vars, self.tau_max+1), dtype=np.int8)
+        golden_physical_array:'np.ndarray' = np.zeros((n_vars, n_vars), dtype=np.int8)
 
         # JC TODO: Implement the logic here.
 
@@ -89,7 +98,7 @@ class Evaluator():
         frame:'DataFrame' = self.background_generator.frame
         name_device_dict = frame.name_device_dict; n_vars = frame.n_vars
         # Return variables
-        golden_automation_array:'np.ndarray' = np.zeros((n_vars, n_vars, self.tau_max+1), dtype=np.int8)
+        golden_automation_array:'np.ndarray' = np.zeros((n_vars, n_vars), dtype=np.int8)
 
         # JC TODO: Implement the logic here.
 
@@ -100,9 +109,9 @@ class Evaluator():
         frame:'DataFrame' = self.background_generator.frame
         n_vars = frame.n_vars
         # Return variables
-        golden_correlation_array:'np.ndarray' = np.zeros((n_vars, n_vars, self.tau_max+1), dtype=np.int8)
+        golden_correlation_array:'np.ndarray' = np.zeros((n_vars, n_vars), dtype=np.int8)
         for i in range(n_vars):
-            golden_correlation_array[i,i,:] = 1
+            golden_correlation_array[i,i] = 1
         return golden_correlation_array
 
     def print_golden_standard(self, golden_type='aggregation'):
@@ -111,13 +120,10 @@ class Evaluator():
         tau_max = self.background_generator.tau_max; var_names = frame.var_names
 
         golden_array = self.golden_standard_dict[golden_type]
-        tau_free_golden_array = sum(
-            [golden_array[:,:,tau] for tau in range(1, tau_max+1)]
-        )
         print("Golden array with type {} (After lag aggregation):".format(golden_type))
-        df = pd.DataFrame(tau_free_golden_array, columns=var_names, index=var_names)
+        df = pd.DataFrame(golden_array, columns=var_names, index=var_names)
         print(df)
-        print("# golden edges: {}".format(np.count_nonzero(tau_free_golden_array > 0)))
+        print("# golden edges: {}".format(np.count_nonzero(golden_array > 0)))
 
     """Function classes for causal discovery evaluation."""
 
@@ -131,16 +137,15 @@ class Evaluator():
 
         # 1. Analyze the discovered device interactions (After aggregation of time lag)
         tau_free_discovery_array:'np.ndarray' = sum([discovery_results[:,:,tau] for tau in range(1, self.tau_max + 1)]); tau_free_discovery_array[tau_free_discovery_array > 0] = 1
-        tau_free_golden_array:'np.ndarray' = sum([golden_standard_array[:,:,tau] for tau in range(1, self.tau_max + 1)]); tau_free_golden_array[tau_free_golden_array > 0] = 1
         discovered_golden_array = np.zeros((n_vars, n_vars))
-        assert(tau_free_discovery_array.shape == tau_free_golden_array.shape == (n_vars, n_vars))
-        for (i, j), x in np.ndenumerate(tau_free_golden_array):
+        assert(tau_free_discovery_array.shape == golden_standard_array.shape == (n_vars, n_vars))
+        for (i, j), x in np.ndenumerate(golden_standard_array):
             if tau_free_discovery_array[(i, j)] == x == 1:
                 interactions.append((index_device_dict[i].name, index_device_dict[j].name))
                 interaction_types.add((index_device_dict[i].name[0], index_device_dict[j].name[0]))
                 discovered_golden_array[(i, j)] = 1
         print("# of golden interactions, discovered interactions, interaction types, and type lists: {}({}), {}({}), {}, {}"\
-                .format(np.sum(tau_free_golden_array), np.sum(golden_standard_array), np.sum(tau_free_discovery_array), np.sum(discovery_results), len(interaction_types), interaction_types))
+                .format(np.sum(golden_standard_array), np.sum(golden_standard_array), np.sum(tau_free_discovery_array), np.sum(discovery_results), len(interaction_types), interaction_types))
 
         # 2. Analyze the formed device interaction chains.
         path_array = np.linalg.matrix_power(tau_free_discovery_array, 3); n_paths = np.sum(path_array)
@@ -160,12 +165,13 @@ class Evaluator():
             elif evaluated_array[index] == 1 and golden_array[index] == 0:
                 fp += 1
                 if index_device_dict[index[0]].location is not None:
-                    fps.append('{}->{} ({} -> {}) at location {} -> {}'\
-                        .format(
+                    debugging_str = '{}->{} ({} -> {}) ({} -> {}). [Spatial, temporal] = [{}, {}]'.format(
                             index_device_dict[index[0]].name, index_device_dict[index[1]].name,
                             index_device_dict[index[0]].attr, index_device_dict[index[1]].attr,
-                            index_device_dict[index[0]].location, index_device_dict[index[1]].location
-                            ))
+                            index_device_dict[index[0]].location, index_device_dict[index[1]].location,
+                            self.ground_truth_dict['spatial'][index], self.ground_truth_dict['temporal'][index]
+                            )
+                    fps.append(debugging_str)
                 else:
                     fps.append('{}->{}'.format(index_device_dict[index[0]].name, index_device_dict[index[1]].name))
             elif evaluated_array[index] == 0 and golden_array[index] == 1:
@@ -208,9 +214,8 @@ class Evaluator():
         #tp, fp, fn, precision, recall, f1 = self.precision_recall_calculation(golden_standard_array, discovery_results, verbosity=verbosity)
         # 3. Calculate the tau-free-precision and tau-free-recall for discovered results
         tau_free_discovery_array = sum([discovery_results[:,:,tau] for tau in range(1, self.tau_max + 1)]); tau_free_discovery_array[tau_free_discovery_array > 0] = 1
-        tau_free_golden_array = sum([golden_standard_array[:,:,tau] for tau in range(1, self.tau_max + 1)]); tau_free_golden_array[tau_free_golden_array > 0] = 1
-        tau_free_tp, tau_free_fp, tau_free_fn, tau_free_precision, tau_free_recall, tau_free_f1 = self.precision_recall_calculation(tau_free_golden_array, tau_free_discovery_array, verbosity=verbosity)
-        assert(tau_free_tp+tau_free_fn == np.sum(tau_free_golden_array))
+        tau_free_tp, tau_free_fp, tau_free_fn, tau_free_precision, tau_free_recall, tau_free_f1 = self.precision_recall_calculation(golden_standard_array, tau_free_discovery_array, verbosity=verbosity)
+        assert(tau_free_tp+tau_free_fn == np.sum(golden_standard_array))
         return tau_free_tp+tau_free_fn, tau_free_precision, tau_free_recall, tau_free_f1
 
     def compare_with_arm(self, discovery_results:'np.ndarray', arm_results:'np.ndarray'):
@@ -223,12 +228,11 @@ class Evaluator():
 
         # 1. Reduce discovery_results from (n_vars, n_vars, tau_max) to (n_vars, n_vars)
         tau_free_discovery_array = sum([discovery_results[:,:,tau] for tau in range(1, self.tau_max + 1)]); tau_free_discovery_array[tau_free_discovery_array > 0] = 1
-        tau_free_golden_array = sum([golden_standard_array[:,:,tau] for tau in range(1, self.tau_max + 1)]); tau_free_golden_array[tau_free_golden_array > 0] = 1
-        assert(tau_free_discovery_array.shape == tau_free_golden_array.shape == (n_vars, n_vars))
+        assert(tau_free_discovery_array.shape == golden_standard_array.shape == (n_vars, n_vars))
 
         # 2. Calculate the discovery accuracy for ARM and our algorithm, respectively
-        causal_tp, causal_fp, causal_fn, causal_precision, causal_recall, causal_f1 = self.precision_recall_calculation(tau_free_golden_array, tau_free_discovery_array)
-        arm_tp, arm_fp, arm_fn, arm_precision, arm_recall, arm_f1 = self.precision_recall_calculation(tau_free_golden_array, arm_results)
+        causal_tp, causal_fp, causal_fn, causal_precision, causal_recall, causal_f1 = self.precision_recall_calculation(golden_standard_array, tau_free_discovery_array)
+        arm_tp, arm_fp, arm_fn, arm_precision, arm_recall, arm_f1 = self.precision_recall_calculation(golden_standard_array, arm_results)
         print("Causal discovery tp, fp, fn, precision, recall, f1 = {}, {}, {}, {}, {}, {}".format(causal_tp, causal_fp, causal_fn, causal_precision, causal_recall, causal_f1))
         print("ARM tp, fp, fn, precision, recall, f1 = {}, {}, {}, {}, {}, {}".format(arm_tp, arm_fp, arm_fn, arm_precision, arm_recall, arm_f1))
 
@@ -236,16 +240,16 @@ class Evaluator():
         removed_common_parent_associations = []; removed_chained_associations = []
         ## 3.1 Identify the set of deducted associations with common links
         for cause in range(n_vars):
-            outcomes = [outcome for outcome in range(n_vars) if tau_free_discovery_array[(cause, outcome)]==tau_free_golden_array[(cause, outcome)]==1 and outcome != cause]
+            outcomes = [outcome for outcome in range(n_vars) if tau_free_discovery_array[(cause, outcome)]==golden_standard_array[(cause, outcome)]==1 and outcome != cause]
             candidate_pairs = list(itertools.permutations(outcomes, 2))
             removed_common_parent_associations += [(pair[0], pair[1], cause) for pair in candidate_pairs\
-                            if tau_free_discovery_array[pair]==tau_free_golden_array[pair]==0]
+                            if tau_free_discovery_array[pair]==golden_standard_array[pair]==0]
         ## 3.2 Identify the set of deducted associations with intermediate variables
         for cause in range(n_vars):
-            outcomes = [outcome for outcome in range(n_vars) if tau_free_discovery_array[(cause, outcome)]==tau_free_golden_array[(cause, outcome)]==1 and outcome != cause]
+            outcomes = [outcome for outcome in range(n_vars) if tau_free_discovery_array[(cause, outcome)]==golden_standard_array[(cause, outcome)]==1 and outcome != cause]
             for outcome in outcomes:
-                further_outcomes = [further_outcome for further_outcome in range(n_vars) if tau_free_discovery_array[(outcome, further_outcome)]==tau_free_golden_array[(outcome, further_outcome)]==1 and further_outcome != outcome]
-                removed_chained_associations += [(cause, further_outcome, outcome) for further_outcome in further_outcomes if tau_free_discovery_array[(cause, further_outcome)]==tau_free_golden_array[(cause, further_outcome)]==0]
+                further_outcomes = [further_outcome for further_outcome in range(n_vars) if tau_free_discovery_array[(outcome, further_outcome)]==golden_standard_array[(outcome, further_outcome)]==1 and further_outcome != outcome]
+                removed_chained_associations += [(cause, further_outcome, outcome) for further_outcome in further_outcomes if tau_free_discovery_array[(cause, further_outcome)]==golden_standard_array[(cause, further_outcome)]==0]
         ## 3.3 For each removed spurious associations, check its existence in the ARM array
         spurious_cp_associations = [spurious_link for spurious_link in removed_common_parent_associations if arm_results[(spurious_link[0],spurious_link[1])] == 1]
         spurious_chained_associations = [spurious_link for spurious_link in removed_chained_associations if arm_results[(spurious_link[0],spurious_link[1])] == 1]
