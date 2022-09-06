@@ -16,7 +16,6 @@ from pgmpy.estimators import MaximumLikelihoodEstimator, BayesianEstimator
 from src.tigramite.tigramite import data_processing as pp
 from src.tigramite.tigramite.pcmci import PCMCI
 from src.tigramite.tigramite.independence_tests import ChiSquare
-from src.tigramite.tigramite import plotting as tp
 
 from src.background_generator import BackgroundGenerator
 from src.event_processing import Hprocessor, Cprocessor
@@ -175,9 +174,9 @@ if COMM.rank == 0:
 # 5. Evaluate the discovery accuracy
 if COMM.rank == 0:
     ## 5.1 Evaluate the discovery precision and recall
-    n_golden_edges, precision, recall, f1 = evaluator.evaluate_discovery_accuracy(interaction_array, verbosity=1)
-    print("     [IM Accuracy] # golden edges = {}, precision = {}, recall = {}, f1 = {}"\
-                        .format(n_golden_edges, precision, recall, f1))
+    tp, fp, fn, precision, recall, f1 = evaluator.evaluate_discovery_accuracy(interaction_array, verbosity=1)
+    print("     [IM Accuracy] tp, fp, fn = {}, {}, {}. # golden edges = {}, precision = {}, recall = {}, f1 = {}"\
+                        .format(tp, fp, fn, tp+fn, precision, recall, f1))
     ## 5.2 Chain analysis
     #interactions, interaction_types, n_paths = evaluator.interpret_discovery_results(interaction_array, golden_frame_id=frame_id, golden_type='user')
     ## 5.3 Time efficiency analysis

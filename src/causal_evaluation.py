@@ -60,7 +60,7 @@ class Evaluator():
         golden_standard_dict['automation'] = self._identify_automation_interactions()
         golden_standard_dict['autocor'] = self._identify_auto_correlation()
 
-        aggregation_array = sum([golden_array for golden_array in golden_standard_dict.values()])
+        aggregation_array = sum([golden_array for golden_array in golden_standard_dict.values()]); aggregation_array[aggregation_array>0] = 1
         #assert(all([x <= 1 for index, x in np.ndenumerate(aggregation_array)])) # We hope that for any two devices, there exists only one type of interactions
         golden_standard_dict['aggregation'] = aggregation_array
 
@@ -214,9 +214,10 @@ class Evaluator():
         # 3. Calculate the tau-free-precision and tau-free-recall for discovered results
         tau_free_discovery_array = sum([discovery_results[:,:,tau] for tau in range(1, self.tau_max + 1)]); tau_free_discovery_array[tau_free_discovery_array > 0] = 1
         assert(tau_free_discovery_array.shape == golden_standard_array.shape)
-        tau_free_tp, tau_free_fp, tau_free_fn, tau_free_precision, tau_free_recall, tau_free_f1 = self.precision_recall_calculation(golden_standard_array, tau_free_discovery_array, verbosity=verbosity)
-        assert(tau_free_tp+tau_free_fn == np.sum(golden_standard_array))
-        return tau_free_tp+tau_free_fn, tau_free_precision, tau_free_recall, tau_free_f1
+        tp, fp, fn, precision, recall, f1 = self.precision_recall_calculation(golden_standard_array, tau_free_discovery_array, verbosity=verbosity)
+        print()
+        assert(tp+fn == np.sum(golden_standard_array))
+        return tp, fp, fn, precision, recall, f1
 
     def compare_with_arm(self, discovery_results:'np.ndarray', arm_results:'np.ndarray'):
         # Auxillary variables
