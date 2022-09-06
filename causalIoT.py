@@ -137,12 +137,11 @@ if COMM.rank == 0:
     splitted_jobs = _split(selected_variables, COMM.size)
 scattered_jobs = COMM.scatter(splitted_jobs, root=0)
 ## 4.2 Initiate parallel causal discovery, and generate the interaction dict (all_parents_with_name)
-debugging_pair = (frame.name_device_dict['D002'].index, frame.name_device_dict['M006'].index)
 cond_ind_test = ChiSquare()
 for j in scattered_jobs:
     (j, pcmci_of_j, parents_of_j) = _run_pc_stable_parallel(j=j, dataframe=dataframe, cond_ind_test=cond_ind_test,\
                                                         selected_links=selected_links, tau_min=tau_min, tau_max=tau_max, pc_alpha=pc_alpha,\
-                                                        max_conds_dim=max_conds_dim, maximum_comb=maximum_comb, verbosity=-1, debugging_pair=debugging_pair)
+                                                        max_conds_dim=max_conds_dim, maximum_comb=maximum_comb, verbosity=-1, debugging_pair=None)
     filtered_parents_of_j = parents_of_j.copy()
     #n_edges = min(len(filtered_parents_of_j[j]), max_n_edges) # Only select top max_n_edges causal edges with maximum statistic values
     #if n_edges > 0:

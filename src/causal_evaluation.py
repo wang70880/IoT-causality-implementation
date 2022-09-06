@@ -184,11 +184,11 @@ class Evaluator():
         f1_score = 2.0*precision*recall / (precision+recall) if (precision+recall) != 0 else 0
         if verbosity:
             print("Discovered fps:")
-            for fp in fps:
-                print("     {}".format(fp))
+            for fp_info in fps:
+                print("     {}".format(fp_info))
             print("Discovered fns:")
-            for fn in fns:
-                print("     {}".format(fn))
+            for fn_info in fns:
+                print("     {}".format(fn_info))
         return tp, fp, fn, precision, recall, f1_score
 
     def evaluate_discovery_accuracy(self, discovery_results:'np.ndarray', verbosity=0):
