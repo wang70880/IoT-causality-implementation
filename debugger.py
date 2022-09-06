@@ -33,7 +33,7 @@ class DataDebugger():
         if self.dataset.startswith('hh'):
             self.preprocessor = Hprocessor(dataset=dataset, partition_days=partition_days, training_ratio=training_ratio)
         elif self.dataset.startswith('contextact'):
-            self.preprocessor = Cprocessor(dataset=dataset, partition_days=partition_days, training_ratio=training_ratio, verbosity=0)
+            self.preprocessor = Cprocessor(dataset=dataset, partition_days=partition_days, training_ratio=training_ratio, verbosity=1)
         self.preprocessor.initiate_data_preprocessing()
         self.preprocessor.data_loading()
     
@@ -249,7 +249,7 @@ if __name__ == '__main__':
     frame:'DataFrame' = data_debugger.preprocessor.frame_dict[int_frame_id]
 
     background_generator:'BackgroundGenerator' = BackgroundGenerator(data_debugger.preprocessor, int_frame_id, tau_max)
-    background_generator.print_background_knowledge()
+    #background_generator.print_background_knowledge()
     exit()
 
     evaluator = Evaluator(data_debugger.preprocessor, background_generator, None, 0, alpha)

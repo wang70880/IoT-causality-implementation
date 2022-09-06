@@ -111,7 +111,7 @@ dataframe:pp.DataFrame = frame.training_dataframe; var_names = frame.var_names
 n_records = dataframe.T; n_vars = dataframe.N
 preprocessing_consumed_time = _elapsed_minutes(dl_start)
 if COMM.rank == 0:
-    print("     [Dataset Overview] # training records = {}, devices = {} ({})".format(n_records, frame.var_names, n_vars))
+    print("     [Dataset Overview] # training records = {},  devices = {} ({})".format(n_records, frame.var_names, n_vars))
 
 # 2. Identify the background knowledge, and use the background knowledge to prune edges
 bg_start=time()
