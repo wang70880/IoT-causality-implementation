@@ -35,9 +35,10 @@ class Evaluator():
         golden_standard_dict['user'] = self._identify_user_interactions()
         golden_standard_dict['physics'] = self._identify_physical_interactions()
         golden_standard_dict['automation'] = self._identify_automation_interactions()
+        golden_standard_dict['autocor'] = self._identify_auto_correlation()
 
         aggregation_array = sum([golden_array for golden_array in golden_standard_dict.values()])
-        assert(all([x <= 1 for index, x in np.ndenumerate(aggregation_array)])) # We hope that for any two devices, there exists only one type of interactions
+        #assert(all([x <= 1 for index, x in np.ndenumerate(aggregation_array)])) # We hope that for any two devices, there exists only one type of interactions
         golden_standard_dict['aggregation'] = aggregation_array
 
         return golden_standard_dict
@@ -92,6 +93,16 @@ class Evaluator():
         # JC TODO: Implement the logic here.
 
         return golden_automation_array
+    
+    def _identify_auto_correlation(self):
+        # Auxillary variables
+        frame:'DataFrame' = self.background_generator.frame
+        n_vars = frame.n_vars
+        # Return variables
+        golden_correlation_array:'np.ndarray' = np.zeros((n_vars, n_vars, self.tau_max+1), dtype=np.int8)
+        for i in range(n_vars):
+            golden_correlation_array[i,i,:] = 1
+        return golden_correlation_array
 
     def print_golden_standard(self, golden_type='aggregation'):
         # Auxillary variables

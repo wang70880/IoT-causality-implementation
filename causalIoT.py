@@ -104,7 +104,7 @@ dl_start =time()
 if dataset.startswith('hh'):
     event_preprocessor:'Hprocessor' = Hprocessor(dataset=dataset, partition_days=partition_days, training_ratio=training_ratio)
 elif dataset.startswith('contextact'):
-    event_preprocessor:'Cprocessor' = Cprocessor(dataset, partition_days, training_ratio, 1)
+    event_preprocessor:'Cprocessor' = Cprocessor(dataset, partition_days, training_ratio)
 event_preprocessor.data_loading()
 frame:'DataFrame' = event_preprocessor.frame_dict[frame_id]
 dataframe:pp.DataFrame = frame.training_dataframe; var_names = frame.var_names

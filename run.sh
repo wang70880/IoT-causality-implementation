@@ -24,7 +24,7 @@ dataset="contextact"; preprocessing_verbosity=0
 declare -a partition_days=(7)
 training_ratio=0.8
 ## Background generator and application level
-tau_max=3
+tau_max=5
 declare -a bk_levels=(0)
 ## PC discovery process
 declare -a pc_alphas=(0.001)
