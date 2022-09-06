@@ -209,7 +209,7 @@ class Cprocessor(GeneralProcessor):
 				continue
 			device_count_dict[parsed_event.dev] += 1
 		less_frequent_devices = [dev for dev in device_count_dict.keys()\
-				if device_count_dict[dev] < 5]
+				if device_count_dict[dev] < 10]
 
 		qualified_events: list[AttrEvent] = []
 		device_state_dict = defaultdict(str)
@@ -245,7 +245,7 @@ class Cprocessor(GeneralProcessor):
 				inp = parsed_event.dev.split("_")
 				if len(inp) <= 1:
 					continue
-				parsed_event.dev = inp[0]
+				#parsed_event.dev = inp[0]
 			# 1.3 Remove redundant events (which implies no state transitions)
 			if device_state_dict[parsed_event.dev] == parsed_event.value:
 				continue
@@ -356,6 +356,50 @@ class Cprocessor(GeneralProcessor):
 			print("[Event Conversion] # qualified events, devices = {}, {}".format(n_events, len(var_names)))
 			print("[Event Conversion] Candidate attrs, n_devices, and n_events: {}".format(list(zip(attrs, attr_n_devs, attr_n_events))))
 		fout.close()
+
+	def read_preprocessed_data_file(self):
+		# Return variables
+		transition_events_states = []
+		# Debugging variables
+		var_names = set()
+		name_device_dict = defaultdict(DevAttribute); index_device_dict = defaultdict(DevAttribute)
+		attr_count_dict = defaultdict(int); dev_count_dict = defaultdict(int)
+
+		# 1. Read data file and create AttrEvent object for each event
+		unified_parsed_events = []
+		fin = open(self.transition_data, 'r')
+		for line in fin.readlines():
+			inp = line.strip().split(' ')
+			unified_parsed_events.append(AttrEvent(inp[0], inp[1], inp[2], inp[3], int(inp[4])))
+
+		# 2. Construct the device list and corresponding index dictionary
+		for unified_event in unified_parsed_events:
+			var_names.add(unified_event.dev)
+		var_names = list(var_names); var_names.sort()
+		for i in range(len(var_names)):
+			device = DevAttribute(name=var_names[i], index=i, attr=self.device_description_dict[var_names[i]]['attr'],\
+								location=self.device_description_dict[var_names[i]]['location'])
+			name_device_dict[device.name] = device; index_device_dict[device.index] = device
+		assert(len(name_device_dict.keys()) == len(index_device_dict.keys())) # Otherwise, the violation indicates that there exists devices with the same name
+
+		# 3. Construct the state vector for each event, and return the result
+		last_states = [0] * len(var_names)
+		for unified_event in unified_parsed_events:
+			cur_states = last_states.copy(); cur_states[name_device_dict[unified_event.dev].index] = unified_event.value
+			transition_events_states.append((unified_event, np.array(cur_states)))
+			dev_count_dict[unified_event.dev] += 1; attr_count_dict[unified_event.attr] += 1
+			last_states = cur_states
+
+		# 4. Store the device information into the class
+		self.var_names = var_names; self.n_vars = len(var_names)
+		self.name_device_dict = name_device_dict; self.index_device_dict = index_device_dict
+		self.attr_count_dict = attr_count_dict; self.dev_count_dict = dev_count_dict
+		if self.verbosity > 0:
+			print("[Data Loading] # records, attrs, devices = {}, {}, {}".format(
+				len(unified_parsed_events), len(self.attr_count_dict.keys()), len(self.dev_count_dict.keys())
+			))
+
+		return transition_events_states
 
 	def initiate_data_preprocessing(self):
 		parsed_events = self.sanitize_raw_events()
