@@ -209,7 +209,7 @@ class Cprocessor(GeneralProcessor):
 				continue
 			device_count_dict[parsed_event.dev] += 1
 		less_frequent_devices = [dev for dev in device_count_dict.keys()\
-				if device_count_dict[dev] < 30]
+				if device_count_dict[dev] < 50]
 
 		qualified_events: list[AttrEvent] = []
 		device_state_dict = defaultdict(str)

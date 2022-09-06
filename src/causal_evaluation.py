@@ -208,12 +208,12 @@ class Evaluator():
         pcmci = PCMCI(dataframe=frame.training_dataframe, cond_ind_test=ChiSquare(), verbosity=-1)
         drawer.plot_interaction_graph(pcmci, discovery_results==1, 'mined-interaction-bklevel{}-alpha{}'\
                             .format(self.bk_level, int(1.0/self.pc_alpha)), link_label_fontsize=10)
-        drawer.plot_interaction_graph(pcmci, golden_standard_array==1, 'golden-interaction')
-        assert(discovery_results.shape == golden_standard_array.shape == (n_vars, n_vars, self.tau_max+1))
+        #drawer.plot_interaction_graph(pcmci, golden_standard_array==1, 'golden-interaction')
         # 2. Calculate the precision and recall for discovered results.
         #tp, fp, fn, precision, recall, f1 = self.precision_recall_calculation(golden_standard_array, discovery_results, verbosity=verbosity)
         # 3. Calculate the tau-free-precision and tau-free-recall for discovered results
         tau_free_discovery_array = sum([discovery_results[:,:,tau] for tau in range(1, self.tau_max + 1)]); tau_free_discovery_array[tau_free_discovery_array > 0] = 1
+        assert(tau_free_discovery_array.shape == golden_standard_array.shape)
         tau_free_tp, tau_free_fp, tau_free_fn, tau_free_precision, tau_free_recall, tau_free_f1 = self.precision_recall_calculation(golden_standard_array, tau_free_discovery_array, verbosity=verbosity)
         assert(tau_free_tp+tau_free_fn == np.sum(golden_standard_array))
         return tau_free_tp+tau_free_fn, tau_free_precision, tau_free_recall, tau_free_f1
