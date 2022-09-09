@@ -157,8 +157,8 @@ class Evaluator():
         frequency_array:'np.ndarray' = self.background_generator.frequency_array
         frame:'DataFrame' = self.background_generator.frame
         index_device_dict:'dict[DevAttribute]' = frame.index_device_dict
-        tp = 0; fp = 0; fn = 0; precision = 0.0; recall = 0.0
-        tps = []; fps = []; fns = []
+        tp = 0; tn = 0; fp = 0; fn = 0; precision = 0.0; recall = 0.0
+        tps = []; tns = []; fps = []; fns = []
 
         for index, x in np.ndenumerate(evaluated_array):
             debugging_str = '{}->{}'.format(index_device_dict[index[0]].name, index_device_dict[index[1]].name)
@@ -177,7 +177,10 @@ class Evaluator():
                 fps.append(debugging_str)
             elif evaluated_array[index] == 0 and golden_array[index] == 1:
                 fn += 1
-                fns.append('{}->{}'.format(index_device_dict[index[0]].name, index_device_dict[index[1]].name))
+                fns.append(debugging_str)
+            else:
+                tn += 1
+                tns.append(debugging_str)
 
         precision = tp * 1.0 / (tp + fp) if (tp+fp) != 0 else 0
         recall = tp * 1.0 / (tp + fn) if (tp+fn) != 0 else 0
@@ -192,6 +195,9 @@ class Evaluator():
             print("Discovered fns:")
             for fn_info in fns:
                 print("     {}".format(fn_info))
+            print("Discovered tns:")
+            for tn_info in tns:
+                print("     {}".format(tn_info))
         return tp, fp, fn, precision, recall, f1_score
 
     def evaluate_discovery_accuracy(self, discovery_results:'np.ndarray', verbosity=0):
