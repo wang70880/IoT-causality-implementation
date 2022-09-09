@@ -37,6 +37,7 @@ class GeneralProcessor():
 
 		# Initialized in function read_preprocessed_data_file()
 		self.var_names = []; self.n_vars = 0
+		self.attr_names = []; self.n_attrs = 0
 		self.name_device_dict = defaultdict(DevAttribute) # The str-DevAttribute dict using the attr name as the dict key
 		self.index_device_dict = defaultdict(DevAttribute) # The str-DevAttribute dict using the attr index as the dict key
 		self.attr_count_dict = defaultdict(int); self.dev_count_dict = defaultdict(int)
@@ -97,7 +98,7 @@ class GeneralProcessor():
 		dataframe = pp.DataFrame(data=states_array, var_names=self.var_names)
 		final_timestamp = '{} {}'.format(transition_events_states[-1][0].date, transition_events_states[-1][0].time)
 		first_timestamp = '{} {}'.format(transition_events_states[0][0].date, transition_events_states[0][0].time)
-		dframe = DataFrame(id='all', var_names=self.var_names, n_events=len(transition_events_states),\
+		dframe = DataFrame(id='all', var_names=self.var_names, attr_names=self.attr_names, n_events=len(transition_events_states),\
 			n_days = ((datetime.fromisoformat(final_timestamp) - datetime.fromisoformat(first_timestamp)).total_seconds())*1.0/86400)
 		dframe.set_device_info(self.name_device_dict, self.index_device_dict)
 		dframe.set_training_data(transition_events_states, dataframe)
@@ -129,7 +130,7 @@ class GeneralProcessor():
 				last_point = seg_point
 				continue
 			dataframe = pp.DataFrame(data=training_data, var_names=self.var_names); testing_dataframe = pp.DataFrame(data=testing_data, var_names=self.var_names)
-			dframe = DataFrame(id=frame_count, var_names=self.var_names, n_events=seg_point-last_point, n_days=seg_days[i])
+			dframe = DataFrame(id=frame_count, var_names=self.var_names, attr_names=self.attr_names, n_events=seg_point-last_point, n_days=seg_days[i])
 			dframe.set_device_info(self.name_device_dict, self.index_device_dict)
 			dframe.set_training_data(transition_events_states[last_point:testing_start_point], dataframe)
 			dframe.set_testing_data(transition_events_states[testing_start_point:seg_point], testing_dataframe)
@@ -360,7 +361,7 @@ class Cprocessor(GeneralProcessor):
 		# Return variables
 		transition_events_states = []
 		# Debugging variables
-		var_names = set()
+		var_names = set(); attr_names = set()
 		name_device_dict = defaultdict(DevAttribute); index_device_dict = defaultdict(DevAttribute)
 		attr_count_dict = defaultdict(int); dev_count_dict = defaultdict(int)
 
@@ -374,7 +375,9 @@ class Cprocessor(GeneralProcessor):
 		# 2. Construct the device list and corresponding index dictionary
 		for unified_event in unified_parsed_events:
 			var_names.add(unified_event.dev)
+			attr_names.add(unified_event.attr)
 		var_names = list(var_names); var_names.sort()
+		attr_names = list(attr_names); attr_names.sort()
 		for i in range(len(var_names)):
 			device = DevAttribute(name=var_names[i], index=i, attr=self.device_description_dict[var_names[i]]['attr'],\
 								location=self.device_description_dict[var_names[i]]['location'])
@@ -391,6 +394,7 @@ class Cprocessor(GeneralProcessor):
 
 		# 4. Store the device information into the class
 		self.var_names = var_names; self.n_vars = len(var_names)
+		self.attr_names = attr_names; self.n_attrs = len(attr_names)
 		self.name_device_dict = name_device_dict; self.index_device_dict = index_device_dict
 		self.attr_count_dict = attr_count_dict; self.dev_count_dict = dev_count_dict
 		if self.verbosity > 0:

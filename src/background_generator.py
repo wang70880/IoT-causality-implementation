@@ -123,6 +123,9 @@ class BackgroundGenerator():
 
         return spatial_array
 
+    def _physical_identification(self):
+        pass
+
     def print_background_knowledge(self):
         var_names = self.frame.var_names
         for bk_type in self.knowledge_dict.keys():

@@ -14,9 +14,10 @@ class AttrEvent():
 
 class DataFrame():
 
-    def __init__(self, id, var_names, n_events, n_days) -> None:
+    def __init__(self, id, var_names, attr_names, n_events, n_days) -> None:
         self.id = id; self.n_events = n_events; self.n_days = n_days
         self.var_names = var_names; self.n_vars = len(self.var_names)
+        self.attr_names = attr_names; self.n_attrs = len(self.attr_names)
         self.training_events_states:'list[tuple(AttrEvent, ndarray)]' = None
         self.testing_events_states:'list[tuple(AttrEvent, ndarray)]' = None
         self.name_device_dict:'dict[DevAttribute]' = None # The str-DevAttribute dict using the attr name as the dict key
