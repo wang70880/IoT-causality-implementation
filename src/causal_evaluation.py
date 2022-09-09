@@ -159,6 +159,7 @@ class Evaluator():
         index_device_dict:'dict[DevAttribute]' = frame.index_device_dict
         tp = 0; tn = 0; fp = 0; fn = 0; precision = 0.0; recall = 0.0
         tps = []; tns = []; fps = []; fns = []
+        tp_frequencies = []; fp_frequencies = []; fn_frequencies = []
 
         for index, x in np.ndenumerate(evaluated_array):
             debugging_str = '{}->{}'.format(index_device_dict[index[0]].name, index_device_dict[index[1]].name)
@@ -171,12 +172,15 @@ class Evaluator():
                             )
             if evaluated_array[index] == 1 and golden_array[index] == 1:
                 tp += 1
+                tp_frequencies.append(np.sum(frequency_array[index[0],index[1],:]))
                 tps.append(debugging_str)
             elif evaluated_array[index] == 1 and golden_array[index] == 0:
                 fp += 1
+                fp_frequencies.append(np.sum(frequency_array[index[0],index[1],:]))
                 fps.append(debugging_str)
             elif evaluated_array[index] == 0 and golden_array[index] == 1:
                 fn += 1
+                fn_frequencies.append(np.sum(frequency_array[index[0],index[1],:]))
                 fns.append(debugging_str)
             else:
                 tn += 1
@@ -198,6 +202,10 @@ class Evaluator():
             print("Discovered tns:")
             for tn_info in tns:
                 print("     {}".format(tn_info))
+        drawer = Drawer(self.event_preprocessor.dataset)
+        drawer.draw_1d_distribution(tp_frequencies, title='tp frequencies', fname='tp-frequency')
+        drawer.draw_1d_distribution(fp_frequencies, title='fp frequencies', fname='fp-frequency')
+        drawer.draw_1d_distribution(fn_frequencies, title='fn frequencies', fname='fn-frequency')
         return tp, fp, fn, precision, recall, f1_score
 
     def evaluate_discovery_accuracy(self, discovery_results:'np.ndarray', verbosity=0):
