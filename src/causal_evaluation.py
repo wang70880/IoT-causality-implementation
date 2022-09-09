@@ -42,7 +42,7 @@ class Evaluator():
         ground_truth_dict['temporal'] = np.zeros((n_vars, n_vars), dtype=np.int8)
         for i in range(n_vars):
             for j in range(n_vars):
-                ground_truth_dict['temporal'][i, j] = 1 if frequency_array[i,j,1] > 0 else 0
+                ground_truth_dict['temporal'][i, j] = 1 if np.sum(frequency_array[i,j,:]) > 0 else 0
 
         ground_truth_dict['spatial'] = np.zeros((n_vars, n_vars), dtype=np.int8)
         spatial_array:'np.ndarray' = self.background_generator.knowledge_dict['spatial']
@@ -167,7 +167,7 @@ class Evaluator():
                             index_device_dict[index[0]].name, index_device_dict[index[1]].name,
                             index_device_dict[index[0]].attr, index_device_dict[index[1]].attr,
                             index_device_dict[index[0]].location, index_device_dict[index[1]].location,
-                            self.ground_truth_dict['spatial'][index], frequency_array[index[0], index[1], 1], self.ground_truth_dict['temporal'][index]
+                            self.ground_truth_dict['spatial'][index], np.sum(frequency_array[index[0],index[1],:]), self.ground_truth_dict['temporal'][index]
                             )
             if evaluated_array[index] == 1 and golden_array[index] == 1:
                 tp += 1
