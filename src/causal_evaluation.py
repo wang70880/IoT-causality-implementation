@@ -35,14 +35,14 @@ class Evaluator():
         # Auxillary variables
         frame:'DataFrame' = self.background_generator.frame
         n_vars = frame.n_vars
+        frequency_array:'np.ndarray' = self.background_generator.frequency_array
         # Return variables
         ground_truth_dict = defaultdict(np.ndarray)
 
         ground_truth_dict['temporal'] = np.zeros((n_vars, n_vars), dtype=np.int8)
-        activation_frequency_array:'np.ndarray' = self.background_generator.activation_frequency_array
         for i in range(n_vars):
             for j in range(n_vars):
-                ground_truth_dict['temporal'][i, j] = 1 if np.sum(activation_frequency_array[i,j,:]) > .5 * frame.n_days else 0
+                ground_truth_dict['temporal'][i, j] = 1 if frequency_array[i,j,1] > 0 else 0
 
         ground_truth_dict['spatial'] = np.zeros((n_vars, n_vars), dtype=np.int8)
         spatial_array:'np.ndarray' = self.background_generator.knowledge_dict['spatial']
@@ -154,41 +154,38 @@ class Evaluator():
 
     def precision_recall_calculation(self, golden_array:'np.ndarray', evaluated_array:'np.ndarray', verbosity):
         # Auxillary variables
+        frequency_array:'np.ndarray' = self.background_generator.frequency_array
         frame:'DataFrame' = self.background_generator.frame
         index_device_dict:'dict[DevAttribute]' = frame.index_device_dict
         tp = 0; fp = 0; fn = 0; precision = 0.0; recall = 0.0
-        fps = []; fns = []
+        tps = []; fps = []; fns = []
 
         for index, x in np.ndenumerate(evaluated_array):
-            if evaluated_array[index] == 1 and golden_array[index] == 1:
-                tp += 1
-            elif evaluated_array[index] == 1 and golden_array[index] == 0:
-                fp += 1
-                if index_device_dict[index[0]].location is not None:
-                    debugging_str = '{}->{} ({} -> {}) ({} -> {}). [Spatial, temporal] = [{}, {}]'.format(
+            debugging_str = '{}->{}'.format(index_device_dict[index[0]].name, index_device_dict[index[1]].name)
+            if index_device_dict[index[0]].location is not None:
+                debugging_str = '{}->{} ({} -> {}) ({} -> {}). [Spatial, temporal] = [{}, ({}, {})]'.format(
                             index_device_dict[index[0]].name, index_device_dict[index[1]].name,
                             index_device_dict[index[0]].attr, index_device_dict[index[1]].attr,
                             index_device_dict[index[0]].location, index_device_dict[index[1]].location,
-                            self.ground_truth_dict['spatial'][index], self.ground_truth_dict['temporal'][index]
+                            self.ground_truth_dict['spatial'][index], frequency_array[index[0], index[1], 1], self.ground_truth_dict['temporal'][index]
                             )
-                    fps.append(debugging_str)
-                else:
-                    fps.append('{}->{}'.format(index_device_dict[index[0]].name, index_device_dict[index[1]].name))
+            if evaluated_array[index] == 1 and golden_array[index] == 1:
+                tp += 1
+                tps.append(debugging_str)
+            elif evaluated_array[index] == 1 and golden_array[index] == 0:
+                fp += 1
+                fps.append(debugging_str)
             elif evaluated_array[index] == 0 and golden_array[index] == 1:
                 fn += 1
-                if index_device_dict[index[0]].location is not None:
-                    fns.append('{}->{} ({} -> {}) at location {} -> {}'\
-                        .format(
-                            index_device_dict[index[0]].name, index_device_dict[index[1]].name,
-                            index_device_dict[index[0]].attr, index_device_dict[index[1]].attr,
-                            index_device_dict[index[0]].location, index_device_dict[index[1]].location
-                            ))
-                else:
-                    fns.append('{}->{}'.format(index_device_dict[index[0]].name, index_device_dict[index[1]].name))
+                fns.append('{}->{}'.format(index_device_dict[index[0]].name, index_device_dict[index[1]].name))
+
         precision = tp * 1.0 / (tp + fp) if (tp+fp) != 0 else 0
         recall = tp * 1.0 / (tp + fn) if (tp+fn) != 0 else 0
         f1_score = 2.0*precision*recall / (precision+recall) if (precision+recall) != 0 else 0
         if verbosity:
+            print("Discovered tps:")
+            for tp_info in tps:
+                print("     {}".format(tp_info))
             print("Discovered fps:")
             for fp_info in fps:
                 print("     {}".format(fp_info))

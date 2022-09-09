@@ -1,4 +1,3 @@
-from os import stat, path
 import jenkspy
 import math
 import statistics
