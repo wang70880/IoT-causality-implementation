@@ -21,9 +21,13 @@ class BackgroundGenerator():
         # Each background array is of shape (n_vars, n_vars, tau_max+1)
         self.frequency_array, self.activation_frequency_array,self.normalized_frequency_array = self._temporal_identification()
         self.spatial_array = self._spatial_identification()
+        self.user_array = self._user_activity_identification()
+        self.physical_array = self._physical_identification()
         self.knowledge_dict = {
             'temporal': self.normalized_frequency_array,
             'spatial': self.spatial_array,
+            'user': self.user_array,
+            'physical': self.physical_array
         }
     
     """ Functions for background knowledge identification """
@@ -123,8 +127,57 @@ class BackgroundGenerator():
 
         return spatial_array
 
+    def _user_activity_identification(self):
+        # Auxillary variables
+        index_device_dict:'dict[DevAttribute]' = self.frame.index_device_dict
+        var_names = self.frame.var_names; n_vars = len(var_names)
+        # Return variables
+        user_array = np.zeros(shape=(n_vars, n_vars, self.tau_max+1), dtype=np.int32)
+
+        # 1. Construct the physical channels
+        user_attributes = None
+        if self.dataset == 'contextact':
+            user_attributes = ['Infrared-Movement-Sensor', 'Switch']
+
+        # 2. Leverage the physical channels to identify related device pairs
+        if user_attributes:
+            for i in range(n_vars):
+                for j in range(n_vars):
+                    prior, latter = (index_device_dict[i].attr, index_device_dict[j].attr)
+                    if prior in user_attributes or latter in user_attributes:
+                        user_array[i,j,:] = 1
+
+        return user_array 
+
     def _physical_identification(self):
-        pass
+        # Auxillary variables
+        index_device_dict:'dict[DevAttribute]' = self.frame.index_device_dict
+        var_names = self.frame.var_names; n_vars = len(var_names)
+        # Return variables
+        physical_array = np.zeros(shape=(n_vars, n_vars, self.tau_max+1), dtype=np.int32)
+
+        # 1. Construct the physical channels
+        physical_channels = None
+        if self.dataset == 'contextact':
+            physical_channels = [\
+                ('Brightness-Sensor', 'Brightness-Sensor'), ('Brightness-Sensor', 'Dimmer'), ('Brightness-Sensor', 'Rollershutter'),
+                ('Dimmer', 'Brightness-Sensor'), ('Dimmer', 'Power-Sensor'), (('Dimmer', 'Dimmer')),
+                ('Contact-Sensor', 'Contact-Sensor'), ('Contact-Sensor', 'Water-Meter'), ('Contact-Sensor', 'Power-Sensor'),
+                ('Humidity-Sensor', 'Humidity-Sensor'), ('Humidity-Sensor', 'Water-Meter'), ('Humidity-Sensor', 'Contact-Sensor'),
+                ('Power-Sensor', 'Power-Sensor'), ('Power-Sensor', 'Contact-Sensor'), ('Power-Sensor', 'Rollershutter'),
+                ('Rollershutter', 'Rollershutter'), ('Rollershutter', 'Brightness-Sensor'), ('Rollershutter', 'Dimmer'), ('Rollershutter', 'Power-Sensor'),
+                ('Water-Meter', 'Water-Meter'), ('Water-Meter', 'Contact-Sensor'), ('Water-Meter', 'Power-Sensor')
+                ]
+
+        # 2. Leverage the physical channels to identify related device pairs
+        if physical_channels:
+            for i in range(n_vars):
+                for j in range(n_vars):
+                    attr_pairs = (index_device_dict[i].attr, index_device_dict[j].attr)
+                    if attr_pairs in physical_channels:
+                        physical_array[i,j,:] = 1
+
+        return physical_array
 
     def print_background_knowledge(self):
         var_names = self.frame.var_names

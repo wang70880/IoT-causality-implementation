@@ -13,9 +13,18 @@ from src.bayesian_fitter import BayesianFitter
 from src.genetic_type import DataFrame, AttrEvent, DevAttribute
 from src.tigramite.tigramite import plotting as ti_plotting
 from collections import defaultdict
+from functools import reduce
 
 from src.tigramite.tigramite import pcmci
 from src.tigramite.tigramite.independence_tests.chi2 import ChiSquare
+
+def _normalize_time_series_array(arr:'np.ndarray'):
+    n_rows = arr.shape[0]; n_cols = arr.shape[1]
+    ret_arr = np.zeros((n_rows, n_cols), dtype=np.int8)
+    for i in range(n_rows):
+        for j in range(n_cols):
+            ret_arr[i, j] = 1 if np.sum(arr[i,j,:]) > 0 else 0
+    return ret_arr
 
 class Evaluator():
 
@@ -33,22 +42,17 @@ class Evaluator():
 
     def _construct_ground_truth(self):
         # Auxillary variables
-        frame:'DataFrame' = self.background_generator.frame
-        n_vars = frame.n_vars
         frequency_array:'np.ndarray' = self.background_generator.frequency_array
+        spatial_array:'np.ndarray' = self.background_generator.knowledge_dict['spatial']
+        user_array:'np.ndarray' = self.background_generator.knowledge_dict['user']
+        physical_array:'np.ndarray' = self.background_generator.knowledge_dict['physical']
         # Return variables
         ground_truth_dict = defaultdict(np.ndarray)
 
-        ground_truth_dict['temporal'] = np.zeros((n_vars, n_vars), dtype=np.int8)
-        for i in range(n_vars):
-            for j in range(n_vars):
-                ground_truth_dict['temporal'][i, j] = 1 if np.sum(frequency_array[i,j,:]) > 0 else 0
-
-        ground_truth_dict['spatial'] = np.zeros((n_vars, n_vars), dtype=np.int8)
-        spatial_array:'np.ndarray' = self.background_generator.knowledge_dict['spatial']
-        for i in range(n_vars):
-            for j in range(n_vars):
-                ground_truth_dict['spatial'][i, j] = 1 if np.sum(spatial_array[i,j,:]) > 0 else 0
+        ground_truth_dict['temporal'] = _normalize_time_series_array(frequency_array)
+        ground_truth_dict['spatial'] = _normalize_time_series_array(spatial_array)
+        ground_truth_dict['user'] = _normalize_time_series_array(user_array)
+        ground_truth_dict['physical'] = _normalize_time_series_array(physical_array)
 
         return ground_truth_dict
 
@@ -75,10 +79,9 @@ class Evaluator():
         # Auxillary variables
         frame:'DataFrame' = self.background_generator.frame; n_vars = frame.n_vars
         # Return variables
-        golden_user_array = np.zeros((n_vars, n_vars), dtype=np.int8)
-
-        golden_user_array = sum([self.ground_truth_dict['temporal'], self.ground_truth_dict['spatial']])
-        golden_user_array[golden_user_array <= 1] = 0; golden_user_array[golden_user_array > 1] = 1
+        golden_user_array = reduce(lambda x, y:sum(x,y),\
+                [self.ground_truth_dict['temporal'], self.ground_truth_dict['spatial'], self.ground_truth_dict['user']])
+        golden_user_array[golden_user_array < 3] = 0; golden_user_array[golden_user_array == 3] = 1
 
         return golden_user_array
 
@@ -87,9 +90,9 @@ class Evaluator():
         frame:'DataFrame' = self.background_generator.frame
         name_device_dict = frame.name_device_dict; n_vars = frame.n_vars
         # Return variables
-        golden_physical_array:'np.ndarray' = np.zeros((n_vars, n_vars), dtype=np.int8)
-
-        # JC TODO: Implement the logic here.
+        golden_physical_array = reduce(lambda x, y:sum(x,y),\
+                [self.ground_truth_dict['temporal'], self.ground_truth_dict['spatial'], self.ground_truth_dict['physical']])
+        golden_physical_array[golden_physical_array < 3] = 0; golden_physical_array[golden_physical_array == 3] = 1
 
         return golden_physical_array
     
