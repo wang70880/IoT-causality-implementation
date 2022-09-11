@@ -18,12 +18,12 @@ from functools import reduce
 from src.tigramite.tigramite import pcmci
 from src.tigramite.tigramite.independence_tests.chi2 import ChiSquare
 
-def _normalize_time_series_array(arr:'np.ndarray'):
+def _normalize_time_series_array(arr:'np.ndarray', threshold=0):
     n_rows = arr.shape[0]; n_cols = arr.shape[1]
     ret_arr = np.zeros((n_rows, n_cols), dtype=np.int8)
     for i in range(n_rows):
         for j in range(n_cols):
-            ret_arr[i, j] = 1 if np.sum(arr[i,j,:]) > 0 else 0
+            ret_arr[i, j] = 1 if np.sum(arr[i,j,:]) > threshold else 0
     return ret_arr
 
 class Evaluator():
