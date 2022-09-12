@@ -208,11 +208,11 @@ class Evaluator():
                 print("     {}".format(tn_info))
         drawer = Drawer(self.event_preprocessor.dataset)
         drawer.draw_1d_distribution(tp_frequencies, title='tp frequencies', fname='tp-frequency')
-        print("tp 90, 95, 99 percentile: {}, {}, {}".format(np.percentile(np.array(tp_frequencies), 90), np.percentile(np.array(tp_frequencies), 95), np.percentile(np.array(tp_frequencies), 99)))
+        print("tp 10, 15, 20 percentile: {}, {}, {}".format(np.percentile(np.array(tp_frequencies), 10), np.percentile(np.array(tp_frequencies), 15), np.percentile(np.array(tp_frequencies), 20)))
         drawer.draw_1d_distribution(fp_frequencies, title='fp frequencies', fname='fp-frequency')
-        print("fp 90, 95, 99 percentile: {}, {}, {}".format(np.percentile(np.array(fp_frequencies), 90), np.percentile(np.array(fp_frequencies), 95), np.percentile(np.array(fp_frequencies), 99)))
+        print("fp 85, 90, 95 percentile: {}, {}, {}".format(np.percentile(np.array(fp_frequencies), 85), np.percentile(np.array(fp_frequencies), 90), np.percentile(np.array(fp_frequencies), 95)))
         drawer.draw_1d_distribution(fn_frequencies, title='fn frequencies', fname='fn-frequency')
-        print("fn 90, 95, 99 percentile: {}, {}, {}".format(np.percentile(np.array(fn_frequencies), 90), np.percentile(np.array(fn_frequencies), 95), np.percentile(np.array(fn_frequencies), 99)))
+        print("fn 85, 90, 95 percentile: {}, {}, {}".format(np.percentile(np.array(fn_frequencies), 85), np.percentile(np.array(fn_frequencies), 90), np.percentile(np.array(fn_frequencies), 95)))
         return tp, fp, fn, precision, recall, f1_score
 
     def evaluate_discovery_accuracy(self, discovery_results:'np.ndarray', verbosity=0):
