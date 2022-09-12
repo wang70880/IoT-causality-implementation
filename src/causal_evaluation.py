@@ -49,13 +49,13 @@ class Evaluator():
         # Return variables
         ground_truth_dict = defaultdict(np.ndarray)
 
-        ground_truth_dict['temporal']:'np.ndarray' = _normalize_time_series_array(frequency_array)
+        ground_truth_dict['temporal']:'np.ndarray' = _normalize_time_series_array(frequency_array, threshold=25)
         ground_truth_dict['spatial']:'np.ndarray' = _normalize_time_series_array(spatial_array)
         ground_truth_dict['user']:'np.ndarray' = _normalize_time_series_array(user_array)
         ground_truth_dict['physical']:'np.ndarray' = _normalize_time_series_array(physical_array)
         assert(ground_truth_dict['temporal'].shape == ground_truth_dict['spatial'].shape == ground_truth_dict['user'].shape == ground_truth_dict['physical'].shape)
 
-        assert(np.all(ground_truth_dict['temporal'] <= 1))
+        assert(np.all(ground_truth_dict['temporal']<=1))
         assert(np.all(ground_truth_dict['spatial'] <= 1)) 
         assert(np.all(ground_truth_dict['user'] <= 1))
         assert(np.all(ground_truth_dict['physical'] <= 1))
@@ -84,8 +84,8 @@ class Evaluator():
         # Auxillary variables
         frame:'DataFrame' = self.background_generator.frame; n_vars = frame.n_vars
         # Return variables
-        golden_user_array = self.ground_truth_dict['spatial'] + self.ground_truth_dict['user']
-        golden_user_array[golden_user_array < 2] = 0; golden_user_array[golden_user_array == 2] = 1
+        golden_user_array = self.ground_truth_dict['temporal'] + self.ground_truth_dict['spatial'] + self.ground_truth_dict['user']
+        golden_user_array[golden_user_array<3] = 0; golden_user_array[golden_user_array==3] = 1
 
         return golden_user_array
 
@@ -93,8 +93,8 @@ class Evaluator():
         # Auxillary variables
         frame:'DataFrame' = self.background_generator.frame
         # Return variables
-        golden_physical_array = self.ground_truth_dict['spatial'] + self.ground_truth_dict['physical']
-        golden_physical_array[golden_physical_array<2] = 0; golden_physical_array[golden_physical_array==2] = 1
+        golden_physical_array = self.ground_truth_dict['temporal'] + self.ground_truth_dict['spatial'] + self.ground_truth_dict['physical']
+        golden_physical_array[golden_physical_array<3] = 0; golden_physical_array[golden_physical_array==3] = 1
 
         return golden_physical_array
     
@@ -208,7 +208,7 @@ class Evaluator():
                 print("     {}".format(tn_info))
         drawer = Drawer(self.event_preprocessor.dataset)
         drawer.draw_1d_distribution(tp_frequencies, title='tp frequencies', fname='tp-frequency')
-        print("tp 10, 15, 20 percentile: {}, {}, {}".format(np.percentile(np.array(tp_frequencies), 10), np.percentile(np.array(tp_frequencies), 15), np.percentile(np.array(tp_frequencies), 20)))
+        print("tp 20, 30, 40 percentile: {}, {}, {}".format(np.percentile(np.array(tp_frequencies), 20), np.percentile(np.array(tp_frequencies), 30), np.percentile(np.array(tp_frequencies), 40)))
         drawer.draw_1d_distribution(fp_frequencies, title='fp frequencies', fname='fp-frequency')
         print("fp 85, 90, 95 percentile: {}, {}, {}".format(np.percentile(np.array(fp_frequencies), 85), np.percentile(np.array(fp_frequencies), 90), np.percentile(np.array(fp_frequencies), 95)))
         drawer.draw_1d_distribution(fn_frequencies, title='fn frequencies', fname='fn-frequency')
