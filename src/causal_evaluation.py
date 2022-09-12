@@ -189,7 +189,9 @@ class Evaluator():
                 edge_infos = [edge_info for edge_info in filtered_edge_infos[index[1]] if edge_info[0][1][0]==index[0]]
                 for edge_info in edge_infos:
                     debugging_str += '\n        conds={}, val={}, pval={}'.format(
-                        edge_info[1], edge_info[2], edge_info[3]
+                        [(index_device_dict[cond[0]].name, cond[1]) for cond in edge_info[1]],
+                        edge_info[2],
+                        edge_info[3]
                     )
                 fns.append(debugging_str)
             else:
