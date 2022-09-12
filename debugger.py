@@ -26,6 +26,14 @@ from src.drawer import Drawer
 from src.causal_evaluation import Evaluator
 from src.background_generator import BackgroundGenerator
 
+def _normalize_time_series_array(arr:'np.ndarray', threshold=0):
+    n_rows = arr.shape[0]; n_cols = arr.shape[1]
+    ret_arr = np.zeros((n_rows, n_cols), dtype=np.int8)
+    for i in range(n_rows):
+        for j in range(n_cols):
+            ret_arr[i, j] = 1 if np.sum(arr[i,j,:])>threshold else 0
+    return ret_arr
+
 class DataDebugger():
 
     def __init__(self, dataset, partition_days, training_ratio) -> None:
@@ -242,14 +250,20 @@ class EvaluationResultRepo():
 if __name__ == '__main__':
 
     dataset = 'contextact'; partition_days = 8; training_ratio = 0.8; tau_max = 3
-    alpha = 0.01; int_frame_id = 0; analyze_golden_standard=False
+    alpha = 0.001; int_frame_id = 0; analyze_golden_standard=False
 
     data_debugger = DataDebugger(dataset, partition_days, training_ratio)
     #data_debugger.validate_discretization()
     frame:'DataFrame' = data_debugger.preprocessor.frame_dict[int_frame_id]
+    print(frame.index_device_dict)
+    index_device_dict:'dict[DevAttribute]' = frame.index_device_dict
+    name_device_dict:'dict[DevAttribute]' = frame.name_device_dict
 
     background_generator:'BackgroundGenerator' = BackgroundGenerator(data_debugger.preprocessor, int_frame_id, tau_max)
-    #background_generator.print_background_knowledge()
+    physical_array = _normalize_time_series_array(background_generator.knowledge_dict['physical'])
+    print(np.sum(physical_array))
+    
+    evaluator = Evaluator(data_debugger.preprocessor, background_generator, None, 0, alpha)
     exit()
 
     evaluator = Evaluator(data_debugger.preprocessor, background_generator, None, 0, alpha)

@@ -325,18 +325,19 @@ class Cprocessor(GeneralProcessor):
 			var_names.add(unified_event.dev)
 		var_names = list(var_names); var_names.sort()
 		# 2. Build the index for each device
+		name_device_dict:'dict[DevAttribute]' = {}; index_device_dict:'dict[DevAttribute]' = {}
 		for i in range(len(var_names)):
 			device = DevAttribute(name=var_names[i], index=i, attr=self.device_description_dict[var_names[i]]['attr'],\
 								location=self.device_description_dict[var_names[i]]['location'])
-			self.name_device_dict[var_names[i]] = device; self.index_device_dict[i] = device
-		assert(len(self.name_device_dict.keys()) == len(self.index_device_dict.keys())) # The violation indicates that there exists devices with the same name
+			name_device_dict[var_names[i]] = device; index_device_dict[i] = device
+		assert(len(name_device_dict.keys()) == len(index_device_dict.keys())) # The violation indicates that there exists devices with the same name
 		# 3. Filter redundant events which do not imply state changes, and get summary of qualified events
 		last_states = [0] * len(var_names)
 		n_events = 0
 		attr_occurrence_dict = defaultdict(dict)
 		for unified_event in unified_parsed_events:
 			cur_states = last_states.copy()
-			if cur_states[self.name_device_dict[unified_event.dev].index] == unified_event.value:
+			if cur_states[name_device_dict[unified_event.dev].index] == unified_event.value:
 				continue
 			# Update the dataset summary
 			n_events += 1
@@ -347,7 +348,7 @@ class Cprocessor(GeneralProcessor):
 			unified_event.attr = unified_event.attr.replace(' ', '-')
 			fout.write(unified_event.__str__() + '\n')
 			# Update the current state vector
-			cur_states[self.name_device_dict[unified_event.dev].index] = unified_event.value
+			cur_states[name_device_dict[unified_event.dev].index] = unified_event.value
 			last_states = cur_states
 		if self.verbosity:
 			attrs = list(attr_occurrence_dict.keys())

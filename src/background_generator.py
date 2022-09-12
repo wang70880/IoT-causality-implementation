@@ -1,3 +1,4 @@
+from tkinter import W
 import src.event_processing as evt_proc
 import collections
 import itertools
@@ -137,7 +138,7 @@ class BackgroundGenerator():
         # 1. Construct the physical channels
         user_attributes = None
         if self.dataset == 'contextact':
-            user_attributes = ['Infrared-Movement-Sensor', 'Switch']
+            user_attributes = ['Infrared Movement Sensor', 'Switch']
 
         # 2. Leverage the physical channels to identify related device pairs
         if user_attributes:
@@ -159,22 +160,27 @@ class BackgroundGenerator():
         # 1. Construct the physical channels
         physical_channels = None
         if self.dataset == 'contextact':
-            physical_channels = [\
-                ('Brightness-Sensor', 'Brightness-Sensor'), ('Brightness-Sensor', 'Dimmer'), ('Brightness-Sensor', 'Rollershutter'),
-                ('Dimmer', 'Brightness-Sensor'), ('Dimmer', 'Power-Sensor'), (('Dimmer', 'Dimmer')),
-                ('Contact-Sensor', 'Contact-Sensor'), ('Contact-Sensor', 'Water-Meter'), ('Contact-Sensor', 'Power-Sensor'),
-                ('Humidity-Sensor', 'Humidity-Sensor'), ('Humidity-Sensor', 'Water-Meter'), ('Humidity-Sensor', 'Contact-Sensor'),
-                ('Power-Sensor', 'Power-Sensor'), ('Power-Sensor', 'Contact-Sensor'), ('Power-Sensor', 'Rollershutter'),
-                ('Rollershutter', 'Rollershutter'), ('Rollershutter', 'Brightness-Sensor'), ('Rollershutter', 'Dimmer'), ('Rollershutter', 'Power-Sensor'),
-                ('Water-Meter', 'Water-Meter'), ('Water-Meter', 'Contact-Sensor'), ('Water-Meter', 'Power-Sensor')
-                ]
+            physical_channels = {
+                'Brightness Sensor': ['Brightness Sensor', 'Dimmer', 'Rollershutter'],
+                'Dimmer': ['Brightness Sensor', 'Power Sensor', 'Dimmer'],
+                'Contact Sensor': ['Contact Sensor', 'Water Meter', 'Power Sensor'],
+                'Humidity Sensor': ['Humidity Sensor', 'Water Meter', 'Contact Sensor'],
+                'Power Sensor': ['Power Sensor', 'Contact Sensor', 'Rollershutter'],
+                'Rollershutter': ['Rollershutter', 'Brightness Sensor', 'Dimmer', 'Power Sensor'],
+                'Water Meter': ['Water Meter', 'Contact Sensor', 'Power Sensor'],
+                'Switch': [],
+                'Infrared Movement Sensor': []
+            }
 
         # 2. Leverage the physical channels to identify related device pairs
         if physical_channels:
             for i in range(n_vars):
                 for j in range(n_vars):
-                    attr_pairs = (index_device_dict[i].attr, index_device_dict[j].attr)
-                    if attr_pairs in physical_channels:
+                    prior, latter = (index_device_dict[i].attr, index_device_dict[j].attr)
+                    if latter in physical_channels[prior]:
+                        #print("{}->{} ({}->{})".format(\
+                        #index_device_dict[i].name, index_device_dict[j].name,
+                        #index_device_dict[i].attr, index_device_dict[j].attr,))
                         physical_array[i,j,:] = 1
 
         return physical_array
