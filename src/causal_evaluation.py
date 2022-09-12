@@ -23,7 +23,7 @@ def _normalize_time_series_array(arr:'np.ndarray', threshold=0):
     ret_arr = np.zeros((n_rows, n_cols), dtype=np.int8)
     for i in range(n_rows):
         for j in range(n_cols):
-            ret_arr[i, j] = 1 if np.sum(arr[i,j,:]) > threshold else 0
+            ret_arr[i, j] = 1 if np.sum(arr[i,j,:])>threshold else 0
     return ret_arr
 
 class Evaluator():
@@ -53,7 +53,10 @@ class Evaluator():
         ground_truth_dict['spatial'] = _normalize_time_series_array(spatial_array)
         ground_truth_dict['user'] = _normalize_time_series_array(user_array)
         ground_truth_dict['physical'] = _normalize_time_series_array(physical_array)
-
+        assert(np.all(ground_truth_dict['temporal'] <= 1))
+        assert(np.all(ground_truth_dict['spatial'] <= 1)) 
+        assert(np.all(ground_truth_dict['user'] <= 1))
+        assert(np.all(ground_truth_dict['physical'] <= 1))
         return ground_truth_dict
 
     def _construct_golden_standard(self):
@@ -79,20 +82,17 @@ class Evaluator():
         # Auxillary variables
         frame:'DataFrame' = self.background_generator.frame; n_vars = frame.n_vars
         # Return variables
-        golden_user_array = reduce(lambda x, y:sum(x,y),\
-                [self.ground_truth_dict['temporal'], self.ground_truth_dict['spatial'], self.ground_truth_dict['user']])
-        golden_user_array[golden_user_array < 3] = 0; golden_user_array[golden_user_array == 3] = 1
+        golden_user_array = self.ground_truth_dict['spatial'] + self.ground_truth_dict['user']
+        golden_user_array[golden_user_array < 2] = 0; golden_user_array[golden_user_array == 2] = 1
 
         return golden_user_array
 
     def _identify_physical_interactions(self):
         # Auxillary variables
         frame:'DataFrame' = self.background_generator.frame
-        name_device_dict = frame.name_device_dict; n_vars = frame.n_vars
         # Return variables
-        golden_physical_array = reduce(lambda x, y:sum(x,y),\
-                [self.ground_truth_dict['temporal'], self.ground_truth_dict['spatial'], self.ground_truth_dict['physical']])
-        golden_physical_array[golden_physical_array < 3] = 0; golden_physical_array[golden_physical_array == 3] = 1
+        golden_physical_array = self.ground_truth_dict['spatial'] + self.ground_truth_dict['physical']
+        golden_physical_array[golden_physical_array<2] = 0; golden_physical_array[golden_physical_array==2] = 1
 
         return golden_physical_array
     
@@ -101,9 +101,7 @@ class Evaluator():
         frame:'DataFrame' = self.background_generator.frame
         name_device_dict = frame.name_device_dict; n_vars = frame.n_vars
         # Return variables
-        golden_automation_array:'np.ndarray' = np.zeros((n_vars, n_vars), dtype=np.int8)
-
-        # JC TODO: Implement the logic here.
+        golden_automation_array:'np.ndarray' = np.zeros((n_vars, n_vars), dtype=np.int32)
 
         return golden_automation_array
     
@@ -167,11 +165,12 @@ class Evaluator():
         for index, x in np.ndenumerate(evaluated_array):
             debugging_str = '{}->{}'.format(index_device_dict[index[0]].name, index_device_dict[index[1]].name)
             if index_device_dict[index[0]].location is not None:
-                debugging_str = '{}->{} ({} -> {}) ({} -> {}). [Spatial, temporal] = [{}, ({}, {})]'.format(
+                debugging_str = '{}->{} ({}->{}) ({}->{}). [Spatial, temporal, property] = [{}, ({}, {}), ({}, {})]'.format(
                             index_device_dict[index[0]].name, index_device_dict[index[1]].name,
                             index_device_dict[index[0]].attr, index_device_dict[index[1]].attr,
                             index_device_dict[index[0]].location, index_device_dict[index[1]].location,
-                            self.ground_truth_dict['spatial'][index], np.sum(frequency_array[index[0],index[1],:]), self.ground_truth_dict['temporal'][index]
+                            self.ground_truth_dict['spatial'][index], np.sum(frequency_array[index[0],index[1],:]), self.ground_truth_dict['temporal'][index],
+                            self.ground_truth_dict['user'][index], self.ground_truth_dict['physical'][index]
                             )
             if evaluated_array[index] == 1 and golden_array[index] == 1:
                 tp += 1
@@ -229,10 +228,9 @@ class Evaluator():
         # 2. Calculate the precision and recall for discovered results.
         #tp, fp, fn, precision, recall, f1 = self.precision_recall_calculation(golden_standard_array, discovery_results, verbosity=verbosity)
         # 3. Calculate the tau-free-precision and tau-free-recall for discovered results
-        tau_free_discovery_array = sum([discovery_results[:,:,tau] for tau in range(1, self.tau_max + 1)]); tau_free_discovery_array[tau_free_discovery_array > 0] = 1
+        tau_free_discovery_array = sum([discovery_results[:,:,tau] for tau in range(1, self.tau_max + 1)]); tau_free_discovery_array[tau_free_discovery_array>0] = 1
         assert(tau_free_discovery_array.shape == golden_standard_array.shape)
         tp, fp, fn, precision, recall, f1 = self.precision_recall_calculation(golden_standard_array, tau_free_discovery_array, verbosity=verbosity)
-        print()
         assert(tp+fn == np.sum(golden_standard_array))
         return tp, fp, fn, precision, recall, f1
 
