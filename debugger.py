@@ -263,7 +263,7 @@ if __name__ == '__main__':
     print(np.sum(physical_array))
     
     evaluator = Evaluator(data_debugger.preprocessor, background_generator, None, 0, alpha)
-    print(evaluator.ground_truth_dict['temporal'][2,3])
+    print(evaluator.ground_truth_dict['user'][(2,3)])
     exit()
 
     evaluator = Evaluator(data_debugger.preprocessor, background_generator, None, 0, alpha)

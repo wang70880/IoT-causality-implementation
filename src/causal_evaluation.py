@@ -20,7 +20,7 @@ from src.tigramite.tigramite.independence_tests.chi2 import ChiSquare
 
 def _normalize_time_series_array(arr:'np.ndarray', threshold=0):
     n_rows = arr.shape[0]; n_cols = arr.shape[1]
-    ret_arr = np.zeros((n_rows, n_cols), dtype=np.int8)
+    ret_arr:'np.ndarray' = np.zeros((n_rows, n_cols), dtype=np.int8)
     for i in range(n_rows):
         for j in range(n_cols):
             ret_arr[i, j] = 1 if np.sum(arr[i,j,:])>threshold else 0
@@ -49,10 +49,10 @@ class Evaluator():
         # Return variables
         ground_truth_dict = defaultdict(np.ndarray)
 
-        ground_truth_dict['temporal'] = _normalize_time_series_array(frequency_array)
-        ground_truth_dict['spatial'] = _normalize_time_series_array(spatial_array)
-        ground_truth_dict['user'] = _normalize_time_series_array(user_array)
-        ground_truth_dict['physical'] = _normalize_time_series_array(physical_array)
+        ground_truth_dict['temporal']:'np.ndarray' = _normalize_time_series_array(frequency_array)
+        ground_truth_dict['spatial']:'np.ndarray' = _normalize_time_series_array(spatial_array)
+        ground_truth_dict['user']:'np.ndarray' = _normalize_time_series_array(user_array)
+        ground_truth_dict['physical']:'np.ndarray' = _normalize_time_series_array(physical_array)
 
         assert(np.all(ground_truth_dict['temporal'] <= 1))
         assert(np.all(ground_truth_dict['spatial'] <= 1)) 
