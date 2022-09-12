@@ -53,6 +53,7 @@ class Evaluator():
         ground_truth_dict['spatial'] = _normalize_time_series_array(spatial_array)
         ground_truth_dict['user'] = _normalize_time_series_array(user_array)
         ground_truth_dict['physical'] = _normalize_time_series_array(physical_array)
+
         assert(np.all(ground_truth_dict['temporal'] <= 1))
         assert(np.all(ground_truth_dict['spatial'] <= 1)) 
         assert(np.all(ground_truth_dict['user'] <= 1))
@@ -165,7 +166,7 @@ class Evaluator():
         for index, x in np.ndenumerate(evaluated_array):
             debugging_str = '{}->{}'.format(index_device_dict[index[0]].name, index_device_dict[index[1]].name)
             if index_device_dict[index[0]].location is not None:
-                debugging_str = '{}->{} ({}->{}) ({}->{}). [temporal, spatial, (user, physical, autocor)] = [({},{}), ({}, {}->{}), ({}, {}, {})]'.format(
+                debugging_str = '{}->{} ({}->{}). [temporal, spatial, (user, physical, autocor)] = [({},{}), ({}, {}->{}), ({}, {}, {})]'.format(
                             index_device_dict[index[0]].name, index_device_dict[index[1]].name,
                             index_device_dict[index[0]].attr, index_device_dict[index[1]].attr,
                             self.ground_truth_dict['temporal'][index], np.sum(frequency_array[index[0],index[1],:]),

@@ -255,7 +255,6 @@ if __name__ == '__main__':
     data_debugger = DataDebugger(dataset, partition_days, training_ratio)
     #data_debugger.validate_discretization()
     frame:'DataFrame' = data_debugger.preprocessor.frame_dict[int_frame_id]
-    print(frame.index_device_dict)
     index_device_dict:'dict[DevAttribute]' = frame.index_device_dict
     name_device_dict:'dict[DevAttribute]' = frame.name_device_dict
 
@@ -264,6 +263,7 @@ if __name__ == '__main__':
     print(np.sum(physical_array))
     
     evaluator = Evaluator(data_debugger.preprocessor, background_generator, None, 0, alpha)
+    print(evaluator.ground_truth_dict['temporal'][2,3])
     exit()
 
     evaluator = Evaluator(data_debugger.preprocessor, background_generator, None, 0, alpha)
