@@ -28,7 +28,7 @@ tau_max=3
 declare -a bk_levels=(0)
 ## PC discovery process
 declare -a pc_alphas=(0.001)
-max_conds_dim=10; max_comb=20
+max_conds_dim=5; max_comb=10
 
 # 0. Cleanup process and parameter settings
 #rm -rf output.txt; touch output.txt

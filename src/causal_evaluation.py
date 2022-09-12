@@ -49,8 +49,8 @@ class Evaluator():
         # Return variables
         ground_truth_dict = defaultdict(np.ndarray)
 
-        #ground_truth_dict['temporal']:'np.ndarray' = _normalize_time_series_array(frequency_array, threshold=25)
-        ground_truth_dict['temporal']:'np.ndarray' = frequency_array[:,:,1]; ground_truth_dict['temporal'][ground_truth_dict['temporal']>0] = 1
+        ground_truth_dict['temporal']:'np.ndarray' = _normalize_time_series_array(frequency_array)
+        #ground_truth_dict['temporal']:'np.ndarray' = frequency_array[:,:,1]; ground_truth_dict['temporal'][ground_truth_dict['temporal']>0] = 1
         ground_truth_dict['spatial']:'np.ndarray' = _normalize_time_series_array(spatial_array)
         ground_truth_dict['user']:'np.ndarray' = _normalize_time_series_array(user_array)
         ground_truth_dict['physical']:'np.ndarray' = _normalize_time_series_array(physical_array)
