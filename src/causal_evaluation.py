@@ -156,7 +156,7 @@ class Evaluator():
         print("# of interaction chains: {}".format(n_paths))
         return interactions, interaction_types, n_paths
 
-    def precision_recall_calculation(self, golden_array:'np.ndarray', evaluated_array:'np.ndarray', verbosity):
+    def precision_recall_calculation(self, golden_array:'np.ndarray', evaluated_array:'np.ndarray', filtered_edge_infos:'dict'=None, verbosity=0):
         # Auxillary variables
         frequency_array:'np.ndarray' = self.background_generator.frequency_array
         frame:'DataFrame' = self.background_generator.frame
@@ -186,6 +186,11 @@ class Evaluator():
             elif evaluated_array[index] == 0 and golden_array[index] == 1:
                 fn += 1
                 fn_frequencies.append(np.sum(frequency_array[index[0],index[1],:]))
+                edge_infos = [edge_info for edge_info in filtered_edge_infos[index[1]] if edge_info[0][1][0]==index[0]]
+                for edge_info in edge_infos:
+                    debugging_str += '\n        conds={}, val={}, pval={}'.format(
+                        edge_info[1], edge_info[2], edge_info[3]
+                    )
                 fns.append(debugging_str)
             else:
                 tn += 1
@@ -216,7 +221,7 @@ class Evaluator():
         print("fn 85, 90, 95 percentile: {}, {}, {}".format(np.percentile(np.array(fn_frequencies), 85), np.percentile(np.array(fn_frequencies), 90), np.percentile(np.array(fn_frequencies), 95)))
         return tp, fp, fn, precision, recall, f1_score
 
-    def evaluate_discovery_accuracy(self, discovery_results:'np.ndarray', verbosity=0):
+    def evaluate_discovery_accuracy(self, discovery_results:'np.ndarray', filtered_edge_infos:'dict'=None, verbosity=0):
         # Auxillary variables
         frame:'DataFrame' = self.background_generator.frame
         var_names = frame.var_names; n_vars = len(var_names)
@@ -233,7 +238,7 @@ class Evaluator():
         # 3. Calculate the tau-free-precision and tau-free-recall for discovered results
         tau_free_discovery_array = sum([discovery_results[:,:,tau] for tau in range(1, self.tau_max + 1)]); tau_free_discovery_array[tau_free_discovery_array>0] = 1
         assert(tau_free_discovery_array.shape == golden_standard_array.shape)
-        tp, fp, fn, precision, recall, f1 = self.precision_recall_calculation(golden_standard_array, tau_free_discovery_array, verbosity=verbosity)
+        tp, fp, fn, precision, recall, f1 = self.precision_recall_calculation(golden_standard_array, tau_free_discovery_array, filtered_edge_infos, verbosity=verbosity)
         assert(tp+fn == np.sum(golden_standard_array))
         return tp, fp, fn, precision, recall, f1
 

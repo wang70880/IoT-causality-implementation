@@ -161,6 +161,7 @@ if COMM.rank == 0:
         for (j, pcmci_of_j, parents_of_j) in res:
             all_parents[j] = parents_of_j[j]
             pcmci_objects[j] = pcmci_of_j
+            assert(j not in filtered_edges.keys())
             filtered_edges[j] = pcmci_of_j.filtered_edges[j]
     for outcome, filtered_edges_dict in filtered_edges.items(): # collect information of filtered edges
         for edge, edge_infos in filtered_edges_dict.items():
@@ -176,7 +177,7 @@ if COMM.rank == 0:
 # 5. Evaluate the discovery accuracy
 if COMM.rank == 0:
     ## 5.1 Evaluate the discovery precision and recall
-    tp, fp, fn, precision, recall, f1 = evaluator.evaluate_discovery_accuracy(interaction_array, verbosity=1)
+    tp, fp, fn, precision, recall, f1 = evaluator.evaluate_discovery_accuracy(interaction_array, filtered_edge_infos, verbosity=1)
     print("     [IM Accuracy] tp, fp, fn = {}, {}, {}. # golden edges = {}, precision = {}, recall = {}, f1 = {}"\
                         .format(tp, fp, fn, tp+fn, precision, recall, f1))
     ## 5.2 Chain analysis
