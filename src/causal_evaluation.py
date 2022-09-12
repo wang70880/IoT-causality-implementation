@@ -49,7 +49,8 @@ class Evaluator():
         # Return variables
         ground_truth_dict = defaultdict(np.ndarray)
 
-        ground_truth_dict['temporal']:'np.ndarray' = _normalize_time_series_array(frequency_array, threshold=25)
+        #ground_truth_dict['temporal']:'np.ndarray' = _normalize_time_series_array(frequency_array, threshold=25)
+        ground_truth_dict['temporal']:'np.ndarray' = frequency_array[:,:,1]; ground_truth_dict['temporal'][ground_truth_dict['temporal']>0] = 1
         ground_truth_dict['spatial']:'np.ndarray' = _normalize_time_series_array(spatial_array)
         ground_truth_dict['user']:'np.ndarray' = _normalize_time_series_array(user_array)
         ground_truth_dict['physical']:'np.ndarray' = _normalize_time_series_array(physical_array)
@@ -203,9 +204,9 @@ class Evaluator():
             print("Discovered fns:")
             for fn_info in fns:
                 print("     {}".format(fn_info))
-            print("Discovered tns:")
-            for tn_info in tns:
-                print("     {}".format(tn_info))
+            #print("Discovered tns:")
+            #for tn_info in tns:
+            #    print("     {}".format(tn_info))
         drawer = Drawer(self.event_preprocessor.dataset)
         drawer.draw_1d_distribution(tp_frequencies, title='tp frequencies', fname='tp-frequency')
         print("tp 20, 30, 40 percentile: {}, {}, {}".format(np.percentile(np.array(tp_frequencies), 20), np.percentile(np.array(tp_frequencies), 30), np.percentile(np.array(tp_frequencies), 40)))
