@@ -53,6 +53,7 @@ class Evaluator():
         ground_truth_dict['spatial']:'np.ndarray' = _normalize_time_series_array(spatial_array)
         ground_truth_dict['user']:'np.ndarray' = _normalize_time_series_array(user_array)
         ground_truth_dict['physical']:'np.ndarray' = _normalize_time_series_array(physical_array)
+        assert(ground_truth_dict['temporal'].shape == ground_truth_dict['spatial'].shape == ground_truth_dict['user'].shape == ground_truth_dict['physical'].shape)
 
         assert(np.all(ground_truth_dict['temporal'] <= 1))
         assert(np.all(ground_truth_dict['spatial'] <= 1)) 
