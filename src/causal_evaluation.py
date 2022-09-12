@@ -172,7 +172,7 @@ class Evaluator():
                             index_device_dict[index[0]].attr, index_device_dict[index[1]].attr,
                             self.ground_truth_dict['temporal'][index], np.sum(frequency_array[index[0],index[1],:]),
                             self.ground_truth_dict['spatial'][index], index_device_dict[index[0]].location, index_device_dict[index[1]].location,
-                            self.ground_truth_dict['user'][index], self.ground_truth_dict['physical'][index], self.ground_truth_dict['autocor'][index],
+                            self.ground_truth_dict['user'][index], self.ground_truth_dict['physical'][index], self.golden_standard_dict['autocor'][index]
                             )
             if evaluated_array[index] == 1 and golden_array[index] == 1:
                 tp += 1
