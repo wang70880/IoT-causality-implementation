@@ -100,7 +100,8 @@ class BackgroundGenerator():
             area_connectivity_array = np.zeros(shape=(num_areas, num_areas), dtype=np.int64)
             adjacent_areas_list = [['Kitchen', 'Stove', 'Dining Room', 'Living Room', 'Hallway First Floor', 'First Floor', 'Main Entrance'],\
                               ['Hallway First Floor', 'Stairway', 'Hallway Second Floor'],\
-                              ['Hallway Second Floor', 'Bathroom', 'Study Room', 'Bedroom']]
+                              ['Hallway Second Floor', 'Bathroom', 'Study Room', 'Bedroom'],\
+                              ['Bedroom', 'Living Room', 'Dining Room', 'Study Room', 'Kitchen']]
             for adjacent_areas in adjacent_areas_list:
                 for prior in adjacent_areas:
                     for latter in adjacent_areas:
@@ -165,7 +166,7 @@ class BackgroundGenerator():
                 'Dimmer': ['Brightness Sensor', 'Power Sensor', 'Dimmer'],
                 'Contact Sensor': ['Contact Sensor', 'Water Meter', 'Power Sensor'],
                 'Humidity Sensor': ['Humidity Sensor', 'Water Meter', 'Contact Sensor'],
-                'Power Sensor': ['Power Sensor', 'Contact Sensor', 'Rollershutter'],
+                'Power Sensor': ['Power Sensor', 'Contact Sensor', 'Rollershutter', 'Water Meter'],
                 'Rollershutter': ['Rollershutter', 'Brightness Sensor', 'Dimmer', 'Power Sensor'],
                 'Water Meter': ['Water Meter', 'Contact Sensor', 'Power Sensor'],
                 'Switch': [],
