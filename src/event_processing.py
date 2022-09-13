@@ -152,9 +152,9 @@ class Cprocessor(GeneralProcessor):
 		super().__init__(dataset, partition_days, training_ratio, verbosity)
 		self.device_description_dict = self._load_device_attribute_files()
 		self.int_attrs = {'binary': ['Switch', 'Smart electrical outlet', 'Infrared Movement Sensor', 'Contact Sensor'],\
-						  'discrete': ['Water Meter', 'Rollershutter', 'Dimmer'],\
-						  #'continuous': []}
-						  'continuous': ['Power Sensor', 'Humidity Sensor', 'Brightness Sensor']}
+						  'discrete': ['Water Meter', 'Rollershutter', 'Dimmer', 'Power Sensor'],\
+						  'continuous': []}
+						  #'continuous': ['Power Sensor', 'Humidity Sensor', 'Brightness Sensor']}
 		self.int_locations = ['Bathroom', 'Bedroom', 'Dining Room', 'First Floor', 'Hallway', 'Hallway First Floor', 'Hallway Second Floor',\
 						'Kitchen', 'Living Room', 'Main Entrance', 'Stairway', 'Stove', 'Study Room']
 
@@ -209,7 +209,7 @@ class Cprocessor(GeneralProcessor):
 				continue
 			device_count_dict[parsed_event.dev] += 1
 		less_frequent_devices = [dev for dev in device_count_dict.keys()\
-				if device_count_dict[dev] < 100]
+				if device_count_dict[dev] < 200]
 
 		qualified_events: list[AttrEvent] = []
 		device_state_dict = defaultdict(str)
@@ -310,7 +310,7 @@ class Cprocessor(GeneralProcessor):
 		for parsed_event in filtered_parsed_event:
 			parsed_event.value = _enum_unification(parsed_event.value)
 			unified_parsed_events.append(parsed_event)
-			if parsed_event.attr == 'Water Meter':
+			if parsed_event.attr in ['Water Meter', 'Power Sensor']:
 				# These devices do not record idle states. Therefore,\
 				# after each usage, we need to add an additional events, which indicate its idle states.
 				unified_parsed_events.append(AttrEvent(parsed_event.date, parsed_event.time,\

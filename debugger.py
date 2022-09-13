@@ -71,6 +71,9 @@ class MinerDebugger():
         self.background_generator:'BackgroundGenerator' = background_generator
         self.tau_max = background_generator.tau_max
     
+    def test_single_edge(self, edge:'tuple'):
+        pass
+    
     def check_false_positive(self, edge:'tuple'):
         """
         This function debugs a false-positive edge,
@@ -254,16 +257,16 @@ if __name__ == '__main__':
 
     data_debugger = DataDebugger(dataset, partition_days, training_ratio)
     #data_debugger.validate_discretization()
+    exit()
     frame:'DataFrame' = data_debugger.preprocessor.frame_dict[int_frame_id]
     index_device_dict:'dict[DevAttribute]' = frame.index_device_dict
     name_device_dict:'dict[DevAttribute]' = frame.name_device_dict
 
     background_generator:'BackgroundGenerator' = BackgroundGenerator(data_debugger.preprocessor, int_frame_id, tau_max)
-    physical_array = _normalize_time_series_array(background_generator.knowledge_dict['physical'])
-    print(np.sum(physical_array))
-    
     evaluator = Evaluator(data_debugger.preprocessor, background_generator, None, 0, alpha)
-    print(evaluator.ground_truth_dict['user'][(2,3)])
+
+    miner_debugger = MinerDebugger(frame, background_generator, alpha)
+
     exit()
 
     evaluator = Evaluator(data_debugger.preprocessor, background_generator, None, 0, alpha)
