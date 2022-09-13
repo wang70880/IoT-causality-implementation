@@ -48,12 +48,15 @@ class DataDebugger():
     def validate_discretization(self):
         for dev, tup in self.preprocessor.discretization_dict.items():
             val_list = tup[0]; seg_point = tup[1]
-            sns.displot(val_list, kde=False, color='red', bins=1000)
-            plt.axvline(seg_point, 0, 1)
-            plt.title('State distributions of device {}'.format(dev))
-            plt.xlabel('State')
-            plt.ylabel('Frequency')
-            plt.savefig("temp/image/{}_{}_states.pdf".format(self.dataset, dev))
+            plt.plot([x for x in range(len(val_list))], val_list)
+            #sns.displot(val_list, kde=False, color='red', bins=1000)
+            #plt.axvline(seg_point, 0, 1)
+            #plt.title('State distributions of device {}'.format(dev))
+            #plt.xlabel('State')
+            #plt.ylabel('Frequency')
+            plt.title("{}-{}-states.pdf".format(self.dataset, dev))
+            plt.savefig("temp/image/{}-{}-states.pdf".format(self.dataset, dev))
+            plt.close('all')
     
 class BackgroundDebugger():
 
@@ -256,7 +259,7 @@ if __name__ == '__main__':
     alpha = 0.001; int_frame_id = 0; analyze_golden_standard=False
 
     data_debugger = DataDebugger(dataset, partition_days, training_ratio)
-    #data_debugger.validate_discretization()
+    data_debugger.validate_discretization()
     exit()
     frame:'DataFrame' = data_debugger.preprocessor.frame_dict[int_frame_id]
     index_device_dict:'dict[DevAttribute]' = frame.index_device_dict

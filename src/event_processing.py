@@ -153,8 +153,8 @@ class Cprocessor(GeneralProcessor):
 		self.device_description_dict = self._load_device_attribute_files()
 		self.int_attrs = {'binary': ['Switch', 'Smart electrical outlet', 'Infrared Movement Sensor', 'Contact Sensor'],\
 						  'discrete': ['Water Meter', 'Rollershutter', 'Dimmer', 'Power Sensor'],\
-						  'continuous': []}
-						  #'continuous': ['Power Sensor', 'Humidity Sensor', 'Brightness Sensor']}
+						  #'continuous': []}
+						  'continuous': ['Humidity Sensor', 'Brightness Sensor']}
 		self.int_locations = ['Bathroom', 'Bedroom', 'Dining Room', 'First Floor', 'Hallway', 'Hallway First Floor', 'Hallway Second Floor',\
 						'Kitchen', 'Living Room', 'Main Entrance', 'Stairway', 'Stove', 'Study Room']
 
