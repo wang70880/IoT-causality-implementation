@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 from datetime import datetime
 from collections import defaultdict
+import ruptures as rpt
 from pprint import pprint
 
 from src.tigramite.tigramite import data_processing as pp
@@ -317,6 +318,57 @@ class Cprocessor(GeneralProcessor):
 										parsed_event.dev, parsed_event.attr, 0))
 		return unified_parsed_events
 
+	def unify_value_type_by_change(self, parsed_events: "list[AttrEvent]"):
+		# Return variables
+		unified_parsed_events: "list[AttrEvent]" = []
+		# 1. Preprocess discrete variables, and get summary of continuous variables.
+		continuous_dev_dict = defaultdict(list)
+		for parsed_event in parsed_events:
+			if parsed_event.attr in self.int_attrs['discrete']:
+				float_val = float(parsed_event.value)
+				parsed_event.value = 'ON' if float_val > 0 else 'OFF'
+			elif parsed_event.attr in self.int_attrs['continuous']:
+				float_val = float(parsed_event.value)
+				continuous_dev_dict[parsed_event.dev].append(float_val)
+		
+		# 2. For continuous variables, filter extreme values using 3-sigma rules
+		for k, v in continuous_dev_dict.items():
+			mean = statistics.mean(v); std_dev = statistics.stdev(v)
+			new_v = [x for x in v if mean-3.*std_dev <=x<= mean+3.*std_dev]
+		# 3. Initiate the change point detection algorithm.
+			algo = rpt.Pelt(model="l2").fit(np.array(new_v)) # JC NOTE: Ad-hoc parameter settings for breakpoint cost function here.
+			bkps = [0] + algo.predict(pen=int(len(new_v)/500)+1) # JC NOTE: Ad-hoc parameter settings for breakpoint prediction here.
+			seg_means = []
+			for i in range(len(bkps)-1):
+				seg_means.append(statistics.mean(new_v[bkps[i]:bkps[i+1]]))
+			discretized_value_dict = defaultdict(dict)
+			for i in range(1, len(seg_means)): # Discretize the continuous value by checking the trend of the mean
+				discretized_value_dict[k][(bkps[i], bkps[i+1])] = 1 if seg_means[i] >= seg_means[i-1] else 0
+			discretized_value_dict[k][(bkps[0], bkps[1])] = 1 - discretized_value_dict[k][(bkps[1], bkps[2])]
+			continuous_dev_dict[k] = new_v
+		# 4. Collect events which passes 3-sigma rule tests, and unify their values to HIGH/LOW
+		occurrence_dict = {}
+		filtered_parsed_event = []
+		for parsed_event in parsed_events:
+			if parsed_event.dev not in continuous_dev_dict.keys():
+				filtered_parsed_event.append(parsed_event)
+			if parsed_event.dev in continuous_dev_dict.keys() and parsed_event.value in continuous_dev_dict[parsed_event.dev]:
+				occurrence_dict[parsed_event.dev] = 0 if parsed_event.dev not in occurrence_dict.keys() else occurrence_dict[parsed_event.dev] + 1
+				corres_seg = [k for k in discretized_value_dict[parsed_event.dev].keys() if occurrence_dict[parsed_event.dev] in range(k[0], k[1])][0]
+				parsed_event.value = "HIGH" if discretized_value_dict[parsed_event.dev][corres_seg] == 1 else "LOW"
+				filtered_parsed_event.append(parsed_event)
+
+		# 5. Finally, transform all unified attribute values to 0/1
+		for parsed_event in filtered_parsed_event:
+			parsed_event.value = _enum_unification(parsed_event.value)
+			unified_parsed_events.append(parsed_event)
+			if parsed_event.attr in ['Water Meter', 'Power Sensor']:
+				# These devices do not record idle states. Therefore,\
+				# after each usage, we need to add an additional events, which indicate its idle states.
+				unified_parsed_events.append(AttrEvent(parsed_event.date, parsed_event.time,\
+										parsed_event.dev, parsed_event.attr, 0))
+		return unified_parsed_events
+
 	def create_preprocessed_data_file(self, unified_parsed_events: "list[AttrEvent]"):
 		fout = open(self.transition_data, 'w+')
 		# 1. Identify all devices in the dataset
@@ -407,7 +459,7 @@ class Cprocessor(GeneralProcessor):
 
 	def initiate_data_preprocessing(self):
 		parsed_events = self.sanitize_raw_events()
-		unified_parsed_events = self.unify_value_type(parsed_events)
+		unified_parsed_events = self.unify_value_type_by_change(parsed_events)
 		self.create_preprocessed_data_file(unified_parsed_events)
 
 class Hprocessor(GeneralProcessor):

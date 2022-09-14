@@ -16,6 +16,7 @@ from time import time
 
 import seaborn as sns
 import numpy as np
+import ruptures as rpt
 import pandas as pd
 import matplotlib.pyplot as plt
 
@@ -25,14 +26,6 @@ from src.tigramite.tigramite import data_processing as pp
 from src.drawer import Drawer
 from src.causal_evaluation import Evaluator
 from src.background_generator import BackgroundGenerator
-
-def _normalize_time_series_array(arr:'np.ndarray', threshold=0):
-    n_rows = arr.shape[0]; n_cols = arr.shape[1]
-    ret_arr = np.zeros((n_rows, n_cols), dtype=np.int8)
-    for i in range(n_rows):
-        for j in range(n_cols):
-            ret_arr[i, j] = 1 if np.sum(arr[i,j,:])>threshold else 0
-    return ret_arr
 
 class DataDebugger():
 
@@ -48,7 +41,11 @@ class DataDebugger():
     def validate_discretization(self):
         for dev, tup in self.preprocessor.discretization_dict.items():
             val_list = tup[0]; seg_point = tup[1]
-            plt.plot([x for x in range(len(val_list))], val_list)
+            algo = rpt.Pelt(model="l2").fit(np.array(val_list))
+            result = algo.predict(pen=int(len(val_list)/500)+1) # JC NOTE: Ad-hoc parameter settings here.
+            print("{} {}".format(dev, result))
+            rpt.display(np.array(val_list), [], result)
+            #plt.plot([x for x in range(len(val_list))], val_list)
             #sns.displot(val_list, kde=False, color='red', bins=1000)
             #plt.axvline(seg_point, 0, 1)
             #plt.title('State distributions of device {}'.format(dev))
