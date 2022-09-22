@@ -30,6 +30,21 @@ class DataFrame():
         self.training_dataframe:'pp.DataFrame' = dataframe
         assert(self.training_dataframe.T == len(self.training_events_states))
         assert(self.training_dataframe.N == self.n_vars)
+    
+    def get_cpt_and_ate(self, prior_vars:'list', latter_vars:'list', cond_vars:'list', tau_max, use_training=True):
+        assert(len(latter_vars)==len(prior_vars)==1) # Currently only support the debugging for single x and y, i.e., P(y|x)
+        assert(len(cond_vars)==0) # Currently does not support additional conditioning variables
+        int_dataframe = self.training_dataframe if use_training else self.testing_dataframe
+        assert(int_dataframe is not None)
+        array, xyz = int_dataframe.construct_array(X=prior_vars, Y=latter_vars, Z=cond_vars, tau_max=tau_max, do_checks=True)
+        n_cols = array.shape[1]
+        xy_00 = len([col for col in range(n_cols) if array[0,col]+array[1,col]==0])
+        xy_11 = len([col for col in range(n_cols) if array[0,col]+array[1,col]==2])
+        xy_01 = len([col for col in range(n_cols) if array[0,col]==0 and array[1,col]==1])
+        xy_10 = len([col for col in range(n_cols) if array[0,col]==1 and array[1,col]==0])
+        cpt = {0: [round(xy_00*1./(xy_00+xy_01), 3), round(xy_01*1./(xy_00+xy_01), 3)], 1:[round(xy_10*1./(xy_10+xy_11), 3), round(xy_11*1./(xy_10+xy_11), 3)]}
+        ate = cpt[1][1]-cpt[0][1]
+        return cpt, ate
 
     def set_testing_data(self, events_states, dataframe):
         self.testing_events_states = events_states

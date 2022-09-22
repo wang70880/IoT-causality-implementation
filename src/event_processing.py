@@ -31,6 +31,7 @@ class GeneralProcessor():
 		self.data_path = './data/{}/'.format(self.dataset)
 		self.origin_data = '{}data-origin'.format(self.data_path)
 		self.transition_data = '{}data-transition'.format(self.data_path)
+		self.ground_truth = '{}ground-truth'.format(self.data_path)
 
 		self.partition_days = partition_days
 		self.training_ratio = training_ratio
@@ -46,6 +47,7 @@ class GeneralProcessor():
 		self.frame_dict:'defaultdict(DataFrame)' = None # A dict with key, value = (frame_id, dict['number', 'day-interval', 'start-date', 'end-date', 'attr-sequence', 'attr-type-sequence', 'state-sequence'])
 		self.frame_count = None
 		# Variables for testing purposes
+		self.continuous_dev_dict:'dict[list]' = {}
 		self.discretization_dict:'dict[tuple]' = {}
 
 	def read_preprocessed_data_file(self):
@@ -155,7 +157,7 @@ class Cprocessor(GeneralProcessor):
 		self.int_attrs = {'binary': ['Switch', 'Smart electrical outlet', 'Infrared Movement Sensor', 'Contact Sensor'],\
 						  'discrete': ['Water Meter', 'Rollershutter', 'Dimmer', 'Power Sensor'],\
 						  #'continuous': []}
-						  'continuous': ['Humidity Sensor', 'Brightness Sensor']}
+						  'continuous': ['Brightness Sensor']}
 		self.int_locations = ['Bathroom', 'Bedroom', 'Dining Room', 'First Floor', 'Hallway', 'Hallway First Floor', 'Hallway Second Floor',\
 						'Kitchen', 'Living Room', 'Main Entrance', 'Stairway', 'Stove', 'Study Room']
 
@@ -335,8 +337,8 @@ class Cprocessor(GeneralProcessor):
 		for k, v in continuous_dev_dict.items():
 			mean = statistics.mean(v); std_dev = statistics.stdev(v)
 			new_v = [x for x in v if mean-3.*std_dev <=x<= mean+3.*std_dev]
-			algo = rpt.Pelt(model="l2").fit(np.array(new_v)) # JC NOTE: Ad-hoc parameter settings for breakpoint cost function here.
-			bkps = [0] + algo.predict(pen=int(len(new_v)/500)+1) # JC NOTE: Ad-hoc parameter settings for breakpoint prediction here.
+			algo = rpt.Pelt(model="rbf").fit(np.array(new_v)) # JC NOTE: Ad-hoc parameter settings for breakpoint cost function here.
+			bkps = [0] + algo.predict(pen=(int(len(new_v)/1000)+1)) # JC NOTE: Ad-hoc parameter settings for breakpoint prediction here.
 			seg_means = []
 			for i in range(len(bkps)-1):
 				seg_means.append(statistics.mean(new_v[bkps[i]:bkps[i+1]]))
@@ -344,6 +346,8 @@ class Cprocessor(GeneralProcessor):
 				discretized_value_dict[k][(bkps[i], bkps[i+1])] = 1 if seg_means[i] >= seg_means[i-1] else 0
 			discretized_value_dict[k][(bkps[0], bkps[1])] = 1 - discretized_value_dict[k][(bkps[1], bkps[2])]
 			continuous_dev_dict[k] = new_v
+		self.continuous_dev_dict = continuous_dev_dict
+
 		# 4. Collect events which passes 3-sigma rule tests, and unify their values to HIGH/LOW
 		occurrence_dict = {}
 		filtered_parsed_event = []

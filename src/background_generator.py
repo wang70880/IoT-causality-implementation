@@ -98,10 +98,9 @@ class BackgroundGenerator():
             # 2. Manually identify the spatial adjacency of different locations.
             num_areas = len(area_list)
             area_connectivity_array = np.zeros(shape=(num_areas, num_areas), dtype=np.int64)
-            adjacent_areas_list = [['Kitchen', 'Stove', 'Dining Room', 'Living Room', 'Hallway First Floor', 'First Floor', 'Main Entrance'],\
+            adjacent_areas_list = [['Kitchen', 'Dining Room', 'Living Room', 'Hallway First Floor', 'First Floor', 'Main Entrance'],\
                               ['Hallway First Floor', 'Stairway', 'Hallway Second Floor'],\
-                              ['Hallway Second Floor', 'Bathroom', 'Study Room', 'Bedroom'],\
-                              ['Bedroom', 'Living Room', 'Dining Room', 'Study Room', 'Kitchen']]
+                              ['Hallway Second Floor', 'Bathroom', 'Study Room', 'Bedroom']]
             for adjacent_areas in adjacent_areas_list:
                 for prior in adjacent_areas:
                     for latter in adjacent_areas:

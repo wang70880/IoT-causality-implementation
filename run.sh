@@ -9,10 +9,12 @@ evaluate_discovery_process() {
     for partition_day in ${partition_days[@]}; do
         for bk_level in ${bk_levels[@]}; do
             for pc_alpha in ${pc_alphas[@]}; do
-                    mpiexec -n 70 python -u causalIoT.py ${dataset} \
+                for max_conds_dim in ${max_conds_dims[@]}; do
+                    mpiexec -n 30 python -u causalIoT.py ${dataset} \
                                                        ${partition_day} ${training_ratio} \
                                                        ${tau_max} ${bk_level} \
                                                        ${pc_alpha} ${max_conds_dim} ${max_comb} &>> discovery_evaluation.txt </dev/null
+                done
             done
         done
     done
@@ -28,10 +30,10 @@ tau_max=3
 declare -a bk_levels=(0)
 ## PC discovery process
 declare -a pc_alphas=(0.001)
-max_conds_dim=5; max_comb=10
+declare -a max_conds_dims=(9)
+max_comb=10
 
 # 0. Cleanup process and parameter settings
-#rm -rf output.txt; touch output.txt
 # 1. Initiate data preprocessing to generate the sanitized data file
 data_preprocessing
 # 2. Initiate causal discovery process

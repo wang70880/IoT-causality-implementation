@@ -39,11 +39,14 @@ class DataDebugger():
         self.preprocessor.data_loading()
     
     def validate_discretization(self):
-        for dev, tup in self.preprocessor.discretization_dict.items():
-            val_list = tup[0]; seg_point = tup[1]
-            algo = rpt.Pelt(model="l2").fit(np.array(val_list))
+        for dev, val_list in self.preprocessor.continuous_dev_dict.items():
+            plt.plot([x for x in range(len(val_list))], val_list)
+            plt.title("{} state".format(dev))
+            plt.savefig("temp/image/{}-state.pdf".format(dev))
+            plt.close('all')
+
+            algo = rpt.Pelt(model="rbf").fit(np.array(val_list))
             result = algo.predict(pen=int(len(val_list)/500)+1) # JC NOTE: Ad-hoc parameter settings here.
-            print("{} {}".format(dev, result))
             rpt.display(np.array(val_list), [], result)
             #plt.plot([x for x in range(len(val_list))], val_list)
             #sns.displot(val_list, kde=False, color='red', bins=1000)
@@ -51,10 +54,14 @@ class DataDebugger():
             #plt.title('State distributions of device {}'.format(dev))
             #plt.xlabel('State')
             #plt.ylabel('Frequency')
-            plt.title("{}-{}-states.pdf".format(self.dataset, dev))
-            plt.savefig("temp/image/{}-{}-states.pdf".format(self.dataset, dev))
+            plt.title("{} state changepoint".format(dev))
+            plt.savefig("temp/image/{}-changepoint.pdf".format(dev))
             plt.close('all')
     
+    def test_cpt(self, X=[(7,-3)], Y=[(9,0)], Z=[], tau_max=3):
+        frame:'DataFrame' = self.preprocessor.frame_dict[0]
+        frame.get_cpt(X,Y,Z,tau_max)
+
 class BackgroundDebugger():
 
     def __init__(self, event_preprocessor, frame_id, tau_max) -> None:
@@ -70,9 +77,6 @@ class MinerDebugger():
         self.frame:'DataFrame' = frame; self.alpha = alpha
         self.background_generator:'BackgroundGenerator' = background_generator
         self.tau_max = background_generator.tau_max
-    
-    def test_single_edge(self, edge:'tuple'):
-        pass
     
     def check_false_positive(self, edge:'tuple'):
         """
