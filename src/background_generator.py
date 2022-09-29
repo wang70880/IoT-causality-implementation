@@ -71,19 +71,17 @@ class BackgroundGenerator():
     def _testbed_area_information(self):
         # Return variables
         area_list = None
+        adjacent_areas_list = None
         area_connectivity_array = None
 
         if self.dataset == 'hh130':
-            area_list = [['D002', 'T102', 'M001', 'LS001', 'M003', 'M004', 'LS003', 'LS004', 'T106', 'M005', 'LS005', 'LS009', 'LS010', 'M006', 'LS006'], \
-                         ['M002', 'LS002', 'T103', 'LS008'], \
-                         ['M011', 'T104', 'LS011', 'LS007']]
-            num_areas = len(area_list)
-            area_connectivity_array = np.zeros(shape=(num_areas, num_areas), dtype=np.int64)
-            for i in range(num_areas):
-                area_connectivity_array[i, i] = 1
-            area_connectivity_array[0, 1] = 1; area_connectivity_array[0, 2] = 1
-            area_connectivity_array[1, 0] = 1; area_connectivity_array[2, 0] = 1
+            adjacent_areas_list = [['Washroom', 'Living'], ['Kitchen', 'Living']]
         elif self.dataset == 'contextact':
+            adjacent_areas_list = [['Kitchen', 'Dining Room', 'Living Room', 'Hallway First Floor', 'First Floor', 'Main Entrance'],\
+                              ['Hallway First Floor', 'Stairway', 'Hallway Second Floor'],\
+                              ['Hallway Second Floor', 'Bathroom', 'Study Room', 'Bedroom']]
+
+        if adjacent_areas_list:
             # 1. Put all devices which are in the same location into a list, and construct the area_list
             device_description_dict:'dict' = self.event_preprocessor.device_description_dict
             location_devices_dict:'dict' = defaultdict(list)
@@ -98,9 +96,6 @@ class BackgroundGenerator():
             # 2. Manually identify the spatial adjacency of different locations.
             num_areas = len(area_list)
             area_connectivity_array = np.zeros(shape=(num_areas, num_areas), dtype=np.int64)
-            adjacent_areas_list = [['Kitchen', 'Dining Room', 'Living Room', 'Hallway First Floor', 'First Floor', 'Main Entrance'],\
-                              ['Hallway First Floor', 'Stairway', 'Hallway Second Floor'],\
-                              ['Hallway Second Floor', 'Bathroom', 'Study Room', 'Bedroom']]
             for adjacent_areas in adjacent_areas_list:
                 for prior in adjacent_areas:
                     for latter in adjacent_areas:
@@ -137,7 +132,9 @@ class BackgroundGenerator():
 
         # 1. Construct the physical channels
         user_attributes = None
-        if self.dataset == 'contextact':
+        if self.dataset == 'hh130':
+            user_attributes = ['Control4-Motion', 'Control4-Door']
+        elif self.dataset == 'contextact':
             user_attributes = ['Infrared Movement Sensor', 'Switch']
 
         # 2. Leverage the physical channels to identify related device pairs
@@ -231,10 +228,11 @@ class BackgroundGenerator():
             selected_links = self.apply_background_knowledge(selected_links, 'spatial')
         
         # Transform the selected_links to a matrix form
-        candidate_matrix = np.zeros((n_vars, n_vars, self.tau_max+1))
+        candidate_matrix = np.zeros((n_vars, n_vars, self.tau_max+1), dtype=np.int8)
         for index, link_dict in selected_links.items():
             for outcome, causes in link_dict.items():
                 for (cause, lag) in causes:
                     candidate_matrix[(cause, outcome, abs(lag))] = 1
+        n_candidate_edges = np.sum(candidate_matrix)
 
-        return selected_links, candidate_matrix
+        return selected_links, n_candidate_edges

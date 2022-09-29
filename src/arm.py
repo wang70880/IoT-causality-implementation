@@ -29,7 +29,7 @@ class ARMer():
                 if len(transaction) > 0:
                     transactions.append(transaction)
         elif mode == 1: # Fixed number of records (say 5)
-            cut_threshold = 100
+            cut_threshold = 50
             count = 0; transaction = set()
             for (event, states) in training_events_states:
                 if count > cut_threshold:
@@ -42,7 +42,7 @@ class ARMer():
         name_device_dict:'dict[DevAttribute]' = self.frame.name_device_dict
         n_vars = len(name_device_dict.keys())
         # Return variables
-        association_array = np.zeros((n_vars, n_vars))
+        association_array:'np.ndarray' = np.zeros((n_vars, n_vars), dtype=np.int8)
 
         relim_input = itemmining.get_relim_input(self.transactions)
         item_sets = itemmining.relim(relim_input, min_support=self.min_support)
@@ -59,9 +59,8 @@ class ARMer():
         #print("Total number of interactions: {}".format(np.sum(association_array)))
         return association_array
 
-
-
 if __name__ == '__main__':
+
     dataset = 'hh130'; partition_days=100; training_ratio=0.8
     int_frame_id = 0; min_support = 20; min_confidence = 0.5
 

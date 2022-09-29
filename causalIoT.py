@@ -2,9 +2,11 @@ from email.policy import default
 import os, sys, pickle
 #os.environ["KMP_DUPLICATE_LIB_OK"]='TRUE'
 import statistics
-import pprint
+from pprint import pprint
+from turtle import back
 import numpy as np
 import pandas as pd
+import json
 
 from time import time
 from collections import defaultdict
@@ -18,7 +20,7 @@ from src.tigramite.tigramite.pcmci import PCMCI
 from src.tigramite.tigramite.independence_tests import ChiSquare
 
 from src.background_generator import BackgroundGenerator
-from src.event_processing import Hprocessor, Cprocessor
+from src.event_processing import Hprocessor, Cprocessor, GeneralProcessor
 from src.bayesian_fitter import BayesianFitter
 from src.security_guard import SecurityGuard
 from src.causal_evaluation import Evaluator
@@ -33,6 +35,13 @@ pc_result_dict = {}; mci_result_dict = {}
 # For evaluations
 record_count_list =[]
 pc_time_list = []; mci_time_list = []
+
+def _normalize_temporal_array(target_array:'np.ndaray', tau_max):
+    new_array = target_array.copy()
+    if len(new_array.shape) == 3 and new_array.shape[-1] == tau_max+1:
+        new_array = sum([new_array[:,:,tau] for tau in range(1, tau_max+1)])
+        new_array[new_array>0] = 1
+    return new_array
 
 def _elapsed_minutes(start):
     return (time()-start) * 1.0 / 60
@@ -84,6 +93,74 @@ def _run_pc_stable_parallel(j, dataframe, cond_ind_test, selected_links,\
     # distributions)
     return j, pcmci_of_j, parents_of_j
 
+def construct_candidate_links(event_preprocessor, frame_id, tau_max, bk_level, pc_alpha):
+    bg_start=time()
+    background_generator = BackgroundGenerator(event_preprocessor, frame_id, tau_max)
+    selected_links, n_candidate_edges = background_generator.generate_candidate_interactions(bk_level) # Get candidate interactions
+    bk_consumed_time = _elapsed_minutes(bg_start)
+    evaluator = Evaluator(event_preprocessor, background_generator, None, bk_level, pc_alpha)
+    return background_generator, selected_links, n_candidate_edges, evaluator, bk_consumed_time
+
+def gather_pc_results(max_n_edges=10):
+    pcmci_objects = {}; identified_edges = {}; vals = {}; pvals = {}; filtered_edges = {} # Collect identified and filtered edges.
+    for res in results:
+        for (j, pcmci_of_j, _) in res:
+            pcmci_objects[j] = pcmci_of_j
+            identified_edges[j]:'list' = pcmci_of_j.all_parents[j]
+            vals[j]:'dict' = pcmci_of_j.val_min[j]
+            pvals[j]:'dict' = pcmci_of_j.pval_max[j]
+            filtered_edges[j] = pcmci_of_j.filtered_edges[j]
+
+    temporal_pc_array:'np.ndarray' = np.zeros((n_vars, n_vars, tau_max+1), dtype=np.int8)
+    identified_edge_infos = defaultdict(list) # For each identified edge, collect its information (edge, val, pval)
+    for outcome, cause_list in identified_edges.items():
+        for parent in cause_list:
+            edge = (outcome, parent)
+            identified_edge_infos[outcome].append((edge, vals[outcome][parent], pvals[outcome][parent]))
+            temporal_pc_array[parent[0], outcome, abs(parent[1])] = 1
+
+    filtered_edge_infos = defaultdict(list) # For each filtered edge, collect its information (edge, condition, val, pval)
+    for outcome, filtered_edges_dict in filtered_edges.items():
+        for edge, edge_infos in filtered_edges_dict.items():
+                filtered_edge_infos[outcome].append((edge, edge_infos['conds'], edge_infos['val'], edge_infos['pval']))
+    pprint(identified_edges)
+    return identified_edges, temporal_pc_array, identified_edge_infos, filtered_edge_infos
+
+def evaluate_mining_results(temporal_pc_array, identified_edge_infos, filtered_edge_infos):
+    """
+    This function evaluates the discovery accuracy of CausalIoT, HAWatcher, and ARM.
+    Moreover, it initiates the efficiency analysis for the three methods.
+    """
+    print("\n********************** Interaction Mining Evaluation")
+    ## 5.0 Save the discovery result
+    pc_array:'np.ndarray' = _normalize_temporal_array(temporal_pc_array, tau_max)
+    df = pd.DataFrame(pc_array,columns=var_names,dtype=int)
+    df.to_csv('results/contextact-ground-truth-{}'.format(max_conds_dim), sep='\t', index=False, encoding='utf-8')
+
+    ## 5.1 Evaluate the CausalIoT discovery accuracy
+    tp, fp, fn, precision, recall, f1 = evaluator.evaluate_discovery_accuracy(pc_array, filtered_edge_infos, identified_edge_infos, verbosity=1)
+    print("     [CausalIoT] tp, fp, fn = {}, {}, {}. # golden edges = {}, precision = {}, recall = {}, f1 = {}"\
+                        .format(tp, fp, fn, tp+fn, precision, recall, f1))
+
+    ## 5.2 Evaluate the HAWatcher
+    tp, fp, fn, precision, recall, f1 = evaluator.evaluate_discovery_accuracy(evaluator.golden_standard_dict['hawatcher'], verbosity=0)
+    print("     [HAWatcher] tp, fp, fn = {}, {}, {}. # golden edges = {}, precision = {}, recall = {}, f1 = {}"\
+                        .format(tp, fp, fn, tp+fn, precision, recall, f1))
+
+    ## 5.3 Evaluate ARM discovery accuracy
+    arm_start = time()
+    ### Parameter settings
+    min_support = frame.n_days; min_confidence=1.0-pc_alpha
+    ### Initiate discovery and evaluation
+    armer = ARMer(frame=frame, min_support=min_support, min_confidence=min_confidence)
+    association_array:'np.ndarray' = armer.association_rule_mining()
+    arm_consumed_time = _elapsed_minutes(arm_start)
+    tp, fp, fn, precision, recall, f1 = evaluator.evaluate_discovery_accuracy(association_array, verbosity=0)
+    print("     [ARM] tp, fp, fn = {}, {}, {}. # golden edges = {}, precision = {}, recall = {}, f1 = {}"\
+                        .format(tp, fp, fn, tp+fn, precision, recall, f1))
+    print("\n********************** Efficiency analysis\n   [CausalIoT, HAWatcher, ARM] Consumed time  = {}, {}, {}"\
+        .format(pc_consumed_time, bk_consumed_time, arm_consumed_time))
+
 # 0. Parameter settings
     # 0.1 Data-loading parameters
 dataset = sys.argv[1]; partition_days = int(sys.argv[2]); training_ratio = float(sys.argv[3]); frame_id = 0 # JC NOTE: By default, we use the first data frame
@@ -94,45 +171,29 @@ pc_alpha = float(sys.argv[6]); max_conds_dim = int(sys.argv[7]); maximum_comb = 
     # 0.4 Anomaly generation parameters
 n_anomalies = 100; case = 1; max_length = 1; sig_level = 0.9
 
-if COMM.rank == 0:
-    print("\n********************** Parameter Settings **********************\n"\
-     + "    bk={}, pc-alpha={}, partition_days={}, max(dim)={}, max(comb)={}"\
-            .format(bk_level, pc_alpha, partition_days, max_conds_dim, maximum_comb))
-
 # 1. Load data and create data frame
 dl_start =time()
-if dataset.startswith('hh'):
-    event_preprocessor:'Hprocessor' = Hprocessor(dataset=dataset, partition_days=partition_days, training_ratio=training_ratio)
-elif dataset.startswith('contextact'):
-    event_preprocessor:'Cprocessor' = Cprocessor(dataset, partition_days, training_ratio)
+event_preprocessor:'GeneralProcessor' = Hprocessor(dataset, partition_days, training_ratio) if dataset.startswith('hh') else Cprocessor(dataset, partition_days, training_ratio)
 event_preprocessor.data_loading()
 frame:'DataFrame' = event_preprocessor.frame_dict[frame_id]
 dataframe:pp.DataFrame = frame.training_dataframe; var_names = frame.var_names
 n_records = dataframe.T; n_vars = dataframe.N
 preprocessing_consumed_time = _elapsed_minutes(dl_start)
 if COMM.rank == 0:
-    print("\n********************** Dataset Overview **********************")
+    print("\n********************** Parameter Settings **********************\n"\
+     + "    bk={}, pc-alpha={}, partition_days={}, max(dim)={}, max(comb)={}"\
+            .format(bk_level, pc_alpha, partition_days, max_conds_dim, maximum_comb))
+    print("\n*** Dataset Overview ***")
     print("     Number of training records, devices, and attributes = {}, {}, {}".format(n_records, frame.n_vars, frame.n_attrs))
     print("     device list: {}".format(frame.var_names))
     print("     attribute list: {}".format(frame.attr_names))
 
-# 2. Identify the background knowledge, and use the background knowledge to prune edges
-bg_start=time()
-background_generator = BackgroundGenerator(event_preprocessor, frame_id, tau_max)
-selected_links, candidate_matrix = background_generator.generate_candidate_interactions(bk_level) # Get candidate interactions
-n_candidate_edges = 0
-for worker_index, link_dict in selected_links.items():
-    n_candidate_edges += sum([len(cause_list) for cause_list in link_dict.values()])
-bk_consumed_time = _elapsed_minutes(bg_start)
-if COMM.rank == 0:
-    print("\n********************** Background Integration **********************")
-    print("     Number of candidate edges = {}".format(n_candidate_edges))
+# 2. Identify the background knowledge and construct the result of HAWatcher
+background_generator, selected_links, n_candidate_edges, evaluator, bk_consumed_time =\
+        construct_candidate_links(event_preprocessor, frame_id, tau_max, bk_level, pc_alpha)
 
-# 3. Construct the golden standard.
-evaluator = Evaluator(event_preprocessor, background_generator, None, bk_level, pc_alpha)
-
-# 4. Initiate parallel causal discovery
-## 4.1 Scatter the jobs
+# 3. Initiate parallel causal discovery
+## 3.1 Scatter the jobs
 pc_start = time()
 selected_variables = list(range(n_vars))
 splitted_jobs = None
@@ -140,7 +201,7 @@ results = []
 if COMM.rank == 0:
     splitted_jobs = _split(selected_variables, COMM.size)
 scattered_jobs = COMM.scatter(splitted_jobs, root=0)
-## 4.2 Initiate parallel causal discovery, and generate the interaction dict (identified_edges_with_name)
+## 3.2 Initiate parallel causal discovery, and generate the interaction dict (identified_edges_with_name)
 cond_ind_test = ChiSquare()
 for j in scattered_jobs:
     (j, pcmci_of_j, parents_of_j) = _run_pc_stable_parallel(j=j, dataframe=dataframe, cond_ind_test=cond_ind_test,\
@@ -154,73 +215,31 @@ for j in scattered_jobs:
 results = MPI.COMM_WORLD.gather(results, root=0)
 pc_consumed_time = _elapsed_minutes(pc_start)
 
-## 4.3 Gather the distributed pc-discovery result, and collect information of filtered edges
-interaction_array:'np.ndarray' = np.zeros((n_vars, n_vars, tau_max+1), dtype=np.int8)
-if COMM.rank == 0:
-    pcmci_objects = {}; identified_edges = {}; vals = {}; pvals = {}; filtered_edges = {} # Collect identified and filtered edges.
-    for res in results:
-        for (j, pcmci_of_j, _) in res:
-            pcmci_objects[j] = pcmci_of_j
-            identified_edges[j]:'list' = pcmci_of_j.all_parents[j]
-            vals[j]:'dict' = pcmci_of_j.val_min[j]
-            pvals[j]:'dict' = pcmci_of_j.pval_max[j]
-            filtered_edges[j] = pcmci_of_j.filtered_edges[j]
-    
-    identified_edge_infos = defaultdict(list) # For each identified edge, collect its information (edge, val, pval)
-    for outcome, cause_list in identified_edges.items():
-        for parent in cause_list:
-            edge = (outcome, parent)
-            identified_edge_infos[outcome].append((edge, vals[outcome][parent], pvals[outcome][parent]))
-            interaction_array[parent[0], outcome, abs(parent[1])] = 1
-
-    filtered_edge_infos = defaultdict(list) # For each filtered edge, collect its information (edge, condition, val, pval)
-    for outcome, filtered_edges_dict in filtered_edges.items():
-        for edge, edge_infos in filtered_edges_dict.items():
-                filtered_edge_infos[outcome].append((edge, edge_infos['conds'], edge_infos['val'], edge_infos['pval']))
-
-# 5. Evaluate the discovery accuracy
-if COMM.rank == 0:
-    print("\n********************** Interaction Mining Evaluation **********************")
-
-    ## 5.0 Save the discovery result
-    tau_free_discovery_array:'np.ndarray' = sum([interaction_array[:,:,tau] for tau in range(1, tau_max+1)]); tau_free_discovery_array[tau_free_discovery_array>0] = 1
-    df = pd.DataFrame(tau_free_discovery_array,columns=var_names,dtype=int)
-    df.to_csv('results/contextact-ground-truth-{}'.format(max_conds_dim), sep='\t', index=False, encoding='utf-8')
-
-    ## 5.1 Evaluate the discovery precision and recall
-    tp, fp, fn, precision, recall, f1 = evaluator.evaluate_discovery_accuracy(interaction_array, filtered_edge_infos, identified_edge_infos, verbosity=0)
-    print("     tp, fp, fn = {}, {}, {}. # golden edges = {}, precision = {}, recall = {}, f1 = {}"\
-                        .format(tp, fp, fn, tp+fn, precision, recall, f1))
-    ## 5.2 Chain analysis
-    #interactions, interaction_types, n_paths = evaluator.interpret_discovery_results(interaction_array, golden_frame_id=frame_id, golden_type='user')
-    ## 5.3 Time efficiency analysis
-    print("[IM Efficiency] Consumed time for preprocessing, background, causal discovery = {}, {}, {}"\
-                .format(preprocessing_consumed_time, bk_consumed_time, pc_consumed_time))
-    ## 5.4 Compare with ARM and analyze the result
-    #arm_start = time()
-    #armer = ARMer(frame=frame, min_support=frame.n_days, min_confidence=1.0-pc_alpha)
-    #association_array:'np.ndarray' = armer.association_rule_mining()
-    #arm_consumed_time = _elapsed_minutes(arm_start)
-    #print("     [Causal Discovery Evaluation] Consumed time for Association Rule Mining is {}".format(arm_consumed_time))
-    #evaluator.compare_with_arm(discovery_results=interaction_array, arm_results=association_array,\
-    #                                golden_frame_id=frame_id, golden_type='user')
-exit()
-
-# After parallel causal discovery is finished, only RANK-0 process is kept.
+# After the discovery process finishes, exit all processes and only keep the process with RANK 0
 if COMM.rank != 0:
     exit()
 
-# 4. Bayesian Fitting and generate the parameterized interaction graph.
-identified_edges_with_name = {}
+## 4. Gather the distributed pc-discovery result, and initiate the mining evaluations
+identified_edges, temporal_pc_array, identified_edge_infos, filtered_edge_infos = gather_pc_results()
+with open('{}{}'.format(event_preprocessor.result_path, 'identified-edges'), 'w+') as convert_file:
+    convert_file.write(json.dumps(identified_edges))
+evaluate_mining_results(temporal_pc_array, identified_edge_infos, filtered_edge_infos)
+
+# 5. Bayesian Fitting and generate the parameterized interaction graph.
+identified_edges_with_name = defaultdict(list)
 index_device_dict:'dict[DevAttribute]' = event_preprocessor.index_device_dict
-for outcome_id, cause_list in identified_edges.items():
-    for (cause_id, lag) in cause_list:
-        identified_edges_with_name[index_device_dict[outcome_id].name] = (index_device_dict[cause_id].name, lag)
+for index, x in np.ndenumerate(temporal_pc_array):
+    outcome_name = index_device_dict[index[1]].name; cause_name = index_device_dict[index[0]].name
+    lag = index[2]
+    if x == 1:
+        identified_edges_with_name[outcome_name].append((cause_name, lag))
 
 bf_start = time()
 bayesian_fitter = BayesianFitter(frame, tau_max, identified_edges_with_name)
 bayesian_fitter.construct_bayesian_model()
 bf_consumed_time = _elapsed_minutes(bf_start)
+
+exit()
 
 # 6. Initiate the anomaly injection and anomaly detection
 # 6.1 Generate anomalies

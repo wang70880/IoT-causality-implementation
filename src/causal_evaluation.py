@@ -18,13 +18,6 @@ from pprint import pprint
 from src.tigramite.tigramite import pcmci
 from src.tigramite.tigramite.independence_tests.chi2 import ChiSquare
 
-def _normalize_time_series_array(arr:'np.ndarray', threshold=0):
-    n_rows = arr.shape[0]; n_cols = arr.shape[1]
-    ret_arr:'np.ndarray' = np.zeros((n_rows, n_cols), dtype=np.int8)
-    for i in range(n_rows):
-        for j in range(n_cols):
-            ret_arr[i, j] = 1 if np.sum(arr[i,j,:])>threshold else 0
-    return ret_arr
 
 class Evaluator():
 
@@ -38,6 +31,17 @@ class Evaluator():
         self.ground_truth_dict = self._construct_ground_truth()
         self.golden_standard_dict = self._construct_golden_standard()
     
+    """
+    Helper functions.
+    """
+    def normalize_time_series_array(self, arr:'np.ndarray', threshold=0):
+        n_rows = arr.shape[0]; n_cols = arr.shape[1]
+        ret_arr:'np.ndarray' = np.zeros((n_rows, n_cols), dtype=np.int8)
+        for i in range(n_rows):
+            for j in range(n_cols):
+                ret_arr[i, j] = 1 if np.sum(arr[i,j,:])>threshold else 0
+        return ret_arr
+    
     """Function classes for golden standard construction."""
 
     def _construct_ground_truth(self):
@@ -48,41 +52,12 @@ class Evaluator():
         physical_array:'np.ndarray' = self.background_generator.knowledge_dict['physical']
         # Return variables
         ground_truth_dict = defaultdict(np.ndarray)
+        ground_truth_dict['temporal']:'np.ndarray' = self.normalize_time_series_array(frequency_array, threshold=self.background_generator.frame.n_days)
+        ground_truth_dict['spatial']:'np.ndarray' = self.normalize_time_series_array(spatial_array)
+        ground_truth_dict['user']:'np.ndarray' = self.normalize_time_series_array(user_array)
+        ground_truth_dict['physical']:'np.ndarray' = self.normalize_time_series_array(physical_array)
 
-        ground_truth_dict['temporal']:'np.ndarray' = _normalize_time_series_array(frequency_array)
-        #ground_truth_dict['temporal']:'np.ndarray' = frequency_array[:,:,1]; ground_truth_dict['temporal'][ground_truth_dict['temporal']>0] = 1
-        ground_truth_dict['spatial']:'np.ndarray' = _normalize_time_series_array(spatial_array)
-        ground_truth_dict['user']:'np.ndarray' = _normalize_time_series_array(user_array)
-        ground_truth_dict['physical']:'np.ndarray' = _normalize_time_series_array(physical_array)
-        assert(ground_truth_dict['temporal'].shape == ground_truth_dict['spatial'].shape == ground_truth_dict['user'].shape == ground_truth_dict['physical'].shape)
-
-        assert(np.all(ground_truth_dict['temporal']<=1))
-        assert(np.all(ground_truth_dict['spatial'] <= 1)) 
-        assert(np.all(ground_truth_dict['user'] <= 1))
-        assert(np.all(ground_truth_dict['physical'] <= 1))
         return ground_truth_dict
-
-    def _construct_golden_standard(self):
-        # JC NOTE: Currently we only consider hh-series datasets
-        golden_standard_dict = {}
-        golden_standard_dict['user'] = self._identify_user_interactions()
-        golden_standard_dict['physics'] = self._identify_physical_interactions()
-        golden_standard_dict['automation'] = self._identify_automation_interactions()
-        golden_standard_dict['autocor'] = self._identify_auto_correlation()
-
-        golden_standard_dict['aggregation'] = np.zeros(shape=golden_standard_dict['user'].shape, dtype=np.int8)
-
-        try:
-            golden_df = pd.read_csv(self.event_preprocessor.ground_truth, encoding="utf-8", delim_whitespace=True, header=0, dtype=int)
-            golden_standard_dict['aggregation'] = golden_df.values
-        except:
-            golden_standard_dict['aggregation'] = sum([golden_array for golden_array in golden_standard_dict.values()])
-            golden_standard_dict['aggregation'][golden_standard_dict['aggregation']>0] = 1
-
-        assert(golden_standard_dict['aggregation'].shape == golden_standard_dict['user'].shape)
-        #assert(all([x <= 1 for index, x in np.ndenumerate(aggregation_array)])) # We hope that for any two devices, there exists only one type of interactions
-
-        return golden_standard_dict
 
     def _identify_user_interactions(self):
         """
@@ -91,10 +66,10 @@ class Evaluator():
             (2) The identification of sequential activation is done by checking its occurrence within time lag tau_max.
         """
         # Auxillary variables
-        frame:'DataFrame' = self.background_generator.frame; n_vars = frame.n_vars
+        frame:'DataFrame' = self.background_generator.frame
         # Return variables
-        golden_user_array = np.zeros(self.ground_truth_dict['user'].shape) + self.ground_truth_dict['user']
-        golden_user_array[golden_user_array>0] = 1
+        golden_user_array = self.ground_truth_dict['user'] + self.ground_truth_dict['spatial'] + self.ground_truth_dict['temporal']
+        golden_user_array[golden_user_array<3] = 0; golden_user_array[golden_user_array==3] = 1
 
         return golden_user_array
 
@@ -102,8 +77,8 @@ class Evaluator():
         # Auxillary variables
         frame:'DataFrame' = self.background_generator.frame
         # Return variables
-        golden_physical_array = self.ground_truth_dict['spatial'] + self.ground_truth_dict['physical']
-        golden_physical_array[golden_physical_array<2] = 0; golden_physical_array[golden_physical_array==2] = 1
+        golden_physical_array = self.ground_truth_dict['physical'] + self.ground_truth_dict['spatial'] + self.ground_truth_dict['temporal']
+        golden_physical_array[golden_physical_array<3] = 0; golden_physical_array[golden_physical_array==3] = 1
 
         return golden_physical_array
     
@@ -126,6 +101,24 @@ class Evaluator():
             golden_correlation_array[i,i] = 1
         return golden_correlation_array
 
+    def _construct_golden_standard(self):
+        # Construct the ground truth based on HAWathcer's result
+        golden_standard_dict = {}
+        golden_standard_dict['user'] = self._identify_user_interactions(); golden_standard_dict['physics'] = self._identify_physical_interactions()
+        golden_standard_dict['automation'] = self._identify_automation_interactions(); golden_standard_dict['autocor'] = self._identify_auto_correlation()
+        hawatcher_array:'np.ndarray' = golden_standard_dict['user'] + golden_standard_dict['physics'] + golden_standard_dict['automation'] + golden_standard_dict['autocor']
+        hawatcher_array[hawatcher_array>0] = 1
+        golden_standard_dict['hawatcher'] = hawatcher_array
+
+        # Construct our reviewed ground truth (By default, the reviewed ground truth is set to be that of HAWatcher's)
+        try:
+            golden_df = pd.read_csv(self.event_preprocessor.ground_truth, encoding="utf-8", delim_whitespace=True, header=0, dtype=int)
+            golden_standard_dict['aggregation'] = golden_df.values
+        except:
+            golden_standard_dict['aggregation'] = hawatcher_array.copy()
+
+        return golden_standard_dict
+
     def print_golden_standard(self, golden_type='aggregation'):
         # Auxillary variables
         frame:'DataFrame' = self.background_generator.frame
@@ -140,77 +133,86 @@ class Evaluator():
     """Function classes for causal discovery evaluation."""
 
     def precision_recall_calculation(self, golden_array:'np.ndarray', evaluated_array:'np.ndarray',\
-                        filtered_edge_infos:'dict'=None, identified_edge_infos:'dict'=None, verbosity=0):
+                        filtered_edge_infos:'dict'=None, identified_edge_infos:'dict'=None):
         # Auxillary variables
         frequency_array:'np.ndarray' = self.background_generator.frequency_array
         frame:'DataFrame' = self.background_generator.frame
         index_device_dict:'dict[DevAttribute]' = frame.index_device_dict
-        tp = 0; tn = 0; fp = 0; fn = 0; precision = 0.0; recall = 0.0
-        tp_dict = defaultdict(dict); tn_dict = defaultdict(dict); fp_dict = defaultdict(dict); fn_dict = defaultdict(dict)
 
+        # Calculate tp, fp, fn
+        tp = 0; tn = 0; fp = 0; fn = 0; precision = 0.0; recall = 0.0
         for index, x in np.ndenumerate(evaluated_array):
-            pair_info = {
-                'adev-pair': '{}->{}'.format(index_device_dict[index[0]].name, index_device_dict[index[1]].name),
-                'attr-pair': (index_device_dict[index[0]].attr, index_device_dict[index[1]].attr),
-                'temporal': (np.sum(frequency_array[index[0],index[1],:])),
-                'spatial': ((index_device_dict[index[0]].location, index_device_dict[index[1]].location), self.ground_truth_dict['spatial'][index])
-                #'property': (self.ground_truth_dict['user'][index], self.ground_truth_dict['physical'][index], self.golden_standard_dict['autocor'][index])
-            }
             if evaluated_array[index] == 1 and golden_array[index] == 1:
                 tp += 1
-                edge_infos = [edge_info for edge_info in identified_edge_infos[index[1]] if edge_info[0][1][0]==index[0]]
-                max_ate = 0.0
-                for edge_info in edge_infos:
-                    cpt, ate = frame.get_cpt_and_ate(prior_vars=[edge_info[0][1]], latter_vars=[(edge_info[0][0], 0)], cond_vars=[], tau_max=self.tau_max)
-                    if abs(ate) > max_ate:
-                        pair_info['pval'] = round(edge_info[2], 3)
-                        #pair_info['cpt'] = cpt
-                        pair_info['cate'] = round(ate, 3)
-                tp_dict[pair_info['adev-pair']] = pair_info
             elif evaluated_array[index] == 1 and golden_array[index] == 0:
                 fp += 1
-                edge_infos = [edge_info for edge_info in identified_edge_infos[index[1]] if edge_info[0][1][0]==index[0]]
-                max_ate = 0.0
-                for edge_info in edge_infos:
-                    cpt, ate = frame.get_cpt_and_ate(prior_vars=[edge_info[0][1]], latter_vars=[(edge_info[0][0], 0)], cond_vars=[], tau_max=self.tau_max)
-                    if abs(ate) > max_ate:
-                        pair_info['pval'] = round(edge_info[2], 3)
-                        #pair_info['cpt'] = edge_info[2]
-                        pair_info['cate'] = round(ate, 3)
-                fp_dict[pair_info['adev-pair']] = pair_info
             elif evaluated_array[index] == 0 and golden_array[index] == 1:
                 fn += 1
-                edge_infos = [edge_info for edge_info in filtered_edge_infos[index[1]] if edge_info[0][1][0]==index[0]]
-                filter_infos = []; max_ate = 0.
-                for edge_info in edge_infos:
-                    cpt, ate = frame.get_cpt_and_ate(prior_vars=[edge_info[0][1]], latter_vars=[(edge_info[0][0], 0)], cond_vars=[], tau_max=self.tau_max)
-                    max_ate = ate if abs(ate) > max_ate else max_ate
-                    filter_infos.append((edge_info[0][1][1], [(index_device_dict[cond[0]].name, cond[1]) for cond in edge_info[1]], round(edge_info[3],3), round(ate,3))) # lag, conds, pval, ate
-                sorted(filter_infos, key=lambda x: x[-1], reverse=True)
-                pair_info['filter-info'] = filter_infos
-                pair_info['cate'] = round(max_ate, 3)
-                fn_dict[pair_info['adev-pair']] = pair_info
             else:
                 tn += 1
-                edge_infos = [edge_info for edge_info in filtered_edge_infos[index[1]] if edge_info[0][1][0]==index[0]]
-                filter_infos = []; max_ate = 0.
-                for edge_info in edge_infos:
-                    cpt, ate = frame.get_cpt_and_ate(prior_vars=[edge_info[0][1]], latter_vars=[(edge_info[0][0], 0)], cond_vars=[], tau_max=self.tau_max)
-                    max_ate = ate if abs(ate) > max_ate else max_ate
-                    filter_infos.append((edge_info[0][1][1], [(index_device_dict[cond[0]].name, cond[1]) for cond in edge_info[1]], round(edge_info[3],3), round(ate,3))) # lag, conds, pval, ate
-                sorted(filter_infos, key=lambda x: x[-1], reverse=True)
-                pair_info['filter-info'] = filter_infos
-                pair_info['cate'] = round(max_ate, 3)
-                tn_dict[pair_info['adev-pair']] = pair_info
+
+        # Save debugging information for each edge (if applied)
+        tp_dict = None; tn_dict = None; fp_dict = None; fn_dict = None
+        if filtered_edge_infos and identified_edge_infos:
+            tp_dict = defaultdict(dict); tn_dict = defaultdict(dict); fp_dict = defaultdict(dict); fn_dict = defaultdict(dict)
+            for index, x in np.ndenumerate(evaluated_array):
+                pair_info = {
+                    'adev-pair': '{}->{}'.format(index_device_dict[index[0]].name, index_device_dict[index[1]].name),
+                    'attr-pair': (index_device_dict[index[0]].attr, index_device_dict[index[1]].attr),
+                    'temporal': (np.sum(frequency_array[index[0],index[1],:])),
+                    'spatial': ((index_device_dict[index[0]].location, index_device_dict[index[1]].location), self.ground_truth_dict['spatial'][index])
+                    #'property': (self.ground_truth_dict['user'][index], self.ground_truth_dict['physical'][index], self.golden_standard_dict['autocor'][index])
+                }
+                if evaluated_array[index] == 1 and golden_array[index] == 1:
+                    edge_infos = [edge_info for edge_info in identified_edge_infos[index[1]] if edge_info[0][1][0]==index[0]]
+                    max_ate = 0.0
+                    for edge_info in edge_infos:
+                        cpt, ate = frame.get_cpt_and_ate(prior_vars=[edge_info[0][1]], latter_vars=[(edge_info[0][0], 0)], cond_vars=[], tau_max=self.tau_max)
+                        if abs(ate) > max_ate:
+                            pair_info['pval'] = round(edge_info[2], 3)
+                            #pair_info['cpt'] = cpt
+                            pair_info['cate'] = round(ate, 3)
+                    tp_dict[pair_info['adev-pair']] = pair_info
+                elif evaluated_array[index] == 1 and golden_array[index] == 0:
+                    edge_infos = [edge_info for edge_info in identified_edge_infos[index[1]] if edge_info[0][1][0]==index[0]]
+                    max_ate = 0.0
+                    for edge_info in edge_infos:
+                        cpt, ate = frame.get_cpt_and_ate(prior_vars=[edge_info[0][1]], latter_vars=[(edge_info[0][0], 0)], cond_vars=[], tau_max=self.tau_max)
+                        if abs(ate) > max_ate:
+                            pair_info['pval'] = round(edge_info[2], 3)
+                            #pair_info['cpt'] = edge_info[2]
+                            pair_info['cate'] = round(ate, 3)
+                    fp_dict[pair_info['adev-pair']] = pair_info
+                elif evaluated_array[index] == 0 and golden_array[index] == 1:
+                    edge_infos = [edge_info for edge_info in filtered_edge_infos[index[1]] if edge_info[0][1][0]==index[0]]
+                    filter_infos = []; max_ate = 0.
+                    for edge_info in edge_infos:
+                        cpt, ate = frame.get_cpt_and_ate(prior_vars=[edge_info[0][1]], latter_vars=[(edge_info[0][0], 0)], cond_vars=[], tau_max=self.tau_max)
+                        max_ate = ate if abs(ate) > max_ate else max_ate
+                        filter_infos.append((edge_info[0][1][1], [(index_device_dict[cond[0]].name, cond[1]) for cond in edge_info[1]], round(edge_info[3],3), round(ate,3))) # lag, conds, pval, ate
+                    sorted(filter_infos, key=lambda x: x[-1], reverse=True)
+                    pair_info['filter-info'] = filter_infos
+                    pair_info['cate'] = round(max_ate, 3)
+                    fn_dict[pair_info['adev-pair']] = pair_info
+                else:
+                    edge_infos = [edge_info for edge_info in filtered_edge_infos[index[1]] if edge_info[0][1][0]==index[0]]
+                    filter_infos = []; max_ate = 0.
+                    for edge_info in edge_infos:
+                        cpt, ate = frame.get_cpt_and_ate(prior_vars=[edge_info[0][1]], latter_vars=[(edge_info[0][0], 0)], cond_vars=[], tau_max=self.tau_max)
+                        max_ate = ate if abs(ate) > max_ate else max_ate
+                        filter_infos.append((edge_info[0][1][1], [(index_device_dict[cond[0]].name, cond[1]) for cond in edge_info[1]], round(edge_info[3],3), round(ate,3))) # lag, conds, pval, ate
+                    sorted(filter_infos, key=lambda x: x[-1], reverse=True)
+                    pair_info['filter-info'] = filter_infos
+                    pair_info['cate'] = round(max_ate, 3)
+                    tn_dict[pair_info['adev-pair']] = pair_info
+            tp_dict = dict(sorted(tp_dict.items(), key=lambda item: abs(item[1]['cate']), reverse=True))
+            fp_dict = dict(sorted(fp_dict.items(), key=lambda item: abs(item[1]['cate']), reverse=True))
+            tn_dict = dict(sorted(tn_dict.items(), key=lambda item: abs(item[1]['cate']), reverse=True))
+            fn_dict = dict(sorted(fn_dict.items(), key=lambda item: abs(item[1]['cate']), reverse=True))
 
         precision = tp * 1.0 / (tp + fp) if (tp+fp) != 0 else 0
         recall = tp * 1.0 / (tp + fn) if (tp+fn) != 0 else 0
         f1_score = 2.0*precision*recall / (precision+recall) if (precision+recall) != 0 else 0
-
-        tp_dict = dict(sorted(tp_dict.items(), key=lambda item: abs(item[1]['cate']), reverse=True))
-        fp_dict = dict(sorted(fp_dict.items(), key=lambda item: abs(item[1]['cate']), reverse=True))
-        tn_dict = dict(sorted(tn_dict.items(), key=lambda item: abs(item[1]['cate']), reverse=True))
-        fn_dict = dict(sorted(fn_dict.items(), key=lambda item: abs(item[1]['cate']), reverse=True))
 
         return tp, fp, fn, precision, recall, f1_score, tp_dict, tn_dict, fp_dict, fn_dict
 
@@ -284,22 +286,22 @@ class Evaluator():
 
     def evaluate_discovery_accuracy(self, discovery_results:'np.ndarray',\
                             filtered_edge_infos:'dict'=None, identified_edge_infos:'dict'=None, verbosity=0):
+        assert(len(discovery_results.shape)==2) 
         # Auxillary variables
         frame:'DataFrame' = self.background_generator.frame
         var_names = frame.var_names; n_vars = len(var_names)
         golden_standard_array:'np.ndarray' = self.golden_standard_dict['aggregation']
 
         # 1. Plot the golden standard graph and the discovered graph. Note that the plot functionality requires PCMCI objects
-        drawer = Drawer(self.background_generator.dataset)
-        pcmci = PCMCI(dataframe=frame.training_dataframe, cond_ind_test=ChiSquare(), verbosity=-1)
-        drawer.plot_interaction_graph(pcmci, discovery_results==1, 'mined-interaction-bklevel{}-alpha{}'\
-                            .format(self.bk_level, int(1.0/self.pc_alpha)), link_label_fontsize=10)
+        #drawer = Drawer(self.background_generator.dataset)
+        #pcmci = PCMCI(dataframe=frame.training_dataframe, cond_ind_test=ChiSquare(), verbosity=-1)
+        #drawer.plot_interaction_graph(pcmci, discovery_results==1, 'mined-interaction-bklevel{}-alpha{}'\
+        #                    .format(self.bk_level, int(1.0/self.pc_alpha)), link_label_fontsize=10)
         #drawer.plot_interaction_graph(pcmci, golden_standard_array==1, 'golden-interaction')
         # 3. Calculate the tau-free-precision and tau-free-recall for discovered results
-        tau_free_discovery_array:'np.ndarray' = sum([discovery_results[:,:,tau] for tau in range(1, self.tau_max+1)]); tau_free_discovery_array[tau_free_discovery_array>0] = 1
-        assert(tau_free_discovery_array.shape==golden_standard_array.shape)
+        assert(discovery_results.shape==golden_standard_array.shape)
         tp, fp, fn, precision, recall, f1, tp_dict, tn_dict, fp_dict, fn_dict \
-             = self.precision_recall_calculation(golden_standard_array, tau_free_discovery_array, filtered_edge_infos, identified_edge_infos, verbosity=verbosity)
+             = self.precision_recall_calculation(golden_standard_array, discovery_results, filtered_edge_infos, identified_edge_infos)
         assert(tp+fn == np.sum(golden_standard_array))
         if verbosity:
             print('TP Infos ({})'.format(len(tp_dict.keys())))

@@ -33,6 +33,8 @@ class GeneralProcessor():
 		self.transition_data = '{}data-transition'.format(self.data_path)
 		self.ground_truth = '{}ground-truth'.format(self.data_path)
 
+		self.result_path = './results/{}/'.format(self.dataset)
+
 		self.partition_days = partition_days
 		self.training_ratio = training_ratio
 		self.verbosity = verbosity
@@ -54,7 +56,7 @@ class GeneralProcessor():
 		# Return variables
 		transition_events_states = []
 		# Debugging variables
-		var_names = set()
+		var_names = set(); attr_names = set()
 		name_device_dict = defaultdict(DevAttribute); index_device_dict = defaultdict(DevAttribute)
 		attr_count_dict = defaultdict(int); dev_count_dict = defaultdict(int)
 
@@ -68,9 +70,12 @@ class GeneralProcessor():
 		# 2. Construct the device list and corresponding index dictionary
 		for unified_event in unified_parsed_events:
 			var_names.add(unified_event.dev)
+			attr_names.add(unified_event.attr)
 		var_names = list(var_names); var_names.sort()
+		attr_names = list(attr_names); attr_names.sort()
 		for i in range(len(var_names)):
-			device = DevAttribute(attr_name=var_names[i], attr_index=i, lag=0)
+			device = DevAttribute(name=var_names[i], index=i, attr=self.device_description_dict[var_names[i]]['attr'],\
+								location=self.device_description_dict[var_names[i]]['location'])
 			name_device_dict[device.name] = device; index_device_dict[device.index] = device
 		assert(len(name_device_dict.keys()) == len(index_device_dict.keys())) # Otherwise, the violation indicates that there exists devices with the same name
 
@@ -84,6 +89,7 @@ class GeneralProcessor():
 
 		# 4. Store the device information into the class
 		self.var_names = var_names; self.n_vars = len(var_names)
+		self.attr_names = attr_names; self.n_attrs = len(attr_names)
 		self.name_device_dict = name_device_dict; self.index_device_dict = index_device_dict
 		self.attr_count_dict = attr_count_dict; self.dev_count_dict = dev_count_dict
 		if self.verbosity > 0:
@@ -412,53 +418,6 @@ class Cprocessor(GeneralProcessor):
 			print("[Event Conversion] Candidate attrs, n_devices, and n_events: {}".format(list(zip(attrs, attr_n_devs, attr_n_events))))
 		fout.close()
 
-	def read_preprocessed_data_file(self):
-		# Return variables
-		transition_events_states = []
-		# Debugging variables
-		var_names = set(); attr_names = set()
-		name_device_dict = defaultdict(DevAttribute); index_device_dict = defaultdict(DevAttribute)
-		attr_count_dict = defaultdict(int); dev_count_dict = defaultdict(int)
-
-		# 1. Read data file and create AttrEvent object for each event
-		unified_parsed_events = []
-		fin = open(self.transition_data, 'r')
-		for line in fin.readlines():
-			inp = line.strip().split(' ')
-			unified_parsed_events.append(AttrEvent(inp[0], inp[1], inp[2], inp[3], int(inp[4])))
-
-		# 2. Construct the device list and corresponding index dictionary
-		for unified_event in unified_parsed_events:
-			var_names.add(unified_event.dev)
-			attr_names.add(unified_event.attr)
-		var_names = list(var_names); var_names.sort()
-		attr_names = list(attr_names); attr_names.sort()
-		for i in range(len(var_names)):
-			device = DevAttribute(name=var_names[i], index=i, attr=self.device_description_dict[var_names[i]]['attr'],\
-								location=self.device_description_dict[var_names[i]]['location'])
-			name_device_dict[device.name] = device; index_device_dict[device.index] = device
-		assert(len(name_device_dict.keys()) == len(index_device_dict.keys())) # Otherwise, the violation indicates that there exists devices with the same name
-
-		# 3. Construct the state vector for each event, and return the result
-		last_states = [0] * len(var_names)
-		for unified_event in unified_parsed_events:
-			cur_states = last_states.copy(); cur_states[name_device_dict[unified_event.dev].index] = unified_event.value
-			transition_events_states.append((unified_event, np.array(cur_states)))
-			dev_count_dict[unified_event.dev] += 1; attr_count_dict[unified_event.attr] += 1
-			last_states = cur_states
-
-		# 4. Store the device information into the class
-		self.var_names = var_names; self.n_vars = len(var_names)
-		self.attr_names = attr_names; self.n_attrs = len(attr_names)
-		self.name_device_dict = name_device_dict; self.index_device_dict = index_device_dict
-		self.attr_count_dict = attr_count_dict; self.dev_count_dict = dev_count_dict
-		if self.verbosity > 0:
-			print("[Data Loading] # records, attrs, devices = {}, {}, {}".format(
-				len(unified_parsed_events), len(self.attr_count_dict.keys()), len(self.dev_count_dict.keys())
-			))
-
-		return transition_events_states
-
 	def initiate_data_preprocessing(self):
 		parsed_events = self.sanitize_raw_events()
 		unified_parsed_events = self.unify_value_type_by_change(parsed_events)
@@ -467,6 +426,21 @@ class Cprocessor(GeneralProcessor):
 class Hprocessor(GeneralProcessor):
 
 	def __init__(self, dataset, partition_days, training_ratio, verbosity=0):
+		self.device_description_dict = {
+			'D002': {'dev':'D002', 'attr':'Control4-Door', 'description':'Door lock activity', 'val-type':'Binary', 'val-unit':'Binary', 'location':'Living'},
+			'M001': {'dev':'M001', 'attr':'Control4-Motion', 'description':'Motion detection', 'val-type':'Binary', 'val-unit':'Binary', 'location':'Living'},
+			'M002': {'dev':'M002', 'attr':'Control4-Motion', 'description':'Motion detection', 'val-type':'Binary', 'val-unit':'Binary', 'location':'Washroom'},
+			'M003': {'dev':'M003', 'attr':'Control4-Motion', 'description':'Motion detection', 'val-type':'Binary', 'val-unit':'Binary', 'location':'Living'},
+			'M004': {'dev':'M004', 'attr':'Control4-Motion', 'description':'Motion detection', 'val-type':'Binary', 'val-unit':'Binary', 'location':'Living'},
+			'M005': {'dev':'M005', 'attr':'Control4-Motion', 'description':'Motion detection', 'val-type':'Binary', 'val-unit':'Binary', 'location':'Living'},
+			'M006': {'dev':'M006', 'attr':'Control4-Motion', 'description':'Motion detection', 'val-type':'Binary', 'val-unit':'Binary', 'location':'Living'},
+			'M011': {'dev':'M011', 'attr':'Control4-Motion', 'description':'Motion detection', 'val-type':'Binary', 'val-unit':'Binary', 'location':'Kitchen'},
+		}
+		self.int_attrs = {
+			'binary': ['Control4-Door', 'Control4-Motion'],\
+			'discrete': [],\
+			'continuous': []}
+		self.int_locations = ['Living', 'Washroom', 'Kitchen']
 		super().__init__(dataset, partition_days, training_ratio, verbosity)
 
 	def _parse_raw_events(self, raw_event: "str"):

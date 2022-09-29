@@ -129,17 +129,17 @@ class ChainManager():
 
 class SecurityGuard():
 
-    def __init__(self, frame=None, bayesian_fitter:'BayesianFitter'=None, sig_level=0.9, verbosity=0) -> None:
+    def __init__(self, frame=None, bayesian_fitter:'BayesianFitter'=None, model='Probability', sig_level=0.8, verbosity=0) -> None:
         self.frame:'DataFrame' = frame
         self.verbosity = verbosity
         # The parameterized causal graph
         self.bayesian_fitter:'BayesianFitter' = bayesian_fitter
+        self.prediction_model = self.bayesian_fitter.probability_model if model=='Probability' else self.bayesian_fitter.causal_model
         # Phantom state machine
         self.phantom_state_machine = PhantomStateMachine(bayesian_fitter.var_names, bayesian_fitter.expanded_var_names)
         # Chain manager
-        self.chain_manager = ChainManager(bayesian_fitter.var_names, bayesian_fitter.expanded_var_names, bayesian_fitter.expanded_causal_graph)
-        # Recent devices
-        self.recent_devices = []
+        # self.chain_manager = ChainManager(bayesian_fitter.var_names, bayesian_fitter.expanded_var_names, bayesian_fitter.expanded_causal_graph)
+
         # Anomaly analyzer
         self.violation_dict = {}
         self.tp_debugging_dict = {}
@@ -266,43 +266,49 @@ class SecurityGuard():
         parent_states:'list[tuple(str, int)]' = [(k.name, v) for k, v in parent_state_dict.items()]
         return parent_states
 
-    def _compute_event_anomaly_score(self, event:'AttrEvent', phantom_state_machine:'PhantomStateMachine', recent_devices:'list[str]', verbosity=0):
-        # Return variables
-        anomaly_score = 0.
-        # 1. Get the list of parents for event.dev, and fetch their states from the phantom state machine
-        parent_states:'list[tuple(str, int)]' = self._fetch_parent_states(event, phantom_state_machine)
-        # 2. Estimate the anomaly score for current event
-        cond_prob = self.bayesian_fitter.estimate_cond_probability(event, parent_states, recent_devices)
-        anomaly_score = (1. - cond_prob)
-        if verbosity:
-            print("Event: {}\n\
-                   Phantom state machine: {}\n\
-                   recent devices: {}\n\
-                   parent states: {}\n\
-                   anomaly score: {}\n".format(event, self.phantom_state_machine, recent_devices, parent_states, cond_prob)
-                  )
-        return parent_states, anomaly_score
-
-    def _compute_anomaly_score_cutoff(self, sig_level = 0.9):
+    def _compute_anomaly_score_cutoff(self, sig_level):
         # Return variables
         self.score_threshold = 0.
         anomaly_scores = []
         # Auxillary variables
-        var_names = self.bayesian_fitter.var_names; expanded_var_names = self.bayesian_fitter.expanded_var_names
+        extended_name_device_dict = self.bayesian_fitter.extended_name_device_dict
+        n_vars = self.bayesian_fitter.n_vars; n_expanded_vars = self.bayesian_fitter.n_expanded_vars
         tau_max = self.bayesian_fitter.tau_max
         training_events_states:'list[tuple(AttrEvent, ndarray)]' = self.frame.training_events_states
-        
-        recent_devices = []
-        training_phantom_machine = PhantomStateMachine(var_names, expanded_var_names)
+
+        n_missing_interaction_events = 0
+        prediction_list = [(-1., 0)] * n_expanded_vars # The index increases as the time lag decreases ([lag0]+[lag-1]+[lag-2]+..)
         for index, (event, states) in enumerate(training_events_states):
-            training_phantom_machine.set_states(states)
+            anomaly_score = 0.
+            cur_name = self.bayesian_fitter._lag_name(event.dev, 0); cur_index = extended_name_device_dict[cur_name].index
+            lag_name = self.bayesian_fitter._lag_name(event.dev, -tau_max)
+
+            # 1. Compute the anomaly score using the prediction array
             if index > tau_max:
-                parent_states, anomaly_score = self._compute_event_anomaly_score(event, training_phantom_machine, recent_devices)
-                anomaly_scores.append(anomaly_score)
-            if len(recent_devices) < tau_max:
-                recent_devices.append(event.dev)
-            else:
-                recent_devices = [*recent_devices[1:], event.dev]
+                expected_value = prediction_list[cur_index][0]
+                anomaly_score = abs(event.value - expected_value)
+                if expected_value == -1:
+                    n_missing_interaction_events += 1
+                else:
+                    anomaly_scores.append(anomaly_score)
+
+            # 2. Shift the prediction_list to the right for n_vars units
+            prediction_list = [*([(-1., 0)]*n_vars), *prediction_list[:-n_vars]]
+
+            # 3. Update the prediction array according to the anomaly detection result.
+            # In this function, just update the prediction array because every event is assumed to be legitimate.
+            affected_children = self.bayesian_fitter.model.get_children(lag_name)
+            for child in affected_children:
+                child_index = extended_name_device_dict[child].index
+                estimated_effect = self.prediction_model[(lag_name, child)][event.value] # Forward prediction of E[Child|Lag-Cause=event.value]
+                assert(estimated_effect >=0 and estimated_effect <= 1)
+                n_parent_influences = prediction_list[child_index][1]+1
+                if n_parent_influences == 1:
+                    prediction_list[child_index] = (estimated_effect,n_parent_influences)
+                else:
+                    avg_influences = (prediction_list[child_index][0]*(n_parent_influences-1)+estimated_effect)/n_parent_influences
+                    prediction_list[child_index] = (avg_influences, n_parent_influences)
+
         score_threshold = np.percentile(np.array(anomaly_scores), sig_level * 100)
         # Draw the score distribution graph
         sns.displot(anomaly_scores, kde=False, color='red', bins=1000)
@@ -312,6 +318,7 @@ class SecurityGuard():
         plt.ylabel('Occurrences')
         plt.savefig("temp/image/training-score-distribution.pdf")
         plt.close('all')
+        print("# of missing events: {}".format(n_missing_interaction_events))
         return anomaly_scores, score_threshold
 
     def breakpoint_detection(self, event=()):

@@ -1,12 +1,11 @@
-import os
-
-os.environ["KMP_DUPLICATE_LIB_OK"]='TRUE'
 from src.event_processing import Hprocessor, Cprocessor
 from src.tigramite.tigramite.pcmci import PCMCI
 from src.tigramite.tigramite.independence_tests import ChiSquare
 from src.tigramite.tigramite import plotting as tp
 from src.genetic_type import DevAttribute, AttrEvent, DataFrame
 
+from pgmpy.models.BayesianModel import BayesianModel
+from pgmpy.inference.CausalInference import CausalInference
 from pgmpy.models import BayesianNetwork
 from pgmpy.estimators import MaximumLikelihoodEstimator, BayesianEstimator
 
@@ -35,7 +34,7 @@ class DataDebugger():
             self.preprocessor = Hprocessor(dataset=dataset, partition_days=partition_days, training_ratio=training_ratio)
         elif self.dataset.startswith('contextact'):
             self.preprocessor = Cprocessor(dataset=dataset, partition_days=partition_days, training_ratio=training_ratio, verbosity=1)
-        self.preprocessor.initiate_data_preprocessing()
+        #self.preprocessor.initiate_data_preprocessing()
         self.preprocessor.data_loading()
     
     def validate_discretization(self):
@@ -58,9 +57,6 @@ class DataDebugger():
             plt.savefig("temp/image/{}-changepoint.pdf".format(dev))
             plt.close('all')
     
-    def test_cpt(self, X=[(7,-3)], Y=[(9,0)], Z=[], tau_max=3):
-        frame:'DataFrame' = self.preprocessor.frame_dict[0]
-        frame.get_cpt(X,Y,Z,tau_max)
 
 class BackgroundDebugger():
 
@@ -108,11 +104,35 @@ class MinerDebugger():
 
 class BayesianDebugger():
 
-    def __init__(self, data_debugger = None, verbosity=1, analyze_golden_standard=True) -> None:
-        assert(data_debugger is not None)
-        self.data_debugger:'DataDebugger' = data_debugger
+    def __init__(self, frame, link_dict, tau_max, verbosity=1) -> None:
+        self.frame:'DataFrame' = frame
+        self.link_dict:'dict' = link_dict
+        self.tau_max = tau_max
         self.verbosity = verbosity
-        self.analyze_golden_standard = analyze_golden_standard
+
+        self.bayesian_fitter = BayesianFitter(frame, tau_max, link_dict)
+
+    def test_backdoor_adjustment(self):
+        var_names = self.frame.var_names; n_vars = len(var_names)
+        n_lagged_vars = n_vars * (2 * self.tau_max + 1)
+        edges = []; extended_edges = []
+        for lag in range(0, self.tau_max+1):
+            for outcome, cause_list in self.link_dict.items():
+                if lag == 0:
+                    edges += [(tuple(cause), (outcome, 0)) for cause in cause_list]
+                extended_edges = extended_edges + [((cause[0], cause[1]-lag), (outcome, 0-lag)) for cause in cause_list]
+        str_edges = [('{}({})'.format(cause[0], cause[1]), '{}({})'.format(outcome[0], outcome[1]))\
+                            for (cause, outcome) in edges]
+        extended_str_edges = [('{}({})'.format(cause[0], cause[1]), '{}({})'.format(outcome[0], outcome[1]))\
+                            for (cause, outcome) in extended_edges]
+        assert(all([str_edge in extended_str_edges for str_edge in str_edges]))
+        
+        model = BayesianNetwork(extended_str_edges)
+        inference = CausalInference(model)
+        for str_edge in str_edges:
+            print("For edge {}:".format(str_edge))
+            minimal_adjustment_set = inference.get_minimal_adjustment_set(str_edge[0], str_edge[1])
+            print(" * Is there any minimal backdoor path? Length {} for {}".format(len(minimal_adjustment_set), minimal_adjustment_set))
     
     def analyze_fitting_result(self, int_frame_id=0):
         # Auxillary variables
@@ -214,57 +234,23 @@ class GuardDebugger():
         f1_score = 2.0 * precision * recall / (precision + recall)
         return precision, recall, f1_score
 
-class EvaluationResultRepo():
-
-    def __init__(self, dataset) -> None:
-        self.dataset = dataset
-
-    def discovery_accuracy_evaluation(self):
-        """
-        1. Calculate the precision and recall (comparisons with golden standards).
-        2. Consumed time for discovery.
-        3. Answer for false positives.
-        4. Types of discovered interactions.
-        5. Identified device interaction chains.
-        """
-        n_records = 173094; n_devices = 8; n_golden_edges = 42
-        bk_nedges_dict = {0: 192, 1: 141, 2: 118}
-        # The discovered result dict.
-        bk_alpha_results_dict = {
-            (0, 0.00001): {'precision':0.787, 'recall':0.881}, (0, 0.001): {'precision':0.78, 'recall':0.929}, (0, 0.1): {'precision':0.759, 'recall':0.976},
-            (1, 0.00001):{'precision':0.804, 'recall':0.881}, (1, 0.001): {'precision':0.809, 'recall':0.905}, (1, 0.1):  {'precision':0.817, 'recall':0.952},
-            (2, 0.00001): {'precision':1.0, 'recall':0.881}, (2, 0.001): {'precision':1.0, 'recall':0.905}, (2, 0.1): {'precision':1.0, 'recall':0.952}
-        }
-        precision_lists = [[bk_alpha_results_dict[(bk, alpha)]['precision']\
-                            for bk in range(0, 3) ] for alpha in [0.00001, 0.001, 0.1]]
-        recall_lists = [[bk_alpha_results_dict[(bk, alpha)]['recall']\
-                            for bk in range(0, 3) ] for alpha in [0.00001, 0.001, 0.1]]
-        return precision_lists, recall_lists
-    
-    def discovery_complexity_evaluation(self):
-        n_devices = 8; n_golden_edges = 42
-        bk_dsize_results_dict = {
-            (0, 20): {'precision':0.783, 'recall':0.857, 'f1':0.818, 'time':0.707}, (0, 30): {'precision':0.787, 'recall':0.881, 'f1':0.831, 'time':0.806}, (0, 40): {'precision':0.787, 'recall':0.881, 'f1':0.831, 'time':0.994}, (0, 50): {'precision':0.771, 'recall':0.881, 'f1':0.822, 'time':1.065}, (0, 60): {'precision':0.765, 'recall':0.929, 'f1':0.839, 'time':1.220}, (0, 70): {'precision':0.760, 'recall':0.905, 'f1':0.826, 'time':1.289}, (0, 80): {'precision':0.769, 'recall':0.952, 'f1':0.851, 'time':1.439}, (0, 90): {'precision':0.760, 'recall':0.905, 'f1':0.826, 'time':1.553}, (0, 100): {'precision':0.759, 'recall':0.976, 'f1':0.854, 'time':1.837}, (0, 110): {'precision':0.719, 'recall':0.976, 'f1':0.828, 'time':1.993}, (0, 120): {'precision':0.695, 'recall':0.976, 'f1':0.812, 'time':2.282},
-            (1, 20): {'precision':0.804, 'recall':0.881, 'f1':0.841, 'time':0.652}, (1, 30): {'precision':0.800, 'recall':0.857, 'f1':0.828, 'time':0.798}, (1, 40): {'precision':0.804, 'recall':0.881, 'f1':0.841, 'time':0.945}, (1, 50): {'precision':0.804, 'recall':0.881, 'f1':0.841, 'time':1.014}, (1, 60): {'precision':0.809, 'recall':0.905, 'f1':0.854, 'time':1.118}, (1, 70): {'precision':0.809, 'recall':0.905, 'f1':0.854, 'time':1.236}, (1, 80): {'precision':0.809, 'recall':0.905, 'f1':0.854, 'time':1.404}, (1, 90): {'precision':0.804, 'recall':0.881, 'f1':0.841, 'time':1.442}, (1, 100): {'precision':0.816, 'recall':0.952, 'f1':0.879, 'time':1.747}, (1, 110): {'precision':0.800, 'recall':0.952, 'f1':0.870, 'time':1.704}, (1, 120): {'precision':0.804, 'recall':0.976, 'f1':0.882, 'time':2.120},
-            (2, 20): {'precision':1.000, 'recall':0.881, 'f1':0.937, 'time':0.591}, (2, 30): {'precision':1.000, 'recall':0.857, 'f1':0.923, 'time':0.609}, (2, 40): {'precision':1.000, 'recall':0.881, 'f1':0.937, 'time':0.662}, (2, 50): {'precision':1.000, 'recall':0.881, 'f1':0.937, 'time':0.778}, (2, 60): {'precision':1.000, 'recall':0.905, 'f1':0.950, 'time':0.845}, (2, 70): {'precision':1.000, 'recall':0.905, 'f1':0.950, 'time':0.925}, (2, 80): {'precision':1.000, 'recall':0.905, 'f1':0.950, 'time':1.063}, (2, 90): {'precision':1.000, 'recall':0.881, 'f1':0.937, 'time':1.108}, (2, 100): {'precision':1.000, 'recall':0.952, 'f1':0.976, 'time':1.469}, (2, 110): {'precision':1.000, 'recall':0.952, 'f1':0.976, 'time':1.561}, (2, 120): {'precision':1.000, 'recall':0.976, 'f1':0.988, 'time':1.901},
-        }
-        precision_lists = [[bk_dsize_results_dict[(bk, size)]['precision'] for size in range(20, 110, 10)] for bk in range(0, 3)]
-        recall_lists = [[bk_dsize_results_dict[(bk, size)]['recall'] for size in range(20, 110, 10)] for bk in range(0, 3)]
-        f1_lists = [[bk_dsize_results_dict[(bk, size)]['f1'] for size in range(20, 110, 10)] for bk in range(0, 3)]
-        time_lists = [[bk_dsize_results_dict[(bk, size)]['time'] for size in range(20, 110, 10)] for bk in range(0, 3)]
-        return precision_lists, recall_lists, f1_lists, time_lists
-
 if __name__ == '__main__':
 
     dataset = 'contextact'; partition_days = 8; training_ratio = 0.8; tau_max = 3
     alpha = 0.001; int_frame_id = 0; analyze_golden_standard=False
 
     data_debugger = DataDebugger(dataset, partition_days, training_ratio)
-    data_debugger.validate_discretization()
-    exit()
     frame:'DataFrame' = data_debugger.preprocessor.frame_dict[int_frame_id]
-    index_device_dict:'dict[DevAttribute]' = frame.index_device_dict
-    name_device_dict:'dict[DevAttribute]' = frame.name_device_dict
+    link_dict = {"0": [[0, -1], [0, -2], [0, -3], [17, -1], [17, -3], [20, -1], [1, -1], [26, -1], [26, -2]], "1": [[1, -1], [1, -2], [1, -3], [24, -1], [17, -1], [24, -2], [17, -3], [24, -3]], "2": [[2, -2], [17, -1], [26, -1], [17, -3], [26, -3], [21, -1], [26, -2]], "3": [[3, -2], [18, -2], [18, -1]], "4": [[4, -1], [19, -1], [19, -3], [7, -1]], "5": [[5, -2], [16, -2], [16, -1], [26, -1]], "6": [[8, -1], [10, -1], [6, -1], [6, -2], [10, -3]], "7": [[7, -1], [7, -2], [7, -3], [19, -2], [19, -1], [19, -3], [22, -2], [26, -3], [25, -2], [26, -1], [25, -1], [26, -2], [22, -1], [18, -2], [25, -3], [18, -3], [18, -1]], "8": [[6, -1], [8, -1], [6, -3]], "9": [[10, -1], [9, -1], [8, -3], [10, -3], [20, -1]], "10": [[9, -1], [6, -1], [10, -1], [8, -3]], "11": [[11, -1], [11, -2], [11, -3], [26, -3], [26, -2], [26, -1], [18, -2], [23, -2], [17, -1], [20, -3], [17, -3], [16, -3], [16, -1], [20, -1], [16, -2], [20, -2], [18, -3], [23, -1], [23, -3], [18, -1], [21, -3], [17, -2], [14, -1], [21, -2], [22, -1], [21, -1], [22, -2], [22, -3], [19, -1], [19, -2], [19, -3], [0, -3], [0, -1], [14, -2], [14, -3], [0, -2], [6, -3]], "12": [[12, -1], [12, -2], [12, -3], [16, -2], [26, -2], [22, -2], [26, -3], [26, -1], [15, -1], [15, -3], [16, -1], [14, -1], [20, -2], [0, -1]], "13": [[13, -1], [13, -2], [13, -3], [26, -2], [26, -1], [26, -3], [21, -3], [25, -3], [20, -3], [25, -1], [8, -3], [17, -2], [25, -2], [20, -2], [17, -3], [21, -2], [21, -1], [17, -1], [23, -2], [23, -3], [23, -1], [11, -1], [22, -1], [22, -2], [22, -3], [11, -2], [11, -3]], "14": [[14, -1], [14, -2], [14, -3], [20, -2], [17, -1], [26, -2], [26, -3], [25, -1], [25, -2], [25, -3], [26, -1], [17, -3], [20, -1], [17, -2], [20, -3], [18, -2], [18, -3], [18, -1], [15, -1], [11, -3], [21, -2], [21, -1], [7, -2], [7, -3], [7, -1], [21, -3], [12, -3], [12, -2], [12, -1], [0, -3], [11, -1], [0, -2], [0, -1], [23, -1], [23, -2], [11, -2], [23, -3]], "15": [[15, -1], [15, -2], [15, -3], [26, -2], [26, -3], [26, -1], [20, -1], [20, -3], [14, -1], [18, -2], [21, -2], [18, -3], [25, -2], [18, -1], [10, -3]], "16": [[16, -2], [16, -1], [16, -3], [17, -1], [21, -1], [21, -2], [18, -1], [19, -1], [5, -2], [18, -2], [4, -3], [20, -3], [18, -3], [5, -1], [20, -2], [26, -1], [26, -3], [20, -1], [23, -2], [23, -1], [24, -1], [17, -3], [11, -1], [11, -3], [11, -2], [26, -2], [5, -3], [21, -3], [17, -2], [19, -2], [23, -3], [7, -2]], "17": [[17, -1], [17, -2], [17, -3], [21, -1], [26, -1], [16, -2], [26, -3], [18, -1], [26, -2], [18, -2], [16, -1], [21, -3], [16, -3], [2, -2], [2, -1], [2, -3], [19, -1], [1, -2], [19, -2], [1, -1], [0, -1], [0, -3], [0, -2], [21, -2], [1, -3], [19, -3], [9, -3], [10, -3], [9, -2], [9, -1], [10, -1], [10, -2], [25, -1], [18, -3], [25, -3], [24, -1], [25, -2], [11, -1], [11, -2], [11, -3], [24, -2], [7, -1], [7, -3], [7, -2], [23, -2], [20, -3]], "18": [[18, -2], [18, -1], [18, -3], [26, -2], [16, -1], [21, -2], [21, -3], [16, -2], [26, -1], [21, -1], [20, -3], [17, -3], [17, -1], [16, -3], [20, -2], [3, -1], [19, -3], [26, -3], [3, -2], [19, -2], [19, -1], [23, -2], [3, -3], [23, -1], [23, -3], [17, -2]], "19": [[19, -1], [19, -2], [19, -3], [7, -1], [4, -2], [16, -1], [4, -3], [18, -3], [16, -3], [18, -2], [4, -1], [18, -1], [16, -2], [21, -3]], "20": [[20, -1], [20, -2], [20, -3], [21, -1], [21, -3], [23, -2], [26, -3], [26, -2], [21, -2], [26, -1], [23, -3], [23, -1], [16, -2], [18, -2], [16, -3], [16, -1], [9, -1], [18, -1], [18, -3], [0, -1], [10, -3], [17, -3]], "21": [[21, -1], [21, -2], [21, -3], [17, -1], [20, -1], [17, -3], [20, -3], [18, -2], [16, -2], [17, -2], [16, -1], [20, -2], [16, -3], [19, -1], [18, -1], [26, -2], [6, -3], [8, -2], [26, -1], [6, -1], [18, -3], [26, -3], [25, -3], [19, -2], [24, -1], [22, -1], [14, -2], [14, -3], [14, -1], [2, -1]], "22": [[22, -2], [22, -3], [26, -2], [19, -3], [21, -1], [19, -1]], "23": [[23, -2], [23, -3], [26, -2], [20, -3], [26, -3], [26, -1], [20, -1], [20, -2], [18, -2], [16, -2], [23, -1]], "24": [[24, -2], [1, -1], [26, -1], [16, -1], [24, -1], [20, -3], [17, -1], [26, -3], [1, -2], [26, -2], [21, -3]], "25": [[25, -2], [25, -3], [26, -1], [21, -2], [21, -3], [24, -1], [17, -1]], "26": [[26, -2], [26, -1], [17, -3], [17, -2], [18, -2], [24, -1], [20, -3], [20, -2], [24, -3], [20, -1], [25, -1], [18, -3], [23, -2], [17, -1], [23, -3], [2, -1], [18, -1], [2, -3], [16, -2], [25, -3], [23, -1], [21, -3], [21, -1], [7, -3], [7, -1], [7, -2], [19, -2], [4, -1], [24, -2], [19, -3], [9, -1], [16, -1], [21, -2], [19, -1], [16, -3], [22, -2], [22, -1], [22, -3], [15, -3], [10, -1], [9, -2], [25, -2], [4, -3], [3, -3], [2, -2], [3, -2], [11, -1], [3, -1]], "27": [[27, -2], [27, -3]]}
+    new_link_dict = {}
+    for k, v in link_dict.items():
+        new_link_dict[int(k)] = v
+    link_dict = new_link_dict
+    bayesian_debugger = BayesianDebugger(frame, link_dict, tau_max)
+
+    security_guard = SecurityGuard(frame, bayesian_debugger.bayesian_fitter)
+    print(security_guard.score_threshold)
+    exit()
 
     background_generator:'BackgroundGenerator' = BackgroundGenerator(data_debugger.preprocessor, int_frame_id, tau_max)
     evaluator = Evaluator(data_debugger.preprocessor, background_generator, None, 0, alpha)
