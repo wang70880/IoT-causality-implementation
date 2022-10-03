@@ -6,6 +6,8 @@ from pprint import pprint
 from turtle import back
 import numpy as np
 import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
 import json
 
 from time import time
@@ -167,9 +169,11 @@ dataset = sys.argv[1]; partition_days = int(sys.argv[2]); training_ratio = float
     # 0.2 Background knowledge parameters
 tau_max = int(sys.argv[4]); tau_min = 1; bk_level=int(sys.argv[5])
     # 0.3 PC discovery parameters
-pc_alpha = float(sys.argv[6]); max_conds_dim = int(sys.argv[7]); maximum_comb = int(sys.argv[8]); max_n_edges = 10
-    # 0.4 Anomaly generation parameters
-n_anomalies = 100; case = 1; max_length = 1; sig_level = 0.9
+pc_alpha = float(sys.argv[6]); max_conds_dim = int(sys.argv[7]); maximum_comb = int(sys.argv[8])
+    # 0.4 Bayesian fitting parameters
+n_max_edges = 10
+    # 0.5 Anomaly generation parameters
+n_anomalies = 100; case = 1; max_length = 1; sig_level = 0.99
 
 # 1. Load data and create data frame
 dl_start =time()
@@ -229,16 +233,37 @@ evaluate_mining_results(temporal_pc_array, identified_edge_infos, filtered_edge_
 identified_edges_with_name = defaultdict(list)
 index_device_dict:'dict[DevAttribute]' = event_preprocessor.index_device_dict
 for index, x in np.ndenumerate(temporal_pc_array):
-    outcome_name = index_device_dict[index[1]].name; cause_name = index_device_dict[index[0]].name
-    lag = index[2]
     if x == 1:
+        outcome_name = index_device_dict[index[1]].name; cause_name = index_device_dict[index[0]].name
+        lag = index[2]
         identified_edges_with_name[outcome_name].append((cause_name, lag))
-
 bf_start = time()
-bayesian_fitter = BayesianFitter(frame, tau_max, identified_edges_with_name)
-bayesian_fitter.construct_bayesian_model()
+bayesian_fitter = BayesianFitter(frame, tau_max, identified_edges, n_max_edges=n_max_edges)
 bf_consumed_time = _elapsed_minutes(bf_start)
 
+# 6. Security monitoring
+security_guard = SecurityGuard(frame=frame, bayesian_fitter=bayesian_fitter, sig_level=sig_level)
+## 6.1 Initialize the phantom state machine using the last training events
+latest_event_states = [frame.training_events_states[-tau_max+i] for i in range(0, tau_max)]
+machine_initial_states = [event_state[1] for event_state in latest_event_states]
+security_guard.initialize_phantom_machine(machine_initial_states)
+## JC TODO: 6.2 Inject anomalies to testing datasets
+testing_event_states = frame.testing_events_states
+## 6.3 Initiate the contextual anomaly detection
+anomaly_scores = []
+for evt_id, tup in enumerate(testing_event_states):
+    event, states = tup
+    anomaly_score, anomaly_flag = security_guard.contextual_anomaly_detection(evt_id, event)
+    anomaly_scores.append(anomaly_score)
+    security_guard.phantom_state_machine.set_latest_states(states)
+sns.displot(anomaly_scores, kde=False, color='red', bins=1000)
+plt.axvline(x=security_guard.score_threshold)
+plt.title('Testing score distribution')
+plt.xlabel('Scores')
+plt.ylabel('Occurrences')
+plt.savefig("temp/image/testing-score-distribution-{}.pdf".format(int(sig_level*100)))
+plt.close('all')
+security_guard.analyze_detection_results()
 exit()
 
 # 6. Initiate the anomaly injection and anomaly detection

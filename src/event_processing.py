@@ -162,10 +162,10 @@ class Cprocessor(GeneralProcessor):
 		self.device_description_dict = self._load_device_attribute_files()
 		self.int_attrs = {'binary': ['Switch', 'Smart electrical outlet', 'Infrared Movement Sensor', 'Contact Sensor'],\
 						  'discrete': ['Water Meter', 'Rollershutter', 'Dimmer', 'Power Sensor'],\
-						  #'continuous': []}
 						  'continuous': ['Brightness Sensor']}
-		self.int_locations = ['Bathroom', 'Bedroom', 'Dining Room', 'First Floor', 'Hallway', 'Hallway First Floor', 'Hallway Second Floor',\
-						'Kitchen', 'Living Room', 'Main Entrance', 'Stairway', 'Stove', 'Study Room']
+		self.int_locations = ['Bathroom', 'Bedroom', 'Dining Room', 'Kitchen', 'Stove']
+		#self.int_locations = ['Bathroom', 'Bedroom', 'Dining Room', 'First Floor', 'Hallway', 'Hallway First Floor', 'Hallway Second Floor',\
+		#				'Kitchen', 'Living Room', 'Main Entrance', 'Stairway', 'Stove', 'Study Room']
 
 	def _load_device_attribute_files(self):
 		"""
@@ -344,7 +344,7 @@ class Cprocessor(GeneralProcessor):
 			mean = statistics.mean(v); std_dev = statistics.stdev(v)
 			new_v = [x for x in v if mean-3.*std_dev <=x<= mean+3.*std_dev]
 			algo = rpt.Pelt(model="rbf").fit(np.array(new_v)) # JC NOTE: Ad-hoc parameter settings for breakpoint cost function here.
-			bkps = [0] + algo.predict(pen=(int(len(new_v)/1000)+1)) # JC NOTE: Ad-hoc parameter settings for breakpoint prediction here.
+			bkps = [0] + algo.predict(pen=(int(len(new_v)/5000)+1)) # JC NOTE: Ad-hoc parameter settings for breakpoint prediction here.
 			seg_means = []
 			for i in range(len(bkps)-1):
 				seg_means.append(statistics.mean(new_v[bkps[i]:bkps[i+1]]))
@@ -414,8 +414,9 @@ class Cprocessor(GeneralProcessor):
 			attrs = list(attr_occurrence_dict.keys())
 			attr_n_devs = [len(attr_occurrence_dict[attr].keys()) for attr in attrs]
 			attr_n_events = [sum(list(attr_occurrence_dict[attr].values())) for attr in attrs]
-			print("[Event Conversion] # qualified events, devices = {}, {}".format(n_events, len(var_names)))
-			print("[Event Conversion] Candidate attrs, n_devices, and n_events: {}".format(list(zip(attrs, attr_n_devs, attr_n_events))))
+			print("[Preprocessing Ending] # qualified events, devices = {}, {}".format(n_events, len(var_names)))
+			print(var_names)
+			print("[Preprocessing Ending] Candidate attrs, n_devices, and n_events: {}".format(list(zip(attrs, attr_n_devs, attr_n_events))))
 		fout.close()
 
 	def initiate_data_preprocessing(self):

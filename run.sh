@@ -23,10 +23,10 @@ evaluate_discovery_process() {
 ## Data preprocessing
 dataset="contextact"; preprocessing_verbosity=0
 ## Data loading
-declare -a partition_days=(7)
+declare -a partition_days=(8)
 training_ratio=0.8
 ## Background generator and application level
-tau_max=5
+tau_max=2
 declare -a bk_levels=(0)
 ## PC discovery process
 declare -a pc_alphas=(0.001)

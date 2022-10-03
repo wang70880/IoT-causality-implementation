@@ -34,7 +34,7 @@ class DataDebugger():
             self.preprocessor = Hprocessor(dataset=dataset, partition_days=partition_days, training_ratio=training_ratio)
         elif self.dataset.startswith('contextact'):
             self.preprocessor = Cprocessor(dataset=dataset, partition_days=partition_days, training_ratio=training_ratio, verbosity=1)
-        #self.preprocessor.initiate_data_preprocessing()
+        self.preprocessor.initiate_data_preprocessing()
         self.preprocessor.data_loading()
     
     def validate_discretization(self):
@@ -56,7 +56,6 @@ class DataDebugger():
             plt.title("{} state changepoint".format(dev))
             plt.savefig("temp/image/{}-changepoint.pdf".format(dev))
             plt.close('all')
-    
 
 class BackgroundDebugger():
 
@@ -183,73 +182,100 @@ class BayesianDebugger():
 
 class GuardDebugger():
 
-    def __init__(self, data_debugger=None, bayesian_debugger=None) -> None:
-        self.data_debugger:'DataDebugger' = data_debugger
-        self.bayesian_debugger:'BayesianDebugger' = bayesian_debugger
-        self.drawer:'Drawer' = Drawer()
-
-    def analyze_anomaly_threshold(self, int_frame_id=0, sig_level=1):
-        frame = self.data_debugger.preprocessor.frame_dict[int_frame_id]
-        bayesian_fitter = self.bayesian_debugger.analyze_fitting_result(int_frame_id)
-        # 1. Initialize the security guard, and calculate anomaly scores
-        security_guard = SecurityGuard(frame=frame, bayesian_fitter=bayesian_fitter, sig_level=sig_level)
-        training_anomaly_scores = security_guard.training_anomaly_scores
-        #print("[Guard Debugger] large-pscore-dict:"); pprint(dict(security_guard.large_pscore_dict))
-        filterd_large_pscore_dict = {k:v for k, v in dict(security_guard.large_pscore_dict).items() if v > 1000}
-        print("[Guard Debugger] filtered large-pscore-dict:"); pprint(filterd_large_pscore_dict)
-        #print("[Guard Debugger] small-pscore-dict:"); pprint(dict(security_guard.small_pscore_dict))
-        print("Average anomaly score = {}".format(sum(training_anomaly_scores)*1.0/len(training_anomaly_scores)))
-        
-        self.drawer.draw_1d_distribution(training_anomaly_scores, xlabel='Score', ylabel='Occurrence',\
-            title='Training event detection using golden standard model', fname='prediction-probability-distribution')
-        return security_guard
+    def __init__(self, bayesian_fitter=None, sig_level=None) -> None:
+        self.bayesian_fitter:'BayesianFitter' = bayesian_fitter
+        self.security_guard:'SecurityGuard' = SecurityGuard(
+            self.bayesian_fitter.frame, self.bayesian_fitter, sig_level
+            )
     
-    def score_anomaly_detection(self, int_frame_id, sig_level=None, n_anomalies=None, maximum_length=None, anomaly_case=None):
-        frame = self.data_debugger.preprocessor.frame_dict[int_frame_id]
-        event_preprocessor = self.data_debugger.preprocessor; tau_max = event_preprocessor.tau_max
-        background_generator = self.data_debugger.background_generator
-        bayesian_fitter = self.bayesian_debugger.analyze_fitting_result(int_frame_id)
+    def check_suitable_injection_cases(self):
+        var_names = self.bayesian_fitter.var_names
+        def all_bits(n):
+            if n: yield from (bits + [bit] for bits in all_bits(n-1) for bit in (0, 1))
+            else: yield []
+        # 1. Get all parent situations under which a device event will be regarded as an anomaly.
+        anomaly_act_cases = defaultdict(list)
+        anomaly_deact_cases = defaultdict(list)
+        for var_name in var_names:
+            parents = self.bayesian_fitter.model.get_parents(var_name); n_parents = len(parents)
+            for potential_states in all_bits(len(parents)):
+                states_str = "".join([str(x) for x in potential_states])
+                parent_states = list(zip(parents, potential_states))
+                anomalous_act_event = AttrEvent('', '', var_name, '', 1); anomalous_deact_event = AttrEvent('', '', var_name, '', 0)
+                if 1-self.bayesian_fitter.estimate_cond_probability(anomalous_act_event, parent_states) > self.security_guard.score_threshold:
+                    anomaly_act_cases[var_name].append(states_str)
+                if 1-self.bayesian_fitter.estimate_cond_probability(anomalous_deact_event, parent_states) > self.security_guard.score_threshold:
+                    anomaly_deact_cases[var_name].append(states_str)
+            #print("# anomaly act/deact cases for device {}: {}, {}"\
+            #            .format(var_name, len(anomaly_act_cases[var_name]), len(anomaly_deact_cases[var_name])))
+        return anomaly_act_cases, anomaly_deact_cases
 
-        # 1. Initialize the security guard, and derive the anomaly score threshold
-        security_guard = SecurityGuard(frame=frame, bayesian_fitter=bayesian_fitter, sig_level=sig_level)
-        print("The anomaly score threshold is {}".format(security_guard.score_threshold))
-        # 2. Inject anomalies and generate testing event sequences
-        evaluator = Evaluator(event_processor=event_preprocessor, background_generator=background_generator,\
-                                             bayesian_fitter = bayesian_fitter, tau_max=tau_max)
-        testing_event_states, anomaly_positions, testing_benign_dict = evaluator.simulate_malicious_control(\
-                                    int_frame_id=int_frame_id, n_anomaly=n_anomalies, maximum_length=maximum_length, anomaly_case=anomaly_case)
-        print("# of testing events: {}".format(len(testing_event_states)))
-        # 3. initialize the testing
-        anomaly_flag = False
-        for event_id in range(len(testing_event_states)):
-            event, states = testing_event_states[event_id]
-            if event_id < tau_max:
-                security_guard.initialize(event_id, event, states)
-            else:
-                anomaly_flag = security_guard.score_anomaly_detection(event_id=event_id, event=event, debugging_id_list=anomaly_positions)
-            security_guard.calibrate(event_id, testing_benign_dict)
+    def check_suitable_injection_positions(self):
+        # Auxillary variables
+        frame = self.bayesian_fitter.frame
+        var_names = self.bayesian_fitter.var_names
+        tau_max = self.bayesian_fitter.tau_max
+        anomaly_act_cases, anomaly_deact_cases = self.check_suitable_injection_cases()
 
-        tps, fps, fns = security_guard.analyze_detection_results()
-        precision = 1.0 * tps / (fps + tps); recall = 1.0 * tps / (fns + tps)
-        f1_score = 2.0 * precision * recall / (precision + recall)
-        return precision, recall, f1_score
+        # Retuan variables
+        anomalous_dev_counts = defaultdict(int)
+        potential_act_anomaly_positions = defaultdict(list)
+        potential_deact_anomaly_positions = defaultdict(list)
+
+        # Initialize the state machine
+        latest_event_states = [frame.training_events_states[-tau_max+i] for i in range(0, tau_max)]
+        machine_initial_states = [event_state[1] for event_state in latest_event_states]
+        self.security_guard.initialize_phantom_machine(machine_initial_states)
+
+        testing_event_states = frame.testing_events_states
+        for evt_id, tup in enumerate(testing_event_states):
+            event, states = tup
+            # Traverse each potential anomalous device (except for the current benign device)
+            for var_name in [x for x in var_names if x != event.dev]:
+                parents = self.bayesian_fitter.model.get_parents(event.dev)
+                int_index = self.bayesian_fitter.expanded_var_names.index(var_name)
+                parent_indices = [self.bayesian_fitter.expanded_var_names.index(parent)-self.bayesian_fitter.n_vars for parent in parents]
+                parent_states:'list[tuple(str, int)]' = list(zip(
+                    parents,
+                    self.security_guard.phantom_state_machine.get_indices_states(parent_indices)
+                ))
+                states_str = "".join([str(x[1]) for x in parent_states])
+                if states_str in anomaly_act_cases[var_name] and self.security_guard.phantom_state_machine.get_indices_states([int_index])[0]==0:
+                    potential_act_anomaly_positions[evt_id].append(var_name)
+                    anomalous_dev_counts[var_name] += 1
+                if states_str in anomaly_deact_cases[var_name] and self.security_guard.phantom_state_machine.get_indices_states([int_index])[0]==1:
+                    potential_deact_anomaly_positions[evt_id].append(var_name)
+                    anomalous_dev_counts[var_name] += 1
+            self.security_guard.phantom_state_machine.set_latest_states(states)
+        
+        n_positions = 0
+        for evt_id in range(len(frame.testing_events_states)):
+            if len(potential_act_anomaly_positions[evt_id]) + len(potential_deact_anomaly_positions[evt_id]) > 0:
+                n_positions += 1
+        
+        print("Total #, % potential positions for anomaly injection: {}, {}".format(n_positions, n_positions*1./len(frame.testing_events_states)))
+        pprint(anomalous_dev_counts)
 
 if __name__ == '__main__':
 
-    dataset = 'contextact'; partition_days = 8; training_ratio = 0.8; tau_max = 3
-    alpha = 0.001; int_frame_id = 0; analyze_golden_standard=False
+    dataset = 'contextact'; partition_days = 8; training_ratio = 0.7; tau_max = 2
+    alpha = 0.001; int_frame_id = 0
+    n_max_edges = 10; sig_level = 0.999
 
     data_debugger = DataDebugger(dataset, partition_days, training_ratio)
     frame:'DataFrame' = data_debugger.preprocessor.frame_dict[int_frame_id]
-    link_dict = {"0": [[0, -1], [0, -2], [0, -3], [17, -1], [17, -3], [20, -1], [1, -1], [26, -1], [26, -2]], "1": [[1, -1], [1, -2], [1, -3], [24, -1], [17, -1], [24, -2], [17, -3], [24, -3]], "2": [[2, -2], [17, -1], [26, -1], [17, -3], [26, -3], [21, -1], [26, -2]], "3": [[3, -2], [18, -2], [18, -1]], "4": [[4, -1], [19, -1], [19, -3], [7, -1]], "5": [[5, -2], [16, -2], [16, -1], [26, -1]], "6": [[8, -1], [10, -1], [6, -1], [6, -2], [10, -3]], "7": [[7, -1], [7, -2], [7, -3], [19, -2], [19, -1], [19, -3], [22, -2], [26, -3], [25, -2], [26, -1], [25, -1], [26, -2], [22, -1], [18, -2], [25, -3], [18, -3], [18, -1]], "8": [[6, -1], [8, -1], [6, -3]], "9": [[10, -1], [9, -1], [8, -3], [10, -3], [20, -1]], "10": [[9, -1], [6, -1], [10, -1], [8, -3]], "11": [[11, -1], [11, -2], [11, -3], [26, -3], [26, -2], [26, -1], [18, -2], [23, -2], [17, -1], [20, -3], [17, -3], [16, -3], [16, -1], [20, -1], [16, -2], [20, -2], [18, -3], [23, -1], [23, -3], [18, -1], [21, -3], [17, -2], [14, -1], [21, -2], [22, -1], [21, -1], [22, -2], [22, -3], [19, -1], [19, -2], [19, -3], [0, -3], [0, -1], [14, -2], [14, -3], [0, -2], [6, -3]], "12": [[12, -1], [12, -2], [12, -3], [16, -2], [26, -2], [22, -2], [26, -3], [26, -1], [15, -1], [15, -3], [16, -1], [14, -1], [20, -2], [0, -1]], "13": [[13, -1], [13, -2], [13, -3], [26, -2], [26, -1], [26, -3], [21, -3], [25, -3], [20, -3], [25, -1], [8, -3], [17, -2], [25, -2], [20, -2], [17, -3], [21, -2], [21, -1], [17, -1], [23, -2], [23, -3], [23, -1], [11, -1], [22, -1], [22, -2], [22, -3], [11, -2], [11, -3]], "14": [[14, -1], [14, -2], [14, -3], [20, -2], [17, -1], [26, -2], [26, -3], [25, -1], [25, -2], [25, -3], [26, -1], [17, -3], [20, -1], [17, -2], [20, -3], [18, -2], [18, -3], [18, -1], [15, -1], [11, -3], [21, -2], [21, -1], [7, -2], [7, -3], [7, -1], [21, -3], [12, -3], [12, -2], [12, -1], [0, -3], [11, -1], [0, -2], [0, -1], [23, -1], [23, -2], [11, -2], [23, -3]], "15": [[15, -1], [15, -2], [15, -3], [26, -2], [26, -3], [26, -1], [20, -1], [20, -3], [14, -1], [18, -2], [21, -2], [18, -3], [25, -2], [18, -1], [10, -3]], "16": [[16, -2], [16, -1], [16, -3], [17, -1], [21, -1], [21, -2], [18, -1], [19, -1], [5, -2], [18, -2], [4, -3], [20, -3], [18, -3], [5, -1], [20, -2], [26, -1], [26, -3], [20, -1], [23, -2], [23, -1], [24, -1], [17, -3], [11, -1], [11, -3], [11, -2], [26, -2], [5, -3], [21, -3], [17, -2], [19, -2], [23, -3], [7, -2]], "17": [[17, -1], [17, -2], [17, -3], [21, -1], [26, -1], [16, -2], [26, -3], [18, -1], [26, -2], [18, -2], [16, -1], [21, -3], [16, -3], [2, -2], [2, -1], [2, -3], [19, -1], [1, -2], [19, -2], [1, -1], [0, -1], [0, -3], [0, -2], [21, -2], [1, -3], [19, -3], [9, -3], [10, -3], [9, -2], [9, -1], [10, -1], [10, -2], [25, -1], [18, -3], [25, -3], [24, -1], [25, -2], [11, -1], [11, -2], [11, -3], [24, -2], [7, -1], [7, -3], [7, -2], [23, -2], [20, -3]], "18": [[18, -2], [18, -1], [18, -3], [26, -2], [16, -1], [21, -2], [21, -3], [16, -2], [26, -1], [21, -1], [20, -3], [17, -3], [17, -1], [16, -3], [20, -2], [3, -1], [19, -3], [26, -3], [3, -2], [19, -2], [19, -1], [23, -2], [3, -3], [23, -1], [23, -3], [17, -2]], "19": [[19, -1], [19, -2], [19, -3], [7, -1], [4, -2], [16, -1], [4, -3], [18, -3], [16, -3], [18, -2], [4, -1], [18, -1], [16, -2], [21, -3]], "20": [[20, -1], [20, -2], [20, -3], [21, -1], [21, -3], [23, -2], [26, -3], [26, -2], [21, -2], [26, -1], [23, -3], [23, -1], [16, -2], [18, -2], [16, -3], [16, -1], [9, -1], [18, -1], [18, -3], [0, -1], [10, -3], [17, -3]], "21": [[21, -1], [21, -2], [21, -3], [17, -1], [20, -1], [17, -3], [20, -3], [18, -2], [16, -2], [17, -2], [16, -1], [20, -2], [16, -3], [19, -1], [18, -1], [26, -2], [6, -3], [8, -2], [26, -1], [6, -1], [18, -3], [26, -3], [25, -3], [19, -2], [24, -1], [22, -1], [14, -2], [14, -3], [14, -1], [2, -1]], "22": [[22, -2], [22, -3], [26, -2], [19, -3], [21, -1], [19, -1]], "23": [[23, -2], [23, -3], [26, -2], [20, -3], [26, -3], [26, -1], [20, -1], [20, -2], [18, -2], [16, -2], [23, -1]], "24": [[24, -2], [1, -1], [26, -1], [16, -1], [24, -1], [20, -3], [17, -1], [26, -3], [1, -2], [26, -2], [21, -3]], "25": [[25, -2], [25, -3], [26, -1], [21, -2], [21, -3], [24, -1], [17, -1]], "26": [[26, -2], [26, -1], [17, -3], [17, -2], [18, -2], [24, -1], [20, -3], [20, -2], [24, -3], [20, -1], [25, -1], [18, -3], [23, -2], [17, -1], [23, -3], [2, -1], [18, -1], [2, -3], [16, -2], [25, -3], [23, -1], [21, -3], [21, -1], [7, -3], [7, -1], [7, -2], [19, -2], [4, -1], [24, -2], [19, -3], [9, -1], [16, -1], [21, -2], [19, -1], [16, -3], [22, -2], [22, -1], [22, -3], [15, -3], [10, -1], [9, -2], [25, -2], [4, -3], [3, -3], [2, -2], [3, -2], [11, -1], [3, -1]], "27": [[27, -2], [27, -3]]}
+
+    link_dict = {"0": [[0, -1], [0, -2], [9, -1], [9, -2], [14, -1], [1, -1], [12, -1]], "1": [[1, -1], [1, -2], [15, -1], [9, -1], [15, -2], [9, -2]], "2": [[2, -2], [9, -1], [17, -1], [12, -1], [17, -2], [9, -2]], "3": [[3, -2], [10, -1], [10, -2], [17, -1], [17, -2]], "4": [[11, -1], [4, -1], [17, -1]], "5": [[5, -1], [5, -2], [11, -1], [11, -2], [13, -2], [13, -1], [16, -2], [17, -2], [17, -1], [16, -1], [9, -1]], "6": [[6, -1], [6, -2], [8, -1], [8, -2], [10, -1], [10, -2], [17, -2], [17, -1]], "7": [[7, -1], [7, -2], [14, -1], [14, -2], [12, -2], [12, -1], [16, -1], [16, -2], [17, -1], [17, -2], [10, -2], [13, -2], [10, -1], [13, -1], [9, -2], [9, -1], [8, -1], [6, -1]], "8": [[8, -1], [8, -2], [17, -2], [17, -1], [6, -1], [14, -1], [14, -2], [16, -1], [16, -2], [9, -1], [9, -2], [7, -1]], "9": [[9, -1], [9, -2], [10, -1], [10, -2], [12, -1], [2, -1], [11, -1], [11, -2], [1, -1], [2, -2], [15, -2], [17, -1], [0, -1], [16, -2], [15, -1], [17, -2], [16, -1], [1, -2], [12, -2], [0, -2], [7, -2], [7, -1], [5, -2], [14, -2], [5, -1], [3, -2], [3, -1], [8, -1], [8, -2], [14, -1]], "10": [[10, -2], [10, -1], [12, -1], [17, -1], [17, -2], [12, -2], [9, -1], [14, -1], [14, -2], [9, -2], [3, -1], [11, -1], [11, -2], [3, -2], [13, -1], [13, -2]], "11": [[11, -1], [11, -2], [4, -2], [5, -1], [4, -1], [10, -1], [10, -2], [13, -1], [12, -2]], "12": [[12, -2], [12, -1], [10, -1], [10, -2], [9, -1], [16, -2], [17, -2], [16, -1], [17, -1], [15, -1], [2, -1], [14, -2], [15, -2], [14, -1], [9, -2], [5, -2], [13, -1], [3, -2]], "13": [[13, -2], [11, -1], [17, -1], [17, -2]], "14": [[14, -2], [17, -1], [17, -2], [10, -1], [10, -2], [15, -1], [14, -1], [0, -1], [11, -1], [11, -2]], "15": [[15, -2], [17, -1], [1, -1], [17, -2], [15, -1], [1, -2], [9, -2], [12, -1], [14, -1], [11, -1], [9, -1], [16, -1]], "16": [[16, -2], [17, -1], [12, -2], [12, -1], [9, -2], [15, -1], [9, -1]], "17": [[17, -2], [17, -1], [10, -1], [10, -2], [15, -1], [14, -1], [14, -2], [16, -1], [2, -1], [15, -2], [13, -1], [11, -1], [12, -1], [11, -2], [12, -2], [13, -2], [18, -1], [8, -1], [8, -2], [2, -2], [4, -1], [3, -2], [3, -1], [5, -2], [9, -2]], "18": [[18, -2], [17, -1]]}
     new_link_dict = {}
     for k, v in link_dict.items():
         new_link_dict[int(k)] = v
     link_dict = new_link_dict
-    bayesian_debugger = BayesianDebugger(frame, link_dict, tau_max)
 
-    security_guard = SecurityGuard(frame, bayesian_debugger.bayesian_fitter)
-    print(security_guard.score_threshold)
+    bayesian_fitter = BayesianFitter(frame, tau_max, link_dict, n_max_edges=n_max_edges)
+
+    guard_debugger = GuardDebugger(bayesian_fitter, sig_level)
+    #guard_debugger.check_suitable_injection_cases()
+    guard_debugger.check_suitable_injection_positions()
     exit()
 
     background_generator:'BackgroundGenerator' = BackgroundGenerator(data_debugger.preprocessor, int_frame_id, tau_max)
