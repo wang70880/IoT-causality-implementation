@@ -2,6 +2,7 @@ from tabulate import tabulate
 from numpy import indices, ndarray
 import seaborn as sns
 import numpy as np
+import statistics
 import matplotlib.pyplot as plt
 from pprint import pprint
 from statistics import mean
@@ -145,29 +146,27 @@ class SecurityGuard():
         # The score threshold
         self.training_anomaly_scores, self.score_threshold = self._compute_anomaly_score_cutoff(sig_level=sig_level)
     
-    def initialize_phantom_machine(self, state_vectors:'list[np.ndarray]'):
-        assert(len(state_vectors)==self.tau_max)
+    def initialize_phantom_machine(self):
+        latest_event_states = [self.frame.training_events_states[-self.tau_max+i] for i in range(0, self.tau_max)]
+        machine_initial_states = [event_state[1] for event_state in latest_event_states]
+        assert(len(machine_initial_states)==self.tau_max)
         # Initialize the phantom state machine
-        for state_vector in state_vectors:
+        for state_vector in machine_initial_states:
             self.phantom_state_machine.set_latest_states(state_vector)
 
-    def contextual_anomaly_detection(self, event_id, event:'AttrEvent', debugging_id_list = []):
-        anomaly_score = self._compute_event_anomaly_score(event, self.phantom_state_machine)
-        anomaly_flag = True if anomaly_score >= self.score_threshold else False
-        #if event_id in debugging_id_list:
-        #    print("Detection meets anomaly event {} with score {}.".format(event, anomaly_score))
-        int_dict = None
-        if anomaly_flag and event_id in debugging_id_list: # A tp is detected
-            int_dict = self.tp_debugging_dict
-        elif not anomaly_flag and event_id in debugging_id_list: # A fn is detected
-            int_dict = self.fn_debugging_dict
-        elif anomaly_flag and event_id not in debugging_id_list: # A fp is detected
-            int_dict = self.fp_debugging_dict
-        if int_dict is not None:
-            #anomaly_case = '{}={} under {}'.format(event.dev, event.value, ",".join(['{}={}'.format(k, v) for (k, v) in parent_states]))
-            anomaly_case = '{}={}'.format(event.dev, event.value)
-            int_dict[anomaly_case].append((event_id, anomaly_score))
-        return anomaly_score, anomaly_flag 
+    def contextual_anomaly_detection(self, testing_event_states, testing_benign_dict):
+        benign_event_states = self.frame.testing_events_states # For state calibration usage
+        detected_anomaly_positions = []
+        alarm_infos = defaultdict(list)
+        self.initialize_phantom_machine()
+        for evt_id, (event, states) in enumerate(testing_event_states):
+            anomaly_score = self._compute_event_anomaly_score(event, self.phantom_state_machine)
+            if anomaly_score >= self.score_threshold:
+                detected_anomaly_positions.append(evt_id)
+                alarm_infos[event.attr].append(evt_id)
+            benign_state = benign_event_states[testing_benign_dict[evt_id]][1]
+            self.phantom_state_machine.set_latest_states(benign_state)
+        return detected_anomaly_positions, alarm_infos
 
     def analyze_detection_results(self):
         tps = sum([len(tp_list) for tp_list in self.tp_debugging_dict.values()])
@@ -184,17 +183,25 @@ class SecurityGuard():
         return tps, fps, fns
 
     def _compute_event_anomaly_score(self, event:'AttrEvent', phantom_state_machine:'PhantomStateMachine', verbosity=0):
+        prob_scheme = True
         # Return variables
-        anomaly_score = 0.
+        anomaly_score = 1.
         # 1. Get the list of parents for event.dev, and fetch their states from the phantom state machine
-        parents = self.bayesian_fitter.model.get_parents(event.dev)
+        try:
+            parents = self.bayesian_fitter.model.get_parents(event.dev)
+        except: # If current event device has no parents, just return 
+            return anomaly_score
         indices = [self.bayesian_fitter.expanded_var_names.index(parent)-self.bayesian_fitter.n_vars for parent in parents]
         parent_states = phantom_state_machine.get_indices_states(indices)
         parent_states:'list[tuple(str, int)]' = list(zip(parents, parent_states))
         # 2. Estimate the anomaly score for current event
-        cond_prob = self.bayesian_fitter.estimate_cond_probability(event, parent_states)
-        anomaly_score = 1.-cond_prob
-        #anomaly_score = abs(event.value - cond_prob)
+        if prob_scheme:
+            cond_prob = self.bayesian_fitter.estimate_cond_probability(event, parent_states)
+            anomaly_score = 1.-cond_prob
+        else:
+            act_event = AttrEvent(event.date, event.time, event.dev, event.attr, 1)
+            act_prob = self.bayesian_fitter.estimate_cond_probability(act_event, parent_states)
+            anomaly_score = abs(event.value - act_prob)
         if verbosity:
             print("Event: {}\n\
                    Phantom state machine:\n{}\n\
@@ -230,5 +237,5 @@ class SecurityGuard():
         plt.ylabel('Occurrences')
         plt.savefig("temp/image/training-score-distribution-{}.pdf".format(int(sig_level*100)))
         plt.close('all')
-        print("Score threshold for sig-level={}: {}".format(sig_level, score_threshold))
+        #print("Score threshold for sig-level={}: {}".format(sig_level, score_threshold))
         return anomaly_scores, score_threshold

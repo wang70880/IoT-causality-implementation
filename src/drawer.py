@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 
 class Drawer():
 
-    def __init__(self, dataset) -> None:
+    def __init__(self, dataset='default') -> None:
         self.dataset = dataset
         self.image_path = 'temp/image'
 

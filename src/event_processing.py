@@ -32,7 +32,6 @@ class GeneralProcessor():
 		self.origin_data = '{}data-origin'.format(self.data_path)
 		self.transition_data = '{}data-transition'.format(self.data_path)
 		self.ground_truth = '{}ground-truth'.format(self.data_path)
-
 		self.result_path = './results/{}/'.format(self.dataset)
 
 		self.partition_days = partition_days
@@ -96,6 +95,8 @@ class GeneralProcessor():
 			print("[Data Loading] # records, attrs, devices = {}, {}, {}".format(
 				len(unified_parsed_events), len(self.attr_count_dict.keys()), len(self.dev_count_dict.keys())
 			))
+			pprint(self.attr_count_dict)
+			pprint(self.dev_count_dict)
 
 		return transition_events_states
 
@@ -163,7 +164,7 @@ class Cprocessor(GeneralProcessor):
 		self.int_attrs = {'binary': ['Switch', 'Smart electrical outlet', 'Infrared Movement Sensor', 'Contact Sensor'],\
 						  'discrete': ['Water Meter', 'Rollershutter', 'Dimmer', 'Power Sensor'],\
 						  'continuous': ['Brightness Sensor']}
-		self.int_locations = ['Bathroom', 'Bedroom', 'Dining Room', 'Kitchen', 'Stove']
+		self.int_locations = ['Bathroom', 'Bedroom', 'Dining Room', 'Kitchen', 'Stove', 'Living Room']
 		#self.int_locations = ['Bathroom', 'Bedroom', 'Dining Room', 'First Floor', 'Hallway', 'Hallway First Floor', 'Hallway Second Floor',\
 		#				'Kitchen', 'Living Room', 'Main Entrance', 'Stairway', 'Stove', 'Study Room']
 
@@ -422,6 +423,7 @@ class Cprocessor(GeneralProcessor):
 	def initiate_data_preprocessing(self):
 		parsed_events = self.sanitize_raw_events()
 		unified_parsed_events = self.unify_value_type_by_change(parsed_events)
+		#unified_parsed_events = self.unify_value_type(parsed_events)
 		self.create_preprocessed_data_file(unified_parsed_events)
 
 class Hprocessor(GeneralProcessor):
@@ -498,9 +500,9 @@ class Hprocessor(GeneralProcessor):
 			# 3. Collect legitimate events
 			device_state_dict[parsed_event.dev] = parsed_event.value
 			qualified_events.append(parsed_event)
-			if self.verbosity:
-				print("[Preprocessing] Missed attr dict during data preprocessing:")
-				pprint(missed_attr_dicts)
+		#if self.verbosity:
+		#	print("[Preprocessing] Missed attr dict during data preprocessing:")
+		#	pprint(missed_attr_dicts)
 		return qualified_events
 
 	def unify_value_type(self, parsed_events: "list[AttrEvent]") -> "list[AttrEvent]":

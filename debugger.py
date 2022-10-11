@@ -3,6 +3,7 @@ from src.tigramite.tigramite.pcmci import PCMCI
 from src.tigramite.tigramite.independence_tests import ChiSquare
 from src.tigramite.tigramite import plotting as tp
 from src.genetic_type import DevAttribute, AttrEvent, DataFrame
+from src.benchmark.association_miner import AssociationMiner
 
 from pgmpy.models.BayesianModel import BayesianModel
 from pgmpy.inference.CausalInference import CausalInference
@@ -19,6 +20,7 @@ import ruptures as rpt
 import pandas as pd
 import matplotlib.pyplot as plt
 
+from src.event_processing import GeneralProcessor
 from src.bayesian_fitter import BayesianFitter
 from src.security_guard import SecurityGuard
 from src.tigramite.tigramite import data_processing as pp
@@ -31,7 +33,7 @@ class DataDebugger():
     def __init__(self, dataset, partition_days, training_ratio) -> None:
         self.dataset = dataset; self.partition_days = partition_days; self.training_ratio = training_ratio
         if self.dataset.startswith('hh'):
-            self.preprocessor = Hprocessor(dataset=dataset, partition_days=partition_days, training_ratio=training_ratio)
+            self.preprocessor = Hprocessor(dataset=dataset, partition_days=partition_days, training_ratio=training_ratio, verbosity=1)
         elif self.dataset.startswith('contextact'):
             self.preprocessor = Cprocessor(dataset=dataset, partition_days=partition_days, training_ratio=training_ratio, verbosity=1)
         self.preprocessor.initiate_data_preprocessing()
@@ -258,18 +260,27 @@ class GuardDebugger():
 
 if __name__ == '__main__':
 
-    dataset = 'contextact'; partition_days = 8; training_ratio = 0.7; tau_max = 2
+    dataset = 'hh130'; partition_days = 30; training_ratio = 0.8; tau_max = 2
     alpha = 0.001; int_frame_id = 0
-    n_max_edges = 10; sig_level = 0.999
+    n_max_edges = 30; sig_level = 0.99
 
     data_debugger = DataDebugger(dataset, partition_days, training_ratio)
+    event_preprocessor:'GeneralProcessor' = data_debugger.preprocessor
     frame:'DataFrame' = data_debugger.preprocessor.frame_dict[int_frame_id]
+    print("# events: {}".format(frame.n_events))
+    exit()
 
-    link_dict = {"0": [[0, -1], [0, -2], [9, -1], [9, -2], [14, -1], [1, -1], [12, -1]], "1": [[1, -1], [1, -2], [15, -1], [9, -1], [15, -2], [9, -2]], "2": [[2, -2], [9, -1], [17, -1], [12, -1], [17, -2], [9, -2]], "3": [[3, -2], [10, -1], [10, -2], [17, -1], [17, -2]], "4": [[11, -1], [4, -1], [17, -1]], "5": [[5, -1], [5, -2], [11, -1], [11, -2], [13, -2], [13, -1], [16, -2], [17, -2], [17, -1], [16, -1], [9, -1]], "6": [[6, -1], [6, -2], [8, -1], [8, -2], [10, -1], [10, -2], [17, -2], [17, -1]], "7": [[7, -1], [7, -2], [14, -1], [14, -2], [12, -2], [12, -1], [16, -1], [16, -2], [17, -1], [17, -2], [10, -2], [13, -2], [10, -1], [13, -1], [9, -2], [9, -1], [8, -1], [6, -1]], "8": [[8, -1], [8, -2], [17, -2], [17, -1], [6, -1], [14, -1], [14, -2], [16, -1], [16, -2], [9, -1], [9, -2], [7, -1]], "9": [[9, -1], [9, -2], [10, -1], [10, -2], [12, -1], [2, -1], [11, -1], [11, -2], [1, -1], [2, -2], [15, -2], [17, -1], [0, -1], [16, -2], [15, -1], [17, -2], [16, -1], [1, -2], [12, -2], [0, -2], [7, -2], [7, -1], [5, -2], [14, -2], [5, -1], [3, -2], [3, -1], [8, -1], [8, -2], [14, -1]], "10": [[10, -2], [10, -1], [12, -1], [17, -1], [17, -2], [12, -2], [9, -1], [14, -1], [14, -2], [9, -2], [3, -1], [11, -1], [11, -2], [3, -2], [13, -1], [13, -2]], "11": [[11, -1], [11, -2], [4, -2], [5, -1], [4, -1], [10, -1], [10, -2], [13, -1], [12, -2]], "12": [[12, -2], [12, -1], [10, -1], [10, -2], [9, -1], [16, -2], [17, -2], [16, -1], [17, -1], [15, -1], [2, -1], [14, -2], [15, -2], [14, -1], [9, -2], [5, -2], [13, -1], [3, -2]], "13": [[13, -2], [11, -1], [17, -1], [17, -2]], "14": [[14, -2], [17, -1], [17, -2], [10, -1], [10, -2], [15, -1], [14, -1], [0, -1], [11, -1], [11, -2]], "15": [[15, -2], [17, -1], [1, -1], [17, -2], [15, -1], [1, -2], [9, -2], [12, -1], [14, -1], [11, -1], [9, -1], [16, -1]], "16": [[16, -2], [17, -1], [12, -2], [12, -1], [9, -2], [15, -1], [9, -1]], "17": [[17, -2], [17, -1], [10, -1], [10, -2], [15, -1], [14, -1], [14, -2], [16, -1], [2, -1], [15, -2], [13, -1], [11, -1], [12, -1], [11, -2], [12, -2], [13, -2], [18, -1], [8, -1], [8, -2], [2, -2], [4, -1], [3, -2], [3, -1], [5, -2], [9, -2]], "18": [[18, -2], [17, -1]]}
-    new_link_dict = {}
-    for k, v in link_dict.items():
-        new_link_dict[int(k)] = v
-    link_dict = new_link_dict
+    association_miner = AssociationMiner(event_preprocessor, frame, tau_max, alpha)
+
+    causal_link_dict = {"0": [[0, -1], [0, -2], [9, -1], [9, -2], [14, -1], [1, -1], [12, -1]], "1": [[1, -1], [1, -2], [15, -1], [9, -1], [15, -2], [9, -2]], "2": [[2, -2], [9, -1], [17, -1], [12, -1], [17, -2], [9, -2]], "3": [[3, -2], [10, -1], [10, -2], [17, -1], [17, -2]], "4": [[11, -1], [4, -1], [17, -1]], "5": [[5, -1], [5, -2], [11, -1], [11, -2], [13, -2], [13, -1], [16, -2], [17, -2], [17, -1], [16, -1], [9, -1]], "6": [[6, -1], [6, -2], [8, -1], [8, -2], [10, -1], [10, -2], [17, -2], [17, -1]], "7": [[7, -1], [7, -2], [14, -1], [14, -2], [12, -2], [12, -1], [16, -1], [16, -2], [17, -1], [17, -2], [10, -2], [13, -2], [10, -1], [13, -1], [9, -2], [9, -1], [8, -1], [6, -1]], "8": [[8, -1], [8, -2], [17, -2], [17, -1], [6, -1], [14, -1], [14, -2], [16, -1], [16, -2], [9, -1], [9, -2], [7, -1]], "9": [[9, -1], [9, -2], [10, -1], [10, -2], [12, -1], [2, -1], [11, -1], [11, -2], [1, -1], [2, -2], [15, -2], [17, -1], [0, -1], [16, -2], [15, -1], [17, -2], [16, -1], [1, -2], [12, -2], [0, -2], [7, -2], [7, -1], [5, -2], [14, -2], [5, -1], [3, -2], [3, -1], [8, -1], [8, -2], [14, -1]], "10": [[10, -2], [10, -1], [12, -1], [17, -1], [17, -2], [12, -2], [9, -1], [14, -1], [14, -2], [9, -2], [3, -1], [11, -1], [11, -2], [3, -2], [13, -1], [13, -2]], "11": [[11, -1], [11, -2], [4, -2], [5, -1], [4, -1], [10, -1], [10, -2], [13, -1], [12, -2]], "12": [[12, -2], [12, -1], [10, -1], [10, -2], [9, -1], [16, -2], [17, -2], [16, -1], [17, -1], [15, -1], [2, -1], [14, -2], [15, -2], [14, -1], [9, -2], [5, -2], [13, -1], [3, -2]], "13": [[13, -2], [11, -1], [17, -1], [17, -2]], "14": [[14, -2], [17, -1], [17, -2], [10, -1], [10, -2], [15, -1], [14, -1], [0, -1], [11, -1], [11, -2]], "15": [[15, -2], [17, -1], [1, -1], [17, -2], [15, -1], [1, -2], [9, -2], [12, -1], [14, -1], [11, -1], [9, -1], [16, -1]], "16": [[16, -2], [17, -1], [12, -2], [12, -1], [9, -2], [15, -1], [9, -1]], "17": [[17, -2], [17, -1], [10, -1], [10, -2], [15, -1], [14, -1], [14, -2], [16, -1], [2, -1], [15, -2], [13, -1], [11, -1], [12, -1], [11, -2], [12, -2], [13, -2], [18, -1], [8, -1], [8, -2], [2, -2], [4, -1], [3, -2], [3, -1], [5, -2], [9, -2]], "18": [[18, -2], [17, -1]]}
+    causal_link_dict = {int(k): v for k, v in causal_link_dict.items()}
+
+    evaluator = Evaluator(event_preprocessor, frame, tau_max, alpha)
+    for n_max_edges in range(5, 10):
+        print("n_max_edges={}".format(n_max_edges))
+        evaluator.check_selection_bias(association_miner.mining_edges, n_max_edges, sig_level)
+        evaluator.check_selection_bias(causal_link_dict, n_max_edges, sig_level)
+    exit()
 
     bayesian_fitter = BayesianFitter(frame, tau_max, link_dict, n_max_edges=n_max_edges)
 

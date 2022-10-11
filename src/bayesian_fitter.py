@@ -18,9 +18,9 @@ def _elapsed_minutes(start):
 
 class BayesianFitter:
 
-    def __init__(self, frame, tau_max, link_dict, n_max_edges=10) -> None:
-        self.frame:'DataFrame' = frame; self.tau_max = tau_max
-        self.dataframe:'pp.DataFrame' = self.frame.training_dataframe
+    def __init__(self, frame, tau_max, link_dict, n_max_edges=10, model_name='causal', use_training=True) -> None:
+        self.frame:'DataFrame' = frame; self.tau_max = tau_max; self.use_training = use_training
+        self.dataframe:'pp.DataFrame' = self.frame.training_dataframe if self.use_training else self.frame.testing_dataframe
         self.var_names = self.frame.var_names; self.n_vars = len(self.var_names)
 
         self.extended_name_device_dict:'dict[str, DevAttribute]' = defaultdict(DevAttribute) # The str-DevAttribute dict using the attr name as the dict key
@@ -31,6 +31,7 @@ class BayesianFitter:
         self.isolated_attr_list = []; self.exogenous_attr_list = []; self.stop_attr_list = []
         self._analyze_discovery_statistics()
 
+        self.model_name = model_name
         self.model = BayesianNetwork(self.extended_edges)
         self._bayesian_parameter_estimation()
         #self.causal_model = self._construct_causal_model()
@@ -76,7 +77,6 @@ class BayesianFitter:
             for outcome, cause_list in link_dict.items(): # Construct expanded causal graph (a binary array)
                 n_commited_edges = 0
                 # JC TODO: The ad-hoc edge selection/prunning scheme here is to simply select the first k edges with maximal statistical dependencies.
-                # Should we also consider the temporal frequency for edge prunning/selection?
                 for cause in cause_list: 
                     n_commited_edges += 1
                     if n_commited_edges > n_max_edges:
@@ -109,7 +109,7 @@ class BayesianFitter:
         else:
             self.model.fit(df, estimator=ExpectationMaximization, n_jobs=n_jobs) 
         elapsed_time = _elapsed_minutes(start_time)
-        print("Parameter Estimation finished. Elapsed time: {} mins".format(elapsed_time))
+        #print("Parameter Estimation finished. Elapsed time: {} mins".format(elapsed_time))
     
     def estimate_cond_probability(self, event:'AttrEvent', parent_states:'list[tuple(str, int)]'):
         """
@@ -179,7 +179,7 @@ class BayesianFitter:
     #    cond_prob = 0 if len(selected_parents) == 0 else cpd.get_value(**val_dict)
     #    return cond_prob
 
-    def _analyze_discovery_statistics(self):
+    def _analyze_discovery_statistics(self, verbosity=0):
         """
         This function analyzes
             (1) the statistics of the degree, and
@@ -206,16 +206,16 @@ class BayesianFitter:
         stop_attr_list = [var_name for var_name in self.var_names if incoming_degree_dict[var_name] > 0 and outcoming_degree_dict[var_name] == 0]
         outcoming_degree_list = list(outcoming_degree_dict.values()); incomming_degree_list = list(incoming_degree_dict.values())
 
-        str = " [Bayesian Fitting]\n"\
-            + " * isolated attrs, #: {}, {}\n".format(isolated_attr_list, len(isolated_attr_list))\
-            + " * stop attrs, #: {}, {}\n".format(stop_attr_list, len(stop_attr_list))\
-            + " * exogenous attrs, #: {}, {}\n".format(exogenous_attr_list, len(exogenous_attr_list))\
-            + " * # edges: {}\n".format(np.sum(self.expanded_causal_graph))\
-            + " * (max, mean, min) for outcoming degrees: ({}, {}, {})\n".format(max(outcoming_degree_list),\
-                        sum(outcoming_degree_list)*1.0/(self.n_vars - len(isolated_attr_list)), min(outcoming_degree_list))\
-            + " * (max, mean, min) for incoming degrees: ({}, {}, {})\n".format(max_in_degree, avg_in_degree, min_in_degree)
-        
-        print(str)
+        if verbosity:
+            str = " [Bayesian Fitting]\n"\
+                + " * isolated attrs, #: {}, {}\n".format(isolated_attr_list, len(isolated_attr_list))\
+                + " * stop attrs, #: {}, {}\n".format(stop_attr_list, len(stop_attr_list))\
+                + " * exogenous attrs, #: {}, {}\n".format(exogenous_attr_list, len(exogenous_attr_list))\
+                + " * # edges: {}\n".format(np.sum(self.expanded_causal_graph))\
+                + " * (max, mean, min) for outcoming degrees: ({}, {}, {})\n".format(max(outcoming_degree_list),\
+                            sum(outcoming_degree_list)*1.0/(self.n_vars - len(isolated_attr_list)), min(outcoming_degree_list))\
+                + " * (max, mean, min) for incoming degrees: ({}, {}, {})\n".format(max_in_degree, avg_in_degree, min_in_degree)
+            print(str)
 
         if max_in_degree > 10:
             print("[Bayesian Fitting] ALERT! The variable {} owns the maximum in-degree {} (larger than 10). This variable may slow down the fitting process!".format(max_in_attr, max_in_degree))

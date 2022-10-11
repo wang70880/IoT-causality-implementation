@@ -3,6 +3,7 @@ import itertools
 import numpy as np
 import random
 import pandas as pd
+import statistics
 from src.tigramite.tigramite.pcmci import PCMCI
 import matplotlib.pyplot as plt
 from numpy import ndarray
@@ -10,7 +11,9 @@ from src.event_processing import Hprocessor, Cprocessor, GeneralProcessor
 from src.drawer import Drawer
 from src.background_generator import BackgroundGenerator
 from src.bayesian_fitter import BayesianFitter
+from src.security_guard import SecurityGuard
 from src.genetic_type import DataFrame, AttrEvent, DevAttribute
+from src.benchmark.association_miner import AssociationMiner
 from src.tigramite.tigramite import plotting as ti_plotting
 from collections import defaultdict
 from pprint import pprint
@@ -18,22 +21,17 @@ from pprint import pprint
 from src.tigramite.tigramite import pcmci
 from src.tigramite.tigramite.independence_tests.chi2 import ChiSquare
 
-
 class Evaluator():
 
-    def __init__(self, event_preprocessor, background_generator, bayesian_fitter,\
-        bk_level, pc_alpha):
-        self.event_preprocessor:'GeneralProcessor' = event_preprocessor
-        self.background_generator:'BackgroundGenerator' = background_generator
-        self.bayesian_fitter:'BayesianFitter' = bayesian_fitter
-        self.bk_level = bk_level; self.pc_alpha = pc_alpha
-        self.tau_max = self.background_generator.tau_max
-        self.ground_truth_dict = self._construct_ground_truth()
-        self.golden_standard_dict = self._construct_golden_standard()
+    def __init__(self, event_preprocessor, frame, tau_max, pc_alpha):
+        self.event_preprocessor = event_preprocessor
+        self.frame:'DataFrame' = frame
+        self.tau_max = tau_max
+        self.pc_alpha = pc_alpha
+        self.golden_edges, self.golden_array, self.nor_golden_array = self._construct_golden_standard()
     
-    """
-    Helper functions.
-    """
+    """Helper functions."""
+
     def normalize_time_series_array(self, arr:'np.ndarray', threshold=0):
         n_rows = arr.shape[0]; n_cols = arr.shape[1]
         ret_arr:'np.ndarray' = np.zeros((n_rows, n_cols), dtype=np.int8)
@@ -42,101 +40,46 @@ class Evaluator():
                 ret_arr[i, j] = 1 if np.sum(arr[i,j,:])>threshold else 0
         return ret_arr
     
-    """Function classes for golden standard construction."""
-
-    def _construct_ground_truth(self):
-        # Auxillary variables
-        frequency_array:'np.ndarray' = self.background_generator.frequency_array
-        spatial_array:'np.ndarray' = self.background_generator.knowledge_dict['spatial']
-        user_array:'np.ndarray' = self.background_generator.knowledge_dict['user']
-        physical_array:'np.ndarray' = self.background_generator.knowledge_dict['physical']
-        # Return variables
-        ground_truth_dict = defaultdict(np.ndarray)
-        ground_truth_dict['temporal']:'np.ndarray' = self.normalize_time_series_array(frequency_array, threshold=self.background_generator.frame.n_days)
-        ground_truth_dict['spatial']:'np.ndarray' = self.normalize_time_series_array(spatial_array)
-        ground_truth_dict['user']:'np.ndarray' = self.normalize_time_series_array(user_array)
-        ground_truth_dict['physical']:'np.ndarray' = self.normalize_time_series_array(physical_array)
-
-        return ground_truth_dict
-
-    def _identify_user_interactions(self):
-        """
-        In the current frame, for any two devices, they have interactions iff (1) they are spatially adjacent, and (2) they are usually sequentially activated.
-            (1) The identification of spatial adjacency is done by the background generator.
-            (2) The identification of sequential activation is done by checking its occurrence within time lag tau_max.
-        """
-        # Auxillary variables
-        frame:'DataFrame' = self.background_generator.frame
-        # Return variables
-        golden_user_array = self.ground_truth_dict['user'] + self.ground_truth_dict['spatial'] + self.ground_truth_dict['temporal']
-        golden_user_array[golden_user_array<3] = 0; golden_user_array[golden_user_array==3] = 1
-
-        return golden_user_array
-
-    def _identify_physical_interactions(self):
-        # Auxillary variables
-        frame:'DataFrame' = self.background_generator.frame
-        # Return variables
-        golden_physical_array = self.ground_truth_dict['physical'] + self.ground_truth_dict['spatial'] + self.ground_truth_dict['temporal']
-        golden_physical_array[golden_physical_array<3] = 0; golden_physical_array[golden_physical_array==3] = 1
-
-        return golden_physical_array
-    
-    def _identify_automation_interactions(self):
-        # Auxillary variables
-        frame:'DataFrame' = self.background_generator.frame
-        name_device_dict = frame.name_device_dict; n_vars = frame.n_vars
-        # Return variables
-        golden_automation_array:'np.ndarray' = np.zeros((n_vars, n_vars), dtype=np.int32)
-
-        return golden_automation_array
-    
-    def _identify_auto_correlation(self):
-        # Auxillary variables
-        frame:'DataFrame' = self.background_generator.frame
-        n_vars = frame.n_vars
-        # Return variables
-        golden_correlation_array:'np.ndarray' = np.zeros((n_vars, n_vars), dtype=np.int8)
-        for i in range(n_vars):
-            golden_correlation_array[i,i] = 1
-        return golden_correlation_array
+    def calculate_accuracy(self, discovery_results, ground_truths):
+        tp = len([x for x in discovery_results if x in ground_truths])
+        fp = len([x for x in discovery_results if x not in ground_truths])
+        fn = len([x for x in ground_truths if x not in discovery_results])
+        precision = tp * 1.0 / (tp + fp) if tp + fp > 0 else 0
+        recall = tp * 1.0 / (tp + fn) if tp + fn > 0 else 0
+        f1 = 2.0*precision*recall/(precision+recall) if (precision+recall) != 0 else 0
+        return tp, fp, fn, precision, recall, f1
+    """Function classes for ground truth construction."""
 
     def _construct_golden_standard(self):
-        # Construct the ground truth based on HAWathcer's result
-        golden_standard_dict = {}
-        golden_standard_dict['user'] = self._identify_user_interactions(); golden_standard_dict['physics'] = self._identify_physical_interactions()
-        golden_standard_dict['automation'] = self._identify_automation_interactions(); golden_standard_dict['autocor'] = self._identify_auto_correlation()
-        hawatcher_array:'np.ndarray' = golden_standard_dict['user'] + golden_standard_dict['physics'] + golden_standard_dict['automation'] + golden_standard_dict['autocor']
-        hawatcher_array[hawatcher_array>0] = 1
-        golden_standard_dict['hawatcher'] = hawatcher_array
-
-        # Construct our reviewed ground truth (By default, the reviewed ground truth is set to be that of HAWatcher's)
+        """
+        For all known interactions between two devices (in the ground truth file), we further determine the golden time lag
+        """
+        ground_truth_array = None
         try:
             golden_df = pd.read_csv(self.event_preprocessor.ground_truth, encoding="utf-8", delim_whitespace=True, header=0, dtype=int)
-            golden_standard_dict['aggregation'] = golden_df.values
+            ground_truth_array = golden_df.values
         except:
-            golden_standard_dict['aggregation'] = hawatcher_array.copy()
-
-        return golden_standard_dict
-
-    def print_golden_standard(self, golden_type='aggregation'):
-        # Auxillary variables
-        frame:'DataFrame' = self.background_generator.frame
-        tau_max = self.background_generator.tau_max; var_names = frame.var_names
-
-        golden_array = self.golden_standard_dict[golden_type]
-        print("Golden array with type {} (After lag aggregation):".format(golden_type))
-        df = pd.DataFrame(golden_array, columns=var_names, index=var_names)
-        print(df)
-        print("# golden edges: {}".format(np.count_nonzero(golden_array > 0)))
+            raise FileNotFoundError("Cannot construct the ground truth! (Maybe the ground truth file is missing?)")
+        
+        # Generate the interaction set, given the ground truth array
+        # Currently we don't know the time lag yet, so we add edges with all lags
+        selected_links = defaultdict(list)
+        for (cause, outcome), x in np.ndenumerate(ground_truth_array):
+            if x == 0:
+                continue
+            for lag in range(1, self.tau_max+1):
+                selected_links[outcome].append((cause, -lag))
+        # For all candidate time lags, we filter them according to the statistical test, and get the ranked edge sets
+        asso_miner = AssociationMiner(self.event_preprocessor, self.frame, self.tau_max, self.pc_alpha*100)
+        golden_edges, golden_array, nor_golden_array = asso_miner.interaction_mining(selected_links)
+        return golden_edges, golden_array, nor_golden_array
 
     """Function classes for causal discovery evaluation."""
 
     def precision_recall_calculation(self, golden_array:'np.ndarray', evaluated_array:'np.ndarray',\
                         filtered_edge_infos:'dict'=None, identified_edge_infos:'dict'=None):
         # Auxillary variables
-        frequency_array:'np.ndarray' = self.background_generator.frequency_array
-        frame:'DataFrame' = self.background_generator.frame
+        frame:'DataFrame' = self.frame
         index_device_dict:'dict[DevAttribute]' = frame.index_device_dict
 
         # Calculate tp, fp, fn
@@ -159,9 +102,7 @@ class Evaluator():
                 pair_info = {
                     'adev-pair': '{}->{}'.format(index_device_dict[index[0]].name, index_device_dict[index[1]].name),
                     'attr-pair': (index_device_dict[index[0]].attr, index_device_dict[index[1]].attr),
-                    'temporal': (np.sum(frequency_array[index[0],index[1],:])),
-                    'spatial': ((index_device_dict[index[0]].location, index_device_dict[index[1]].location), self.ground_truth_dict['spatial'][index])
-                    #'property': (self.ground_truth_dict['user'][index], self.ground_truth_dict['physical'][index], self.golden_standard_dict['autocor'][index])
+                    'spatial': (index_device_dict[index[0]].location, index_device_dict[index[1]].location)
                 }
                 if evaluated_array[index] == 1 and golden_array[index] == 1:
                     edge_infos = [edge_info for edge_info in identified_edge_infos[index[1]] if edge_info[0][1][0]==index[0]]
@@ -216,11 +157,43 @@ class Evaluator():
 
         return tp, fp, fn, precision, recall, f1_score, tp_dict, tn_dict, fp_dict, fn_dict
 
+    def evaluate_discovery_accuracy(self, discovery_results:'np.ndarray', ground_truth_array:'np.ndarray',\
+                            filtered_edge_infos:'dict'=None, identified_edge_infos:'dict'=None, verbosity=0):
+        assert(len(discovery_results.shape)==len(ground_truth_array.shape)==2) 
+        # Auxillary variables
+        frame:'DataFrame' = self.frame
+        var_names = frame.var_names; n_vars = len(var_names)
+
+        # 1. Plot the golden standard graph and the discovered graph. Note that the plot functionality requires PCMCI objects
+        #drawer = Drawer(self.background_generator.dataset)
+        #pcmci = PCMCI(dataframe=frame.training_dataframe, cond_ind_test=ChiSquare(), verbosity=-1)
+        #drawer.plot_interaction_graph(pcmci, discovery_results==1, 'mined-interaction-bklevel{}-alpha{}'\
+        #                    .format(self.bk_level, int(1.0/self.pc_alpha)), link_label_fontsize=10)
+        #drawer.plot_interaction_graph(pcmci, golden_standard_array==1, 'golden-interaction')
+        # 3. Calculate the tau-free-precision and tau-free-recall for discovered results
+        tp, fp, fn, precision, recall, f1, tp_dict, tn_dict, fp_dict, fn_dict \
+             = self.precision_recall_calculation(ground_truth_array, discovery_results, filtered_edge_infos, identified_edge_infos)
+        assert(tp+fn == np.sum(ground_truth_array))
+        if verbosity:
+            print('TP Infos ({})'.format(len(tp_dict.keys())))
+            for tp_info in tp_dict.values():
+                pprint(tp_info)
+            print('FP Infos ({})'.format(len(fp_dict.keys())))
+            for fp_info in fp_dict.values():
+                pprint(fp_info)
+            print('TN Infos ({})'.format(len(tn_dict.keys())))
+            for tn_info in tn_dict.values():
+                pprint(tn_info)
+            print('FN Infos ({})'.format(len(fn_dict.keys())))
+            for fn_info in fn_dict.values():
+                pprint(fn_info)
+        return tp, fp, fn, precision, recall, f1
+
     def compare_with_arm(self, discovery_results:'np.ndarray', arm_results:'np.ndarray'):
         # Auxillary variables
         frame:'DataFrame' = self.background_generator.frame
         var_names = frame.var_names; n_vars = frame.n_vars; index_device_dict:'dict[DevAttribute]' = frame.index_device_dict
-        golden_standard_array:'np.ndarray' = self.golden_standard_dict['aggregation']
+        golden_standard_array:'np.ndarray' = self.ground_truth_array
         assert(discovery_results.shape == (n_vars, n_vars, self.tau_max + 1))
         assert(arm_results.shape == (n_vars, n_vars))
 
@@ -265,7 +238,7 @@ class Evaluator():
         # Auxillary variables
         frame:'DataFrame' = self.background_generator.frame
         var_names = frame.var_names; n_vars = len(var_names); index_device_dict:'dict[DevAttribute]' = frame.index_device_dict
-        golden_standard_array:'np.ndarray' = self.golden_standard_dict['aggregation']
+        golden_standard_array:'np.ndarray' = self.ground_truth_array
 
         # 1. Analyze the discovered device interactions (After aggregation of time lag)
         tau_free_discovery_array:'np.ndarray' = sum([discovery_results[:,:,tau] for tau in range(1, self.tau_max + 1)]); tau_free_discovery_array[tau_free_discovery_array > 0] = 1
@@ -284,125 +257,160 @@ class Evaluator():
         print("# of interaction chains: {}".format(n_paths))
         return interactions, interaction_types, n_paths
 
-    def evaluate_discovery_accuracy(self, discovery_results:'np.ndarray',\
-                            filtered_edge_infos:'dict'=None, identified_edge_infos:'dict'=None, verbosity=0):
-        assert(len(discovery_results.shape)==2) 
-        # Auxillary variables
-        frame:'DataFrame' = self.background_generator.frame
-        var_names = frame.var_names; n_vars = len(var_names)
-        golden_standard_array:'np.ndarray' = self.golden_standard_dict['aggregation']
+    """Function class for automatic selection of n_max_edges (based on prediction error analysis)"""
 
-        # 1. Plot the golden standard graph and the discovered graph. Note that the plot functionality requires PCMCI objects
-        #drawer = Drawer(self.background_generator.dataset)
-        #pcmci = PCMCI(dataframe=frame.training_dataframe, cond_ind_test=ChiSquare(), verbosity=-1)
-        #drawer.plot_interaction_graph(pcmci, discovery_results==1, 'mined-interaction-bklevel{}-alpha{}'\
-        #                    .format(self.bk_level, int(1.0/self.pc_alpha)), link_label_fontsize=10)
-        #drawer.plot_interaction_graph(pcmci, golden_standard_array==1, 'golden-interaction')
-        # 3. Calculate the tau-free-precision and tau-free-recall for discovered results
-        assert(discovery_results.shape==golden_standard_array.shape)
-        tp, fp, fn, precision, recall, f1, tp_dict, tn_dict, fp_dict, fn_dict \
-             = self.precision_recall_calculation(golden_standard_array, discovery_results, filtered_edge_infos, identified_edge_infos)
-        assert(tp+fn == np.sum(golden_standard_array))
-        if verbosity:
-            print('TP Infos ({})'.format(len(tp_dict.keys())))
-            for tp_info in tp_dict.values():
-                pprint(tp_info)
-            print('FP Infos ({})'.format(len(fp_dict.keys())))
-            for fp_info in fp_dict.values():
-                pprint(fp_info)
-            print('TN Infos ({})'.format(len(tn_dict.keys())))
-            for tn_info in tn_dict.values():
-                pprint(tn_info)
-            print('FN Infos ({})'.format(len(fn_dict.keys())))
-            for fn_info in fn_dict.values():
-                pprint(fn_info)
-        return tp, fp, fn, precision, recall, f1
+    def calculate_prediction_error(self, bayesian_fitter, sig_level, use_training=False):
+        int_event_states = self.frame.training_events_states if use_training else self.frame.testing_events_states
+        #training_event_states = self.frame.training_events_states
+        security_guard = SecurityGuard(self.frame, bayesian_fitter, sig_level)
+        security_guard.initialize_phantom_machine()
+        prediction_errors = []
+        fp_cases = defaultdict(int)
+        n_fps = 0
+        for evt_id, tup in enumerate(int_event_states):
+            event, states = int_event_states[evt_id]
+            score = security_guard._compute_event_anomaly_score(event, security_guard.phantom_state_machine)
+            if score > security_guard.score_threshold:
+                fp_cases["{}={}:{}".format(event.dev, event.value, ''.join([str(x) for x in states]))] += 1
+                n_fps += 1
+            prediction_errors.append(score)
+            security_guard.phantom_state_machine.set_latest_states(states)
+        return prediction_errors, fp_cases, n_fps
+    
+    def determine_best_max_edges(self, link_dict, sig_level):
+        """
+        For a given model and anomaly detection threshold, iterate over different n_max_edges settings, and use the clean testing data to select the best n_max_edges with the lowest # false alarms.
+
+        Return values:
+            n_max_edge: The identified best parameter setting for bayesian fitting which achieves the lowest prediction error
+            prediction_errors: The calculated anomaly score (prediction error) for the clean testing data
+            fp_cases: The reported false alarms and counts in the best n_max_edge setting.
+            n_fps: The # false alarms reported in the best n_max_edge setting.
+        """
+        testing_result_dict = {}; min_n_fps = 1000000
+        for n_max_edges in range(5, 11):
+            bayesian_fitter = BayesianFitter(self.frame, self.tau_max, link_dict, n_max_edges=n_max_edges)
+            prediction_errors, fp_cases, n_fps = self.calculate_prediction_error(bayesian_fitter, sig_level)
+            min_n_fps = n_fps if n_fps < min_n_fps else min_n_fps
+            testing_result_dict[n_max_edges] = (prediction_errors, fp_cases, n_fps)
+        # We use the minimum false alarms as the metric to select the best_max_edge
+        best_max_edge = [x for x in testing_result_dict.keys() if testing_result_dict[x][2]==min_n_fps][0]
+
+        return best_max_edge, testing_result_dict[best_max_edge][0], testing_result_dict[best_max_edge][1], testing_result_dict[best_max_edge][2]
+
+    """Function class for analyzing the advantage of causal model over association model"""
+
+    def check_selection_bias(self, link_dict, n_max_edges, sig_level):
+        """
+        The selection bias is defined as: Err_prediction(testing-data, model) - Err_prediction(training-data, model)
+            * The larger bias is, the worser the model's generality is.
+        """
+        #n_max_edges, _, _, _ = self.determine_best_max_edges(link_dict, sig_level)
+        bayesian_fitter = BayesianFitter(self.frame, self.tau_max, link_dict, n_max_edges=n_max_edges, use_training=True)
+        training_prediction_errors, _, _ = self.calculate_prediction_error(bayesian_fitter, sig_level, use_training=True)
+        testing_prediction_errors, _, _ = self.calculate_prediction_error(bayesian_fitter, sig_level, use_training=False)
+        avg_testing_error = statistics.mean(testing_prediction_errors); avg_training_error = statistics.mean(training_prediction_errors)
+        testing_error_variance = statistics.variance(testing_prediction_errors); training_error_variance = statistics.variance(training_prediction_errors)
+        print("Difference between average prediction error of training and testing datasets: {:.3f}-{:.3f}={:.3f}"\
+                    .format(avg_testing_error, avg_training_error, avg_testing_error-avg_training_error))
+        print("Variance of the prediction error in testing and training datasets: {:.3f} v.s. {:.3f}".format(testing_error_variance, training_error_variance))
+
+    """Function class for anomaly injection"""
+
+    def inject_contextual_anomalies(self, ground_truth_fitter:'BayesianFitter', sig_level, n_anomaly, case_id):
+        """
+        The case_id represents the injected anomaly type.
+        """
+        # Return variables
+        new_testing_event_states:'list[tuple(AttrEvent,ndarray)]' = []; anomaly_positions = []; testing_benign_dict:'dict[int]' = {}
+        # Auxillary variables
+        device_description_dict = self.event_preprocessor.device_description_dict
+        frame:'DataFrame' = self.frame
+        var_names = frame.var_names
+        benign_event_states:'list[tuple(AttrEvent,ndarray)]' = frame.testing_events_states
+        anomaly_infos = defaultdict(list)
+
+        # 0. Initialize the state machine
+        security_guard = SecurityGuard(frame, ground_truth_fitter, sig_level)
+        security_guard.initialize_phantom_machine()
+
+        # 1. Randomly pick n_anomaly positions for anomaly injection
+        candidate_positions = sorted(random.sample(range(0, len(benign_event_states)), n_anomaly))
+
+        # 2. Generate the eventual testing sequences with anomaly injected
+        new_event_id = 0
+        for evt_id, (event, states) in enumerate(benign_event_states):
+            # 2.1 First add benign testing events
+            security_guard.phantom_state_machine.set_latest_states(states)
+            new_testing_event_states.append((event, states))
+            testing_benign_dict[new_event_id] = evt_id
+            new_event_id += 1
+
+            if evt_id in candidate_positions:
+                # 2.2 Determine the set of potential anomaly events for current anomaly position
+                candidate_anomalies = defaultdict(list)
+                for var_name in var_names:
+                    last_state = security_guard.phantom_state_machine.phantom_states[var_names.index(var_name)]
+                    # Generate state-flipped anomalous event
+                    candidate_event = AttrEvent('', '', var_name, device_description_dict[var_name]['attr'], 1-last_state)
+                    # If the filpped event is deemed as an anomalous event by the ground truth fitter: Store it as a candidate anomalous event 
+                    if security_guard._compute_event_anomaly_score(candidate_event, security_guard.phantom_state_machine) >= security_guard.score_threshold:
+                        anomalous_event = candidate_event
+                        anomalous_states = states.copy(); anomalous_states[var_names.index(var_name)] = anomalous_event.value
+                        candidate_anomalies[evt_id].append((anomalous_event, anomalous_states))
+                
+                # 2.2 Randomly generate an anomaly event from the candidate set, and record it into the final testing event sequences
+                if len(candidate_anomalies[evt_id]) > 0:
+                    anomaly_event_state = random.choice(candidate_anomalies[evt_id])
+                    new_testing_event_states.append(anomaly_event_state)
+                    anomaly_positions.append(new_event_id)
+                    anomaly_infos[anomaly_event_state[0].attr].append(new_event_id)
+                    testing_benign_dict[new_event_id] = evt_id # For rolling back
+                    new_event_id += 1
+        print("Total # injected anomalies: {}".format(len(anomaly_positions)))
+
+        return new_testing_event_states, anomaly_positions, anomaly_infos, testing_benign_dict
 
     """Function classes for anomaly detection evaluation."""
 
-    def construct_golden_standard_bayesian_fitter(self):
-        # Auxillary variables
-        frame:'DataFrame' = self.background_generator.frame
-        var_names = frame.var_names
-
-        golden_standard_interaction_matrix:'np.ndarray' = self.golden_standard_dict['aggregation']
-        link_dict = defaultdict(list)
-        for (i, j, lag), x in np.ndenumerate(golden_standard_interaction_matrix):
-            if x == 1:
-                link_dict[var_names[j]].append((var_names[i],-lag))
-        golden_bayesian_fitter = BayesianFitter(frame, self.tau_max, link_dict)
-        golden_bayesian_fitter.construct_bayesian_model()
-        return golden_bayesian_fitter
-
-    def simulate_malicious_control(self, n_anomaly, maximum_length, anomaly_case):
+    def evaluate_false_alarm_rate(self, sig_level, link_dict):
         """
-        The function injects anomalous events to the benign testing data, and generates the testing event sequences (simulating Malicious Control Attack).
-        1. Randomly select n_anomaly positions.
-        2. Traverse each benign event, and maintain a phantom state machine to track the system state.
-        3. When reaching to a pre-designated position:
-            * Determine the anomalous device and its state (flips of benign states).
-            * Generate an anomalous event and insert it to the testing sequence.
-            * If maximum_length > 1, propagate the anomaly according to the golden standard interaction.
-        4. Record the nearest stable benign states for each testing sequence.
-        Parameters:
-            frame: The dataframe storing benign testing sequences
-            n_anomaly: The number of injected anomalies
-            maximum_length: The maximum length of the anomaly chain. If 0, the function injects single point anomalies.
-        Returns:
-            testing_event_sequence: The list of testing events (with injected anomalies)
-            anomaly_positions: The list of injection positions in testing sequences
-            stable_states_dict: Dict of {Key: position in testing log; Value: stable roll-back (event, states) pair}
+        Using testing data (without anomaly injection), this function compares the prediction error (i.e., false positives) of both causal and association model.
+            1. Call determine_best_max_edge to select the best n_max_edges for both models.
         """
-        # Return variables
-        testing_event_states:'list[tuple(AttrEvent,ndarray)]' = []; anomaly_positions = []; testing_benign_dict:'dict[int]' = {}
-        # Auxillary variables
-        frame:'DataFrame' = self.background_generator.frame
-        name_device_dict:'dict[DevAttribute]' = frame.name_device_dict
-        benign_event_states:'list[tuple(AttrEvent,ndarray)]' = frame.testing_events_states
+        association_miner = AssociationMiner(self.event_preprocessor, self.frame, self.tau_max, self.pc_alpha)
+        causal_max_edge, causal_prediction_errors, causal_fp_cases, causal_n_fps = self.determine_best_max_edges(link_dict, sig_level)
+        asso_max_edge, asso_prediction_errors, asso_fp_cases, asso_n_fps = self.determine_best_max_edges(association_miner.mining_edges, sig_level)
+        n_testing_events = len(causal_prediction_errors)
 
-        # 1. Determine the set of anomaly events according to the anomaly case
-        candidate_positions = []; anomalous_event_states = []; real_candidate_positions = []
-        if anomaly_case == 1: # Outlier Intrusion: Ghost motion sensor activation event
-            golden_bayesian_fitter = self.construct_golden_standard_bayesian_fitter()
-            motion_devices = [dev for dev in frame.var_names if dev.startswith('M')]
-            candidate_positions = sorted(random.sample(\
-                                    range(self.tau_max, len(benign_event_states) - 1, self.tau_max + maximum_length),\
-                                    n_anomaly))
-            recent_devices = []
-            for i, (event, stable_states) in enumerate(benign_event_states):
-                recent_devices.append(event.dev)
-                if i in candidate_positions:  # Determine the anomaly event
-                    recent_tau_devices = list(set(recent_devices[-(self.tau_max):].copy()))
-                    children_devices = golden_bayesian_fitter.get_expanded_children(recent_tau_devices) # Avoid child devices in the golden standard
-                    potentially_anomaly_devices = [x for x in motion_devices if x not in children_devices and stable_states[name_device_dict[x].index] == 0]
-                    if len(potentially_anomaly_devices) == 0:
-                        continue
-                    real_candidate_positions.append(i)
-                    anomalous_device = random.choice(potentially_anomaly_devices); anomalous_device_index = name_device_dict[anomalous_device].index; anomalous_device_state = 1
-                    anomalous_event = AttrEvent(date=event.date, time=event.time, dev=anomalous_device, attr='Case1-Anomaly', value=anomalous_device_state)
-                    anomaly_states = stable_states.copy(); anomaly_states[anomalous_device_index] = anomalous_device_state
-                    anomalous_event_states.append((anomalous_event, anomaly_states))
-        else:
-            pass
+        causual_avg_error = statistics.mean(causal_prediction_errors); association_avg_error = statistics.mean(asso_prediction_errors)
+        print("[Anomaly-FP-Analysis (sig-level={})] Benchmark selection: Causal Model v.s. Association Model".format(sig_level))
+        print("     (1) Maximum edges ({} v.s. {}), False alarm rate ({} v.s. {}), Average prediction error ({} v.s. {})"\
+                    .format(causal_max_edge, asso_max_edge, causal_n_fps, asso_n_fps, causual_avg_error, association_avg_error))
+        causal_adv_cases = {}
+        for x in list(asso_fp_cases.keys()):
+            if x not in list(causal_fp_cases.keys()):
+                causal_adv_cases[x] = asso_fp_cases[x]
+        #pprint(causal_adv_cases)
 
-        # 2. Insert these anomaly events into the dataset
-        testing_count = 0; anomaly_count = 0
-        for i, (event, stable_states) in enumerate(benign_event_states):
-            testing_event_states.append((event, stable_states))
-            testing_benign_dict[testing_count] = i; testing_count += 1
-            if i in real_candidate_positions: # If reaching the anomaly position.
-                anomalous_event, anomalous_attr_state = anomalous_event_states[anomaly_count]
-                testing_event_states.append((anomalous_event, anomalous_attr_state)); anomaly_positions.append(testing_count)
-                testing_benign_dict[testing_count] = i; testing_count += 1; anomaly_count += 1
+    def evaluate_contextual_detection_accuracy(self, anomaly_infos:'dict[list]', alarm_infos:'dict[list]', model_name='unknown'):
+        anomaly_positions = [position for positions in anomaly_infos.values() for position in positions]
+        alarm_positions = [position for positions in alarm_infos.values() for position in positions]
+        tp, fp, fn, precision, recall, f1 = self.calculate_accuracy(alarm_positions, anomaly_positions)
+        print("[{}-Model Contextual Anomaly Detection] Overall precision, recall, f1 = {:.3f}, {:.3f}, {:.3f}".format(model_name, precision, recall, f1))
+        if self.event_preprocessor.dataset == 'contextact':
+            anomalous_cases = {
+                'Burglar Intrusion': anomaly_infos['Infrared Movement Sensor'] + anomaly_infos['Contact Sensor'],
+                'Sensor Fault': anomaly_infos['Brightness Sensor'] + anomaly_infos['Power Sensor'] + anomaly_infos['Water Meter'],
+                'Remote Control': anomaly_infos['Dimmer'] + anomaly_infos['Switch']
+            }
+            alarm_cases = {
+                'Burglar Intrusion': alarm_infos['Infrared Movement Sensor'] + alarm_infos['Contact Sensor'],
+                'Sensor Fault': alarm_infos['Brightness Sensor'] + alarm_infos['Power Sensor'] + alarm_infos['Water Meter'],
+                'Remote Control': alarm_infos['Dimmer'] + alarm_infos['Switch']
+            }
 
-        return testing_event_states, anomaly_positions, testing_benign_dict
-
-    def evaluate_detection_accuracy(self, golden_standard:'list[int]', result:'list[int]'):
-        print("Golden standard with number {}: {}".format(len(golden_standard), golden_standard))
-        print("Your result with number {}: {}".format(len(result), result))
-        tp = len([x for x in result if x in golden_standard])
-        fp = len([x for x in result if x not in golden_standard])
-        fn = len([x for x in golden_standard if x not in result])
-        precision = tp * 1.0 / (tp + fp) if tp + fp > 0 else 0
-        recall = tp * 1.0 / (tp + fn) if tp + fn > 0 else 0
-        print("Precision, recall = {:.2f}, {:.2f}".format(precision, recall))
+            for anomaly_case, anomaly_case_positions in anomalous_cases.items():
+                alarm_case_positions = alarm_cases[anomaly_case] if anomaly_case in alarm_cases.keys() else []
+                tp, fp, fn, precision, recall, f1 = self.calculate_accuracy(alarm_case_positions, anomaly_case_positions)
+                print("     Case ({}) detection results: {}, {}, {}".format(anomaly_case, precision, recall, f1))
