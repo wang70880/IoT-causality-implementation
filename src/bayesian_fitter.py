@@ -33,7 +33,6 @@ class BayesianFitter:
 
         self.model_name = model_name
         self.model = BayesianNetwork(self.extended_edges)
-        self._bayesian_parameter_estimation()
         #self.causal_model = self._construct_causal_model()
 
     def _lag_name(self, dev:'str', lag:'int'): # Helper function to generate lagged names
@@ -63,7 +62,7 @@ class BayesianFitter:
         name_device_dict:'dict[DevAttribute]' = self.frame.name_device_dict
 
         # Construct expanded_var_names and device info dict: Device with large lags are in the low indices
-        for tau in range(0, 2*self.tau_max+1):
+        for tau in range(0, self.tau_max+1):
             for dev in var_names:
                 lagged_dev_name = self._lag_name(dev, -tau)
                 extended_dev = DevAttribute(name=lagged_dev_name, index=dev_count, attr=name_device_dict[dev].attr,\
@@ -73,29 +72,28 @@ class BayesianFitter:
         
         expanded_causal_graph = np.zeros((dev_count,dev_count), dtype=np.uint8)
         extended_edges = []
-        for tau in range(0, self.tau_max+1):
-            for outcome, cause_list in link_dict.items(): # Construct expanded causal graph (a binary array)
-                n_commited_edges = 0
-                # JC TODO: The ad-hoc edge selection/prunning scheme here is to simply select the first k edges with maximal statistical dependencies.
-                for cause in cause_list: 
-                    n_commited_edges += 1
-                    if n_commited_edges > n_max_edges:
-                        break
-                    lagged_cause_name = self._lag_name(var_names[cause[0]], cause[1]-tau)
-                    lagged_outcome_name = self._lag_name(var_names[outcome], -tau)
-                    assert(lagged_cause_name in expanded_var_names and lagged_outcome_name in expanded_var_names)
-                    extended_edges.append((lagged_cause_name, lagged_outcome_name))
-                    expanded_causal_graph[self.extended_name_device_dict[lagged_cause_name].index,\
-                                            self.extended_name_device_dict[lagged_outcome_name].index] = 1
+        for outcome, cause_list in link_dict.items(): # Construct expanded causal graph (a binary array)
+            n_commited_edges = 0
+            # JC TODO: The ad-hoc edge selection/prunning scheme here is to simply select the first k edges with maximal statistical dependencies.
+            for (cause, lag) in cause_list: 
+                n_commited_edges += 1
+                if n_commited_edges > n_max_edges:
+                    break
+                lagged_cause_name = self._lag_name(var_names[cause], lag)
+                lagged_outcome_name = self._lag_name(var_names[outcome], 0)
+                assert(lagged_cause_name in expanded_var_names and lagged_outcome_name in expanded_var_names)
+                extended_edges.append((lagged_cause_name, lagged_outcome_name))
+                expanded_causal_graph[self.extended_name_device_dict[lagged_cause_name].index,\
+                                        self.extended_name_device_dict[lagged_outcome_name].index] = 1
 
         # Construct expanded data array: The concatenation guarantees that device with large lags are in the low indices
-        expanded_data_array = np.zeros(shape=(self.dataframe.T-2*self.tau_max, dev_count), dtype=np.uint8)
-        for i in range(0, self.dataframe.T - 2*self.tau_max):
-            expanded_data_array[i] = np.concatenate([self.dataframe.values[i+tau] for tau in range(2*self.tau_max, -1, -1)])
+        expanded_data_array = np.zeros(shape=(self.dataframe.T-self.tau_max, dev_count), dtype=np.uint8)
+        for i in range(0, self.dataframe.T - self.tau_max):
+            expanded_data_array[i] = np.concatenate([self.dataframe.values[i+tau] for tau in range(self.tau_max, -1, -1)])
 
         return expanded_var_names, dev_count, extended_edges, expanded_causal_graph, expanded_data_array
 
-    def _bayesian_parameter_estimation(self, estimator='MLE', n_jobs=50):
+    def bayesian_parameter_estimation(self, estimator='MLE', n_jobs=50):
         start_time = time()
         assert(self.model is not None)
         df = pd.DataFrame(data=self.expanded_data_array, columns=self.expanded_var_names)

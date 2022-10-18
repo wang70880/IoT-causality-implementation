@@ -24,7 +24,7 @@ from src.tigramite.tigramite.independence_tests.chi2 import ChiSquare
 class Evaluator():
 
     def __init__(self, event_preprocessor, frame, tau_max, pc_alpha):
-        self.event_preprocessor = event_preprocessor
+        self.event_preprocessor:'GeneralProcessor' = event_preprocessor
         self.frame:'DataFrame' = frame
         self.tau_max = tau_max
         self.pc_alpha = pc_alpha
@@ -317,100 +317,127 @@ class Evaluator():
 
     """Function class for anomaly injection"""
 
+    def get_int_anomaly_dict(self):
+        """
+        The case_id represents the injected anomaly type.
+            0: Sensor Fault (Anomalous low/high readings reported by the ambient sensor)
+            1: Burglar Intrusion (Anomalous activation event of the motion sensor/contact sensor)
+            2: Remote Control (Anomalous actuator activation/de-activation events)
+            3: Malicious Automation Rule (How to simulate it?)
+        """
+        int_anomaly_dict = None
+        if self.event_preprocessor.dataset == 'contextact':
+            int_anomaly_dict = {
+                0: ['Brightness-Sensor', 'Power-Sensor', 'Water-Meter'],
+                1: ['Infrared-Movement-Sensor', 'Contact-Sensor'],
+                2: ['Dimmer', 'Switch'],
+                3: ['Power-Sensor', 'Water-Meter', 'Contact-Sensor', 'Dimmer', 'Switch']
+            }
+        return int_anomaly_dict
+    
+    def randomly_generate_automations(self, n_auto):
+        attr_dev_dict = self.event_preprocessor.attr_dev_dict
+        conditions = ['Brightness-Sensor', 'Infrared-Movement-Sensor', 'Contact-Sensor', 'Power-Sensor', 'Water-Meter', 'Contact-Sensor', 'Dimmer', 'Switch']
+        outcomes = ['Power-Sensor', 'Water-Meter', 'Contact-Sensor', 'Dimmer', 'Switch']
+        candidate_condition_devices = []; candidate_outcome_devices = []
+        for condition_attr in conditions:
+            candidate_condition_devices += attr_dev_dict[condition_attr]
+        for outcome_attr in outcomes:
+            candidate_outcome_devices += attr_dev_dict[outcome_attr]
+        
+        selected_condition_devices = random.choices(candidate_condition_devices, k=n_auto)
+        automations = {}
+        for cond_device in selected_condition_devices:
+            action_device = random.choice(candidate_outcome_devices)
+            condition_state = random.choice([0, 1]); action_state = random.choice([0, 1])
+            automations[(cond_device, condition_state)] = (action_device, action_state)
+
+        return automations
+    
     def inject_contextual_anomalies(self, ground_truth_fitter:'BayesianFitter', sig_level, n_anomaly, case_id):
         """
         The case_id represents the injected anomaly type.
+            0: Sensor Fault (Anomalous low/high readings reported by the ambient sensor)
+            1: Burglar Intrusion (Anomalous activation event of the motion sensor/contact sensor)
+            2: Remote Control (Anomalous actuator activation/de-activation events)
+            3: Malicious Automation Rule (How to simulate it?)
         """
-        # Return variables
-        new_testing_event_states:'list[tuple(AttrEvent,ndarray)]' = []; anomaly_positions = []; testing_benign_dict:'dict[int]' = {}
         # Auxillary variables
         device_description_dict = self.event_preprocessor.device_description_dict
         frame:'DataFrame' = self.frame
         var_names = frame.var_names
         benign_event_states:'list[tuple(AttrEvent,ndarray)]' = frame.testing_events_states
-        anomaly_infos = defaultdict(list)
 
-        # 0. Initialize the state machine
+        # 1. Determine the candidate anomaly positions and store it to a dict with evt_id -> (anomalous-event, anomalous-states)
         security_guard = SecurityGuard(frame, ground_truth_fitter, sig_level)
-        security_guard.initialize_phantom_machine()
+        candidate_position_anomalies = {}
+        if case_id<=2:
+            security_guard.initialize_phantom_machine()
+            # 1. Determine the anomaly case based on the case id
+            int_anomaly_dict = self.get_int_anomaly_dict()
+            # 2. Determine the candidate injection positions given the ground truth and the anomaly type
+            for evt_id, (event, states) in enumerate(benign_event_states):
+                security_guard.phantom_state_machine.set_latest_states(states)
+                candidate_anomalies = []
+                for var_name in var_names: # For each position, traverse all potential anomalous events, and randomly select one
+                    var_attr = device_description_dict[var_name]['attr']
+                    last_state = security_guard.phantom_state_machine.phantom_states[var_names.index(var_name)]
+                    candidate_event = AttrEvent('', '', var_name, var_attr, 1-last_state)
+                    if var_attr in int_anomaly_dict[case_id] and security_guard._compute_event_anomaly_score(candidate_event, security_guard.phantom_state_machine) >= security_guard.score_threshold:
+                            anomalous_states = states.copy(); anomalous_states[var_names.index(var_name)] = candidate_event.value
+                            candidate_anomalies.append((candidate_event, anomalous_states))
+                if len(candidate_anomalies)>0:
+                    candidate_position_anomalies[evt_id] = random.choice(candidate_anomalies)
+        elif case_id==3:
+            # We hope to guarantee a minimum number of injected anomalies.
+            # Each time the malicious automation rules are generated and the anomaly positions are determined, the number of anomalies should be larger than 1000
+            while len(list(candidate_position_anomalies.keys())) < 2000:
+                security_guard.initialize_phantom_machine()
+                candidate_position_anomalies = {}
+                n_auto = 15
+                # 1. Randomly generate n_auto malicious automations: {(cond_dev, cond_state):(action_dev, action_state)}
+                malicious_automations = self.randomly_generate_automations(n_auto)
+                #print("Inserted malicious automation rules:")
+                #pprint(malicious_automations)
+                for evt_id, (event, states) in enumerate(benign_event_states):
+                    security_guard.phantom_state_machine.set_latest_states(states)
+                    # If the current event satisfies the condition of some malicious automation rule
+                    if (event.dev, event.value) in malicious_automations.keys():
+                        (action_dev, action_state) = malicious_automations[(event.dev, event.value)]
+                        anomalous_event = AttrEvent('', '', action_dev, device_description_dict[action_dev]['attr'], action_state)
+                        anomalous_states = states.copy(); anomalous_states[var_names.index(action_dev)] = action_state
+                        # If the injection of an event here can be regarded as a normal device event (by the ground truth), this is not a suitable position.
+                        if security_guard._compute_event_anomaly_score(anomalous_event, security_guard.phantom_state_machine) >= security_guard.score_threshold:
+                            candidate_position_anomalies[evt_id] = (anomalous_event, anomalous_states)
 
-        # 1. Randomly pick n_anomaly positions for anomaly injection
-        candidate_positions = sorted(random.sample(range(0, len(benign_event_states)), n_anomaly))
-
-        # 2. Generate the eventual testing sequences with anomaly injected
+        # 2. Insert the selected anomalies to the testing sequence
+        n_candidate_anomalies = len(list(candidate_position_anomalies.keys()))
+        selected_anomaly_positions = sorted(random.sample(list(candidate_position_anomalies.keys()),\
+                    min(n_anomaly, n_candidate_anomalies)))
+        new_testing_event_states:'list[tuple(AttrEvent,ndarray)]' = []; anomaly_positions = []; testing_benign_dict:'dict[int]' = {}
         new_event_id = 0
+        security_guard.initialize_phantom_machine()
         for evt_id, (event, states) in enumerate(benign_event_states):
-            # 2.1 First add benign testing events
+            # 3.1 First add benign testing events
             security_guard.phantom_state_machine.set_latest_states(states)
             new_testing_event_states.append((event, states))
             testing_benign_dict[new_event_id] = evt_id
             new_event_id += 1
-
-            if evt_id in candidate_positions:
-                # 2.2 Determine the set of potential anomaly events for current anomaly position
-                candidate_anomalies = defaultdict(list)
-                for var_name in var_names:
-                    last_state = security_guard.phantom_state_machine.phantom_states[var_names.index(var_name)]
-                    # Generate state-flipped anomalous event
-                    candidate_event = AttrEvent('', '', var_name, device_description_dict[var_name]['attr'], 1-last_state)
-                    # If the filpped event is deemed as an anomalous event by the ground truth fitter: Store it as a candidate anomalous event 
-                    if security_guard._compute_event_anomaly_score(candidate_event, security_guard.phantom_state_machine) >= security_guard.score_threshold:
-                        anomalous_event = candidate_event
-                        anomalous_states = states.copy(); anomalous_states[var_names.index(var_name)] = anomalous_event.value
-                        candidate_anomalies[evt_id].append((anomalous_event, anomalous_states))
-                
-                # 2.2 Randomly generate an anomaly event from the candidate set, and record it into the final testing event sequences
-                if len(candidate_anomalies[evt_id]) > 0:
-                    anomaly_event_state = random.choice(candidate_anomalies[evt_id])
-                    new_testing_event_states.append(anomaly_event_state)
-                    anomaly_positions.append(new_event_id)
-                    anomaly_infos[anomaly_event_state[0].attr].append(new_event_id)
-                    testing_benign_dict[new_event_id] = evt_id # For rolling back
-                    new_event_id += 1
+            # 3.2 Add the anomalous event
+            if evt_id in selected_anomaly_positions:
+                anomaly_event_state = candidate_position_anomalies[evt_id]
+                new_testing_event_states.append(anomaly_event_state)
+                anomaly_positions.append(new_event_id)
+                testing_benign_dict[new_event_id] = evt_id # For rolling back
+                new_event_id += 1
         print("Total # injected anomalies: {}".format(len(anomaly_positions)))
 
-        return new_testing_event_states, anomaly_positions, anomaly_infos, testing_benign_dict
+        return new_testing_event_states, anomaly_positions, testing_benign_dict
 
     """Function classes for anomaly detection evaluation."""
 
-    def evaluate_false_alarm_rate(self, sig_level, link_dict):
-        """
-        Using testing data (without anomaly injection), this function compares the prediction error (i.e., false positives) of both causal and association model.
-            1. Call determine_best_max_edge to select the best n_max_edges for both models.
-        """
-        association_miner = AssociationMiner(self.event_preprocessor, self.frame, self.tau_max, self.pc_alpha)
-        causal_max_edge, causal_prediction_errors, causal_fp_cases, causal_n_fps = self.determine_best_max_edges(link_dict, sig_level)
-        asso_max_edge, asso_prediction_errors, asso_fp_cases, asso_n_fps = self.determine_best_max_edges(association_miner.mining_edges, sig_level)
-        n_testing_events = len(causal_prediction_errors)
-
-        causual_avg_error = statistics.mean(causal_prediction_errors); association_avg_error = statistics.mean(asso_prediction_errors)
-        print("[Anomaly-FP-Analysis (sig-level={})] Benchmark selection: Causal Model v.s. Association Model".format(sig_level))
-        print("     (1) Maximum edges ({} v.s. {}), False alarm rate ({} v.s. {}), Average prediction error ({} v.s. {})"\
-                    .format(causal_max_edge, asso_max_edge, causal_n_fps, asso_n_fps, causual_avg_error, association_avg_error))
-        causal_adv_cases = {}
-        for x in list(asso_fp_cases.keys()):
-            if x not in list(causal_fp_cases.keys()):
-                causal_adv_cases[x] = asso_fp_cases[x]
-        #pprint(causal_adv_cases)
-
-    def evaluate_contextual_detection_accuracy(self, anomaly_infos:'dict[list]', alarm_infos:'dict[list]', model_name='unknown'):
-        anomaly_positions = [position for positions in anomaly_infos.values() for position in positions]
-        alarm_positions = [position for positions in alarm_infos.values() for position in positions]
+    def evaluate_contextual_detection_accuracy(self, alarm_position_events, anomaly_positions, case_id, model_name='unknown'):
+        anomaly_cases = self.get_int_anomaly_dict()[case_id]
+        alarm_positions = [alarm[0] for alarm in alarm_position_events if alarm[1].attr in anomaly_cases]
         tp, fp, fn, precision, recall, f1 = self.calculate_accuracy(alarm_positions, anomaly_positions)
-        print("[{}-Model Contextual Anomaly Detection] Overall precision, recall, f1 = {:.3f}, {:.3f}, {:.3f}".format(model_name, precision, recall, f1))
-        if self.event_preprocessor.dataset == 'contextact':
-            anomalous_cases = {
-                'Burglar Intrusion': anomaly_infos['Infrared Movement Sensor'] + anomaly_infos['Contact Sensor'],
-                'Sensor Fault': anomaly_infos['Brightness Sensor'] + anomaly_infos['Power Sensor'] + anomaly_infos['Water Meter'],
-                'Remote Control': anomaly_infos['Dimmer'] + anomaly_infos['Switch']
-            }
-            alarm_cases = {
-                'Burglar Intrusion': alarm_infos['Infrared Movement Sensor'] + alarm_infos['Contact Sensor'],
-                'Sensor Fault': alarm_infos['Brightness Sensor'] + alarm_infos['Power Sensor'] + alarm_infos['Water Meter'],
-                'Remote Control': alarm_infos['Dimmer'] + alarm_infos['Switch']
-            }
-
-            for anomaly_case, anomaly_case_positions in anomalous_cases.items():
-                alarm_case_positions = alarm_cases[anomaly_case] if anomaly_case in alarm_cases.keys() else []
-                tp, fp, fn, precision, recall, f1 = self.calculate_accuracy(alarm_case_positions, anomaly_case_positions)
-                print("     Case ({}) detection results: {}, {}, {}".format(anomaly_case, precision, recall, f1))
+        print("[{}-Model Contextual Anomaly Detection for Case-{}] Precision, recall, f1 = {:.3f}, {:.3f}, {:.3f}".format(model_name, case_id, precision, recall, f1))

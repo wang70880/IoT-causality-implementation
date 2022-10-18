@@ -156,17 +156,15 @@ class SecurityGuard():
 
     def contextual_anomaly_detection(self, testing_event_states, testing_benign_dict):
         benign_event_states = self.frame.testing_events_states # For state calibration usage
-        detected_anomaly_positions = []
-        alarm_infos = defaultdict(list)
+        alarm_position_events = []
         self.initialize_phantom_machine()
         for evt_id, (event, states) in enumerate(testing_event_states):
             anomaly_score = self._compute_event_anomaly_score(event, self.phantom_state_machine)
             if anomaly_score >= self.score_threshold:
-                detected_anomaly_positions.append(evt_id)
-                alarm_infos[event.attr].append(evt_id)
+                alarm_position_events.append((evt_id, event))
             benign_state = benign_event_states[testing_benign_dict[evt_id]][1]
             self.phantom_state_machine.set_latest_states(benign_state)
-        return detected_anomaly_positions, alarm_infos
+        return alarm_position_events
 
     def analyze_detection_results(self):
         tps = sum([len(tp_list) for tp_list in self.tp_debugging_dict.values()])

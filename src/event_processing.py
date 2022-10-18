@@ -43,7 +43,8 @@ class GeneralProcessor():
 		self.attr_names = []; self.n_attrs = 0
 		self.name_device_dict = defaultdict(DevAttribute) # The str-DevAttribute dict using the attr name as the dict key
 		self.index_device_dict = defaultdict(DevAttribute) # The str-DevAttribute dict using the attr index as the dict key
-		self.attr_count_dict = defaultdict(int); self.dev_count_dict = defaultdict(int)
+		self.attr_count_dict = defaultdict(int); self.attr_dev_dict = defaultdict(list)
+		self.dev_count_dict = defaultdict(int)
 		self.transition_events_states = None # Lists of all (event, state array) tuple
 		self.frame_dict:'defaultdict(DataFrame)' = None # A dict with key, value = (frame_id, dict['number', 'day-interval', 'start-date', 'end-date', 'attr-sequence', 'attr-type-sequence', 'state-sequence'])
 		self.frame_count = None
@@ -57,7 +58,8 @@ class GeneralProcessor():
 		# Debugging variables
 		var_names = set(); attr_names = set()
 		name_device_dict = defaultdict(DevAttribute); index_device_dict = defaultdict(DevAttribute)
-		attr_count_dict = defaultdict(int); dev_count_dict = defaultdict(int)
+		attr_dev_dict = defaultdict(list); attr_count_dict = defaultdict(int)
+		dev_count_dict = defaultdict(int)
 
 		# 1. Read data file and create AttrEvent object for each event
 		unified_parsed_events = []
@@ -83,14 +85,17 @@ class GeneralProcessor():
 		for unified_event in unified_parsed_events:
 			cur_states = last_states.copy(); cur_states[name_device_dict[unified_event.dev].index] = unified_event.value
 			transition_events_states.append((unified_event, np.array(cur_states)))
-			dev_count_dict[unified_event.dev] += 1; attr_count_dict[unified_event.attr] += 1
+			dev_count_dict[unified_event.dev] += 1; attr_count_dict[unified_event.attr] += 1; attr_dev_dict[unified_event.attr].append(unified_event.dev)
 			last_states = cur_states
+		for attr in attr_dev_dict.keys():
+			attr_dev_dict[attr] = list(set(attr_dev_dict[attr]))
 
 		# 4. Store the device information into the class
 		self.var_names = var_names; self.n_vars = len(var_names)
 		self.attr_names = attr_names; self.n_attrs = len(attr_names)
 		self.name_device_dict = name_device_dict; self.index_device_dict = index_device_dict
-		self.attr_count_dict = attr_count_dict; self.dev_count_dict = dev_count_dict
+		self.attr_count_dict = attr_count_dict; self.attr_dev_dict = attr_dev_dict
+		self.dev_count_dict = dev_count_dict
 		if self.verbosity > 0:
 			print("[Data Loading] # records, attrs, devices = {}, {}, {}".format(
 				len(unified_parsed_events), len(self.attr_count_dict.keys()), len(self.dev_count_dict.keys())
@@ -131,7 +136,7 @@ class GeneralProcessor():
 		seg_points.append(count - 1)
 		seg_days.append(past_days)
 
-		# 2. Create DataFrames for logs in each segmentation interval
+		# 2. Create DataFrame for logs in each segmentation interval
 		last_point = 0; frame_count = 0
 		for i, seg_point in enumerate(seg_points): # Get the data frame with range [last_point, seg_point]
 			testing_start_point = math.floor(last_point + self.training_ratio * (seg_point - last_point))
@@ -161,9 +166,9 @@ class Cprocessor(GeneralProcessor):
 	def __init__(self, dataset, partition_days, training_ratio, verbosity=0):
 		super().__init__(dataset, partition_days, training_ratio, verbosity)
 		self.device_description_dict = self._load_device_attribute_files()
-		self.int_attrs = {'binary': ['Switch', 'Smart electrical outlet', 'Infrared Movement Sensor', 'Contact Sensor'],\
-						  'discrete': ['Water Meter', 'Rollershutter', 'Dimmer', 'Power Sensor'],\
-						  'continuous': ['Brightness Sensor']}
+		self.int_attrs = {'binary': ['Switch', 'Smart-electrical-outlet', 'Infrared-Movement-Sensor', 'Contact-Sensor'],\
+						  'discrete': ['Water-Meter', 'Rollershutter', 'Dimmer', 'Power-Sensor'],\
+						  'continuous': ['Brightness-Sensor']}
 		self.int_locations = ['Bathroom', 'Bedroom', 'Dining Room', 'Kitchen', 'Stove', 'Living Room']
 		#self.int_locations = ['Bathroom', 'Bedroom', 'Dining Room', 'First Floor', 'Hallway', 'Hallway First Floor', 'Hallway Second Floor',\
 		#				'Kitchen', 'Living Room', 'Main Entrance', 'Stairway', 'Stove', 'Study Room']
@@ -181,6 +186,7 @@ class Cprocessor(GeneralProcessor):
 		df.columns = ['dev', 'attr', 'description', 'val-type', 'val-unit', 'location']
 		for row_index in range(len(df)):
 			dev_info = [df.loc[row_index, col_index] for col_index in df.columns]
+			dev_info[1] = dev_info[1].replace(' ', '-')
 			for i in range(len(dev_info)):
 				device_description_dict[dev_info[0]][df.columns[i]] = dev_info[i]
 		return device_description_dict 
@@ -249,7 +255,7 @@ class Cprocessor(GeneralProcessor):
 			if self.device_description_dict[parsed_event.dev]['location'] not in self.int_locations:
 				continue
 			# 1.2 For some attributes, filter some unnecessary devices
-			if parsed_event.attr == 'Water Meter' and "Total" in parsed_event.dev:
+			if parsed_event.attr == 'Water-Meter' and "Total" in parsed_event.dev:
 				continue
 			if parsed_event.attr == 'Switch' and parsed_event.dev.startswith('I'):
 				inp = parsed_event.dev.split("_")
@@ -320,7 +326,7 @@ class Cprocessor(GeneralProcessor):
 		for parsed_event in filtered_parsed_event:
 			parsed_event.value = _enum_unification(parsed_event.value)
 			unified_parsed_events.append(parsed_event)
-			if parsed_event.attr in ['Water Meter', 'Power Sensor']:
+			if parsed_event.attr in ['Water-Meter', 'Power-Sensor']:
 				# These devices do not record idle states. Therefore,\
 				# after each usage, we need to add an additional events, which indicate its idle states.
 				unified_parsed_events.append(AttrEvent(parsed_event.date, parsed_event.time,\
@@ -371,7 +377,7 @@ class Cprocessor(GeneralProcessor):
 		for parsed_event in filtered_parsed_event:
 			parsed_event.value = _enum_unification(parsed_event.value)
 			unified_parsed_events.append(parsed_event)
-			if parsed_event.attr in ['Water Meter', 'Power Sensor']:
+			if parsed_event.attr in ['Water-Meter', 'Power-Sensor']:
 				# These devices do not record idle states. Therefore,\
 				# after each usage, we need to add an additional events, which indicate its idle states.
 				unified_parsed_events.append(AttrEvent(parsed_event.date, parsed_event.time,\

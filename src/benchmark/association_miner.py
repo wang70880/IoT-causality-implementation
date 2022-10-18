@@ -64,4 +64,5 @@ class AssociationMiner():
         # Remove the statistical value information from the dict, and only store the edge info into the dict
         for outcome, causes in mining_edges.items():
             mining_edges[outcome] = [cause[0] for cause in causes]
+
         return mining_edges, mining_array, nor_mining_array

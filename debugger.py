@@ -4,6 +4,7 @@ from src.tigramite.tigramite.independence_tests import ChiSquare
 from src.tigramite.tigramite import plotting as tp
 from src.genetic_type import DevAttribute, AttrEvent, DataFrame
 from src.benchmark.association_miner import AssociationMiner
+from src.benchmark.ocsvm import OCSVMer
 
 from pgmpy.models.BayesianModel import BayesianModel
 from pgmpy.inference.CausalInference import CausalInference
@@ -262,12 +263,15 @@ if __name__ == '__main__':
 
     dataset = 'hh130'; partition_days = 30; training_ratio = 0.8; tau_max = 2
     alpha = 0.001; int_frame_id = 0
-    n_max_edges = 30; sig_level = 0.99
+    n_max_edges = 10; sig_level = 0.99
 
     data_debugger = DataDebugger(dataset, partition_days, training_ratio)
     event_preprocessor:'GeneralProcessor' = data_debugger.preprocessor
     frame:'DataFrame' = data_debugger.preprocessor.frame_dict[int_frame_id]
-    print("# events: {}".format(frame.n_events))
+
+    ocsvmer = OCSVMer(frame, tau_max)
+    alarm_position_events = ocsvmer.contextual_anomaly_detection()
+    print("# OCSVM alarms: {}".format(len(alarm_position_events)))
     exit()
 
     association_miner = AssociationMiner(event_preprocessor, frame, tau_max, alpha)
