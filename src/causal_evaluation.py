@@ -48,6 +48,24 @@ class Evaluator():
         recall = tp * 1.0 / (tp + fn) if tp + fn > 0 else 0
         f1 = 2.0*precision*recall/(precision+recall) if (precision+recall) != 0 else 0
         return tp, fp, fn, precision, recall, f1
+    
+    def calculate_matrix_accuracy(self, discovery_array, ground_array):
+        tp = 0; fp = 0; tn = 0; fn = 0; precision = 0.; recall = 0.; f1 = 0.
+        assert(discovery_array.shape == ground_array.shape)
+        for index, x in np.ndenumerate(discovery_array):
+            if discovery_array[index] == ground_array[index] == 1:
+                tp += 1
+            elif discovery_array[index] == ground_array[index] == 0:
+                tn += 1
+            elif discovery_array[index] == 1 and ground_array[index] == 0:
+                fp += 1
+            elif discovery_array[index] == 0 and ground_array[index] == 1:
+                fn += 1
+        precision = tp * 1.0 / (tp + fp) if tp + fp > 0 else 0
+        recall = tp * 1.0 / (tp + fn) if tp + fn > 0 else 0
+        f1 = 2.0*precision*recall/(precision+recall) if (precision+recall) != 0 else 0
+        return tp, fp, fn, precision, recall, f1
+
     """Function classes for ground truth construction."""
 
     def _construct_golden_standard(self):
@@ -74,27 +92,48 @@ class Evaluator():
         golden_edges, golden_array, nor_golden_array = asso_miner.interaction_mining(selected_links)
         return golden_edges, golden_array, nor_golden_array
 
-    """Function classes for causal discovery evaluation."""
+    def categorize_interaction(self, p_attr:'str', c_attr:'str'):
+        attr_list = [p_attr, c_attr]
+        int_type = 'unknown'
+        if self.event_preprocessor.dataset=='contextact':
+            actuators = ['Dimmer', 'Switch', 'Water-Meter', 'Contact-Sensor', 'Power-Sensor']
+            movement_detectors = ['Infrared-Movement-Sensor', 'Contact-Sensor']
+            power_channels = ['Power-Sensor']
+            brightness_channels = ['Brightness-Sensor']
+            if all([x in actuators for x in attr_list]):
+                int_type = 'uau'
+            if all([x in movement_detectors for x in attr_list]):
+                int_type = 'mam'
+            if p_attr in movement_detectors and c_attr in actuators:
+                int_type = 'uam'
+            if p_attr in  actuators and c_attr in movement_detectors:
+                int_type = 'mau'
+            if any([x in power_channels for x in attr_list]):
+                int_type = 'power'
+            if any([x in brightness_channels for x in attr_list]):
+                int_type = 'brightness'
+            
+        return int_type
 
-    def precision_recall_calculation(self, golden_array:'np.ndarray', evaluated_array:'np.ndarray',\
-                        filtered_edge_infos:'dict'=None, identified_edge_infos:'dict'=None):
+    def evaluate_discovery_accuracy(self, evaluated_array:'np.ndarray', golden_array:'np.ndarray',\
+                            filtered_edge_infos:'dict'=None, identified_edge_infos:'dict'=None, model='unknown', verbosity=0):
+        assert(len(evaluated_array.shape)==len(golden_array.shape)==2) 
         # Auxillary variables
         frame:'DataFrame' = self.frame
         index_device_dict:'dict[DevAttribute]' = frame.index_device_dict
 
-        # Calculate tp, fp, fn
-        tp = 0; tn = 0; fp = 0; fn = 0; precision = 0.0; recall = 0.0
-        for index, x in np.ndenumerate(evaluated_array):
-            if evaluated_array[index] == 1 and golden_array[index] == 1:
-                tp += 1
-            elif evaluated_array[index] == 1 and golden_array[index] == 0:
-                fp += 1
-            elif evaluated_array[index] == 0 and golden_array[index] == 1:
-                fn += 1
-            else:
-                tn += 1
+        # 1. Calculate tp, fp, fn
+        tp, fp, fn, precision, recall, f1_score = self.calculate_matrix_accuracy(evaluated_array, golden_array)
+        assert(tp+fn == np.sum(golden_array))
 
-        # Save debugging information for each edge (if applied)
+        # 2. Categorize each discovered ground truth edges
+        tp_info_dict = defaultdict(list)
+        for index, x in np.ndenumerate(evaluated_array):
+            if evaluated_array[index] == golden_array[index] == 1:
+                p_dev = index_device_dict[index[0]]; c_dev = index_device_dict[index[1]]
+                tp_info_dict[self.categorize_interaction(p_dev.attr, c_dev.attr)].append((p_dev.name, c_dev.name))
+
+        # 3. Save debugging information for each edge (if applied)
         tp_dict = None; tn_dict = None; fp_dict = None; fn_dict = None
         if filtered_edge_infos and identified_edge_infos:
             tp_dict = defaultdict(dict); tn_dict = defaultdict(dict); fp_dict = defaultdict(dict); fn_dict = defaultdict(dict)
@@ -151,19 +190,6 @@ class Evaluator():
             tn_dict = dict(sorted(tn_dict.items(), key=lambda item: abs(item[1]['cate']), reverse=True))
             fn_dict = dict(sorted(fn_dict.items(), key=lambda item: abs(item[1]['cate']), reverse=True))
 
-        precision = tp * 1.0 / (tp + fp) if (tp+fp) != 0 else 0
-        recall = tp * 1.0 / (tp + fn) if (tp+fn) != 0 else 0
-        f1_score = 2.0*precision*recall / (precision+recall) if (precision+recall) != 0 else 0
-
-        return tp, fp, fn, precision, recall, f1_score, tp_dict, tn_dict, fp_dict, fn_dict
-
-    def evaluate_discovery_accuracy(self, discovery_results:'np.ndarray', ground_truth_array:'np.ndarray',\
-                            filtered_edge_infos:'dict'=None, identified_edge_infos:'dict'=None, verbosity=0):
-        assert(len(discovery_results.shape)==len(ground_truth_array.shape)==2) 
-        # Auxillary variables
-        frame:'DataFrame' = self.frame
-        var_names = frame.var_names; n_vars = len(var_names)
-
         # 1. Plot the golden standard graph and the discovered graph. Note that the plot functionality requires PCMCI objects
         #drawer = Drawer(self.background_generator.dataset)
         #pcmci = PCMCI(dataframe=frame.training_dataframe, cond_ind_test=ChiSquare(), verbosity=-1)
@@ -171,23 +197,25 @@ class Evaluator():
         #                    .format(self.bk_level, int(1.0/self.pc_alpha)), link_label_fontsize=10)
         #drawer.plot_interaction_graph(pcmci, golden_standard_array==1, 'golden-interaction')
         # 3. Calculate the tau-free-precision and tau-free-recall for discovered results
-        tp, fp, fn, precision, recall, f1, tp_dict, tn_dict, fp_dict, fn_dict \
-             = self.precision_recall_calculation(ground_truth_array, discovery_results, filtered_edge_infos, identified_edge_infos)
-        assert(tp+fn == np.sum(ground_truth_array))
+        print("Interaction Mining evalutation for model {}".format(model))
+        print("     [Precision, Recall, F1] = {}, {}, {}".format(precision, recall, f1_score))
         if verbosity:
-            print('TP Infos ({})'.format(len(tp_dict.keys())))
-            for tp_info in tp_dict.values():
-                pprint(tp_info)
-            print('FP Infos ({})'.format(len(fp_dict.keys())))
-            for fp_info in fp_dict.values():
-                pprint(fp_info)
-            print('TN Infos ({})'.format(len(tn_dict.keys())))
-            for tn_info in tn_dict.values():
-                pprint(tn_info)
-            print('FN Infos ({})'.format(len(fn_dict.keys())))
-            for fn_info in fn_dict.values():
-                pprint(fn_info)
-        return tp, fp, fn, precision, recall, f1
+            for k, v in tp_info_dict.items():
+                print("     {} discovered {} interactions: {}".format(len(v), k, v))
+            if filtered_edge_infos and identified_edge_infos:
+                print('TP Infos ({})'.format(len(tp_dict.keys())))
+                for tp_info in tp_dict.values():
+                    pprint(tp_info)
+                print('FP Infos ({})'.format(len(fp_dict.keys())))
+                for fp_info in fp_dict.values():
+                    pprint(fp_info)
+                print('TN Infos ({})'.format(len(tn_dict.keys())))
+                for tn_info in tn_dict.values():
+                    pprint(tn_info)
+                print('FN Infos ({})'.format(len(fn_dict.keys())))
+                for fn_info in fn_dict.values():
+                    pprint(fn_info)
+        return tp, fp, fn, precision, recall, f1_score
 
     def compare_with_arm(self, discovery_results:'np.ndarray', arm_results:'np.ndarray'):
         # Auxillary variables

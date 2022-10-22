@@ -16,7 +16,7 @@ from mpi4py import MPI
 
 from pgmpy.models import BayesianNetwork 
 from pgmpy.estimators import MaximumLikelihoodEstimator, BayesianEstimator
-from src.benchmark.iotwatcher import IoTWatcher
+from src.benchmark.iotwatcher import HAWatcher
 from src.benchmark.association_miner import AssociationMiner
 
 from src.tigramite.tigramite import data_processing as pp
@@ -219,25 +219,28 @@ with open('{}{}'.format(event_preprocessor.result_path, 'identified-edges'), 'w+
 causal_bayesian_fitter = BayesianFitter(frame, tau_max, causal_edges, n_max_edges=n_max_edges, model_name='causal')
 
 # 2. Prepare the benchmark for interaction mining: Association Rule Mining
-arm_start=time()
-arm_miner = ARMMiner(causal_bayesian_fitter, frame, 0.8, 0.8)
+arm_start = time()
+armer = ARMMiner(frame, tau_max, 0.8, 0.95)
 arm_time = _elapsed_minutes(arm_start)
-#asso_miner = AssociationMiner(event_preprocessor, frame, tau_max, pc_alpha)
+hawatcher_start = time()
+hawatcher = HAWatcher(event_preprocessor, frame, tau_max, 0.95)
+haw_time = _elapsed_minutes(hawatcher_start)
 #hawatcher_miner = IoTWatcher(event_preprocessor, frame, tau_max)
 
 ## 3. Prepare the ground truth
 evaluator = Evaluator(event_preprocessor, frame, tau_max, pc_alpha)
 
 """Initiate the discovery evaluation"""
-causal_tp, causal_fp, causal_fn, causal_precision, causal_recall, causal_f1 = evaluator.evaluate_discovery_accuracy(nor_causal_array, evaluator.nor_golden_array, causal_filtered_edge_infos, causal_edge_infos, 0)
-arm_tp, arm_fp, arm_fn, arm_precision, arm_recall, arm_f1 = evaluator.evaluate_discovery_accuracy(arm_miner.nor_mining_array, evaluator.nor_golden_array)
+causal_tp, causal_fp, causal_fn, causal_precision, causal_recall, causal_f1 = evaluator.evaluate_discovery_accuracy(nor_causal_array, evaluator.nor_golden_array, causal_filtered_edge_infos, causal_edge_infos, 'causal', 0)
+arm_tp, arm_fp, arm_fn, arm_precision, arm_recall, arm_f1 = evaluator.evaluate_discovery_accuracy(armer.nor_mining_array, evaluator.nor_golden_array, model='arm', verbosity=0)
+haw_tp, haw_fp, haw_fn, haw_precision, haw_recall, haw_f1 = evaluator.evaluate_discovery_accuracy(hawatcher.nor_mining_array, evaluator.nor_golden_array, model='haw', verbosity=0)
 #asso_tp, asso_fp, asso_fn, asso_precision, asso_recall, asso_f1 = evaluator.evaluate_discovery_accuracy(asso_miner.nor_mining_array, evaluator.nor_golden_array, 0)
 #haw_tp, haw_fp, haw_fn, haw_precision, haw_recall, haw_f1 = evaluator.evaluate_discovery_accuracy(hawatcher_miner.nor_mining_array, evaluator.nor_golden_array, 0)
-print("*** Interaction mining evaluation for {} ground truth interactions ***".format(causal_tp+causal_fn))
-print("[Precision] {} v.s. {}".format(causal_precision, arm_precision))
-print("[Recall] {} v.s. {}".format(causal_recall, arm_recall))
-print("[F1] {} v.s. {}".format(causal_f1, arm_f1))
-print("[Eficiency] PC, ARM consumes time: {} v.s. {}".format(pc_time, arm_time))
+#print("*** Interaction mining evaluation for {} ground truth interactions ***".format(causal_tp+causal_fn))
+#print("[Precision] {} v.s. {}".format(causal_precision, arm_precision))
+#print("[Recall] {} v.s. {}".format(causal_recall, arm_recall))
+#print("[F1] {} v.s. {}".format(causal_f1, arm_f1))
+print("[Eficiency] {} v.s. {} v.s. {}".format(pc_time, arm_time, haw_time))
 
 """Initiate the bayesian fitting process, and create corresponding Security Guard (for cuasal and ARM model)"""
 ground_truth_fitter = BayesianFitter(frame, tau_max, evaluator.golden_edges, n_max_edges, model_name='Golden')
@@ -248,22 +251,22 @@ causal_security_guard = SecurityGuard(frame, causal_bayesian_fitter, sig_level)
 
 """Benchmark establishment"""
 
-arm_bayesian_fitter = BayesianFitter(frame, tau_max, arm_miner.mining_edges, n_max_edges=n_max_edges, model_name='arm')
-arm_bayesian_fitter.bayesian_parameter_estimation()
-arm_security_guard = SecurityGuard(frame, arm_bayesian_fitter, sig_level)
+#arm_bayesian_fitter = BayesianFitter(frame, tau_max, arm_miner.mining_edges, n_max_edges=n_max_edges, model_name='arm')
+#arm_bayesian_fitter.bayesian_parameter_estimation()
+#arm_security_guard = SecurityGuard(frame, arm_bayesian_fitter, sig_level)
 
 ocsvmer = OCSVMer(frame, tau_max)
 
 """Initiate anomaly injection, detection, and evaluation"""
 # 5. Inject contextual anomaly, initiate the detection, and initiate the evaluation
-for case_id in range(3, 4):
+for case_id in range(0, 4):
     testing_event_states, anomaly_positions, testing_benign_dict = evaluator.inject_contextual_anomalies(ground_truth_fitter, sig_level, n_anomalies, case_id)
     # For causal and arm bayesian network, they are stateful, and need the testing_benign_dict to recover the normal system state.
     causal_alarm_position_events = causal_security_guard.contextual_anomaly_detection(testing_event_states, testing_benign_dict)
-    arm_alarm_position_events = arm_security_guard.contextual_anomaly_detection(testing_event_states, testing_benign_dict)
-    # For the OCSVM, it is not needed.
     ocsvm_alarm_position_events = ocsvmer.contextual_anomaly_detection(testing_event_states)
+    #arm_alarm_position_events = armer.contextual_anomaly_detection(testing_event_states, testing_benign_dict)
+    # For the OCSVM, it is not needed.
 
     evaluator.evaluate_contextual_detection_accuracy(causal_alarm_position_events, anomaly_positions, case_id, 'causal')
-    evaluator.evaluate_contextual_detection_accuracy(arm_alarm_position_events, anomaly_positions, case_id, 'arm')
     evaluator.evaluate_contextual_detection_accuracy(ocsvm_alarm_position_events, anomaly_positions, case_id, 'ocsvm')
+    #evaluator.evaluate_contextual_detection_accuracy(arm_alarm_position_events, anomaly_positions, case_id, 'arm')

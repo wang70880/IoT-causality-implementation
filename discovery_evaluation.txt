@@ -6,12 +6,22 @@
      Number of training records, devices, and attributes = 36805, 25, 7
      device list=['C15', 'C3', 'Eau_Froide_Evier_Instantanee', 'I10_Droite_Haut', 'I11_Droite_Haut', 'L12', 'L15', 'L16', 'L5', 'L8', 'Luminosite_Cuisine', 'Luminosite_Lit', 'Luminosite_Salon', 'Luminosite_Table', 'Presence_Cuisine', 'Presence_Lit', 'Presence_SDB', 'Presence_Salon', 'Presence_Table', 'Puissance_Chauffe_Eau', 'Puissance_Four', 'Puissance_Frigo', 'Puissance_Lave_Vaisselle', 'Puissance_Plaques', 'Puissance_Volets_Roulants']
      attribute list=['Brightness-Sensor', 'Contact-Sensor', 'Dimmer', 'Infrared-Movement-Sensor', 'Power-Sensor', 'Switch', 'Water-Meter']
-*** Interaction mining evaluation for 168 ground truth interactions ***
-[Precision] 0.9590643274853801 v.s. 0.4666666666666667
-[Recall] 0.9761904761904762 v.s. 0.5
-[F1] 0.967551622418879 v.s. 0.4827586206896552
-[Eficiency] PC, ARM consumes time: 3.745224142074585 v.s. 0.00855473279953003
-Total # injected anomalies: 2052
-[causal-Model Contextual Anomaly Detection for Case-3] Precision, recall, f1 = 0.879, 1.000, 0.936
-[arm-Model Contextual Anomaly Detection for Case-3] Precision, recall, f1 = 0.758, 0.136, 0.231
-[ocsvm-Model Contextual Anomaly Detection for Case-3] Precision, recall, f1 = 0.225, 0.365, 0.278
+Interaction Mining evalutation for model causal
+     [Precision, Recall, F1] = 0.9590643274853801, 0.9479768786127167, 0.9534883720930233
+Interaction Mining evalutation for model arm
+     [Precision, Recall, F1] = 0.39166666666666666, 0.27167630057803466, 0.32081911262798635
+Interaction Mining evalutation for model haw
+     [Precision, Recall, F1] = 0.5276381909547738, 0.6069364161849711, 0.5645161290322581
+[Eficiency] 3.860894532998403 v.s. 0.007177011171976725 v.s. 0.017545080184936522
+Total # injected anomalies: 4000
+[causal-Model Contextual Anomaly Detection for Case-0] Precision, recall, f1 = 0.899, 0.948, 0.923
+[ocsvm-Model Contextual Anomaly Detection for Case-0] Precision, recall, f1 = 0.303, 0.247, 0.272
+Total # injected anomalies: 4000
+[causal-Model Contextual Anomaly Detection for Case-1] Precision, recall, f1 = 0.975, 0.965, 0.970
+[ocsvm-Model Contextual Anomaly Detection for Case-1] Precision, recall, f1 = 0.306, 0.227, 0.261
+Total # injected anomalies: 4000
+[causal-Model Contextual Anomaly Detection for Case-2] Precision, recall, f1 = 0.997, 0.997, 0.997
+[ocsvm-Model Contextual Anomaly Detection for Case-2] Precision, recall, f1 = 0.306, 0.013, 0.025
+Total # injected anomalies: 2151
+[causal-Model Contextual Anomaly Detection for Case-3] Precision, recall, f1 = 0.906, 0.999, 0.950
+[ocsvm-Model Contextual Anomaly Detection for Case-3] Precision, recall, f1 = 0.201, 0.311, 0.244

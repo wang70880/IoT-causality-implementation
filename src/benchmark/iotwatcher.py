@@ -8,8 +8,7 @@ import matplotlib.pyplot as plt
 from numpy import ndarray
 from src.event_processing import Hprocessor, Cprocessor, GeneralProcessor
 from src.drawer import Drawer
-from src.benchmark.association_miner import AssociationMiner
-from src.bayesian_fitter import BayesianFitter
+from src.benchmark.association_rule_miner import ARMMiner
 from src.genetic_type import DataFrame, AttrEvent, DevAttribute
 from src.tigramite.tigramite import plotting as ti_plotting
 from collections import defaultdict
@@ -137,7 +136,7 @@ class BackgroundGenerator():
         if self.dataset == 'hh130':
             user_attributes = ['Control4-Motion', 'Control4-Door']
         elif self.dataset == 'contextact':
-            user_attributes = ['Infrared Movement Sensor', 'Switch', 'Dimmer']
+            user_attributes = ['Infrared-Movement-Sensor', 'Switch', 'Dimmer']
 
         # 2. Leverage the physical channels to identify related device pairs
         if user_attributes:
@@ -160,15 +159,15 @@ class BackgroundGenerator():
         physical_channels = None
         if self.dataset == 'contextact':
             physical_channels = {
-                'Brightness Sensor': ['Brightness Sensor', 'Dimmer', 'Rollershutter'],
-                'Dimmer': ['Brightness Sensor', 'Power Sensor', 'Dimmer'],
-                'Contact Sensor': ['Contact Sensor', 'Water Meter', 'Power Sensor'],
-                'Humidity Sensor': ['Humidity Sensor', 'Water Meter', 'Contact Sensor'],
-                'Power Sensor': ['Power Sensor', 'Contact Sensor', 'Rollershutter', 'Water Meter'],
-                'Rollershutter': ['Rollershutter', 'Brightness Sensor', 'Dimmer', 'Power Sensor'],
-                'Water Meter': ['Water Meter', 'Contact Sensor', 'Power Sensor'],
+                'Brightness-Sensor': ['Brightness-Sensor', 'Dimmer', 'Rollershutter'],
+                'Dimmer': ['Brightness-Sensor', 'Power Sensor', 'Dimmer'],
+                'Contact-Sensor': ['Contact-Sensor', 'Water-Meter', 'Power-Sensor'],
+                'Humidity-Sensor': ['Humidity-Sensor', 'Water-Meter', 'Contact-Sensor'],
+                'Power-Sensor': ['Power-Sensor', 'Contact-Sensor', 'Rollershutter', 'Water-Meter'],
+                'Rollershutter': ['Rollershutter', 'Brightness-Sensor', 'Dimmer', 'Power-Sensor'],
+                'Water-Meter': ['Water-Meter', 'Contact-Sensor', 'Power-Sensor'],
                 'Switch': [],
-                'Infrared Movement Sensor': []
+                'Infrared-Movement-Sensor': []
             }
 
         # 2. Leverage the physical channels to identify related device pairs
@@ -184,16 +183,17 @@ class BackgroundGenerator():
 
         return physical_array
 
-class IoTWatcher():
+class HAWatcher():
 
-    def __init__(self, event_preprocessor, frame, tau_max):
+    def __init__(self, event_preprocessor, frame, tau_max, min_confidence=0.95):
         self.event_preprocessor:'GeneralProcessor' = event_preprocessor
         self.frame = frame
         self.background_generator:'BackgroundGenerator' = BackgroundGenerator(event_preprocessor, frame, tau_max)
         #self.association_miner:'AssociationMiner' = association_miner
         self.tau_max = tau_max
+        self.min_confidence = min_confidence
         self.ground_truth_dict = self._construct_ground_truth()
-        self.mining_edges, self.mining_array, self.nor_mining_array = self.interaction_mining()
+        self.rule_dict, self.nor_mining_array = self._rule_mining()
         #self.bayesian_fitter = BayesianFitter(self.frame, self.tau_max, self.mining_edges, n_max_edges=self.n_max_edges, model_name='association-background')
     
     """Helper functions."""
@@ -242,19 +242,27 @@ class IoTWatcher():
         golden_automation_array:'np.ndarray' = np.zeros((self.frame.n_vars, self.frame.n_vars, self.tau_max+1), dtype=np.int32)
         return golden_automation_array
     
-    def interaction_mining(self):
+    def _rule_mining(self):
         # Construct the ground truth based on HAWathcer's result
         interaction_dict = {}
         interaction_dict['user'] = self._identify_user_interactions(); interaction_dict['physics'] = self._identify_physical_interactions()
         interaction_dict['automation'] = self._identify_automation_interactions()
 
+        # 1. First generate candidate interactions according to the background knowledge
         mining_array:'np.ndarray' = interaction_dict['user'] + interaction_dict['physics'] + interaction_dict['automation']
         mining_array[mining_array>0] = 1
-        nor_mining_array:'np.ndarray' = self._normalize_temporal_array(mining_array)
+        candidate_interactions:'np.ndarray' = self._normalize_temporal_array(mining_array)
 
-        mining_edges = defaultdict(list)
-        for (cause, outcome, lag), x in np.ndenumerate(mining_array):
-            if x > 0:
-                mining_edges[outcome].append((cause, -lag))
+        # 2. Then exmaine these interactions by checking the conditional probability. It is equivlent to an ARM problem with certain confidence about the rule
+        # The support is set low because candidate interactions have been selected by the background knowledge.
+        armer = ARMMiner(self.frame, self.tau_max, min_support=0.01, min_confidence=self.min_confidence)
+        nor_mining_array = armer.nor_mining_array + candidate_interactions; nor_mining_array[nor_mining_array==2] = 1
 
-        return mining_edges, mining_array, nor_mining_array
+        rule_dict = defaultdict(list) # For each outcome, the dict stores all its prerequisites, i.e., the list of causes
+        for index, x in np.ndenumerate(nor_mining_array):
+            if x == 1:
+                c_infos = [k for k in rule_dict.keys() if k[0]==index[1]]
+                for c_info in c_infos:
+                    p_infos = [v for v in rule_dict[c_info] if v[0]==index[0]]
+                    rule_dict[c_info] += p_infos
+        return rule_dict, nor_mining_array

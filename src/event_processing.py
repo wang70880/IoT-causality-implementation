@@ -352,6 +352,7 @@ class Cprocessor(GeneralProcessor):
 			new_v = [x for x in v if mean-3.*std_dev <=x<= mean+3.*std_dev]
 			algo = rpt.Pelt(model="rbf").fit(np.array(new_v)) # JC NOTE: Ad-hoc parameter settings for breakpoint cost function here.
 			bkps = [0] + algo.predict(pen=(int(len(new_v)/5000)+1)) # JC NOTE: Ad-hoc parameter settings for breakpoint prediction here.
+			#bkps = [0] + algo.predict(pen=(0.5)) # JC NOTE: Ad-hoc parameter settings for breakpoint prediction here.
 			seg_means = []
 			for i in range(len(bkps)-1):
 				seg_means.append(statistics.mean(new_v[bkps[i]:bkps[i+1]]))

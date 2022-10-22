@@ -42,7 +42,6 @@ class AssociationMiner():
             dataframe=int_dataframe,
             cond_ind_test=ChiSquare()
         )
-
         # Return variable
         mining_edges = defaultdict(list)
         mining_array:'np.ndarray' = np.zeros((n_vars, n_vars, self.tau_max+1), dtype=np.int8)
