@@ -28,8 +28,7 @@ class OCSVMer():
             vectors.append(cur_vector)
         return np.array(vectors)
     
-    def contextual_anomaly_detection(self, testing_event_states):
-        testing_event_states = self.frame.testing_events_states
+    def anomaly_detection(self, testing_event_states):
         testing_vectors = self.construct_vectors(testing_event_states)
         prediction_result = self.ocsvm.predict(testing_vectors)
         outlier_positiosn = [pos for pos in range(len(prediction_result)) if prediction_result[pos]==-1]

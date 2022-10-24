@@ -59,6 +59,12 @@ class PhantomStateMachine():
         renewed_state_vector[self.var_names.index(event.dev)] = event.value
         self.set_latest_states(renewed_state_vector)
     
+    def flush(self, laggged_states:'list[int]'):
+        #print("laggged_states, self.phantom_states: {} v.s. {}".format(laggged_states, self.phantom_states))
+        #print("LEN of the above sequence: {} v.s. {}".format(len(laggged_states), len(self.phantom_states)))
+        assert(len(laggged_states) == len(self.phantom_states))
+        self.phantom_states = laggged_states.copy()
+
     def __str__(self):
         return tabulate(\
             list(zip(self.lagged_var_names, self.phantom_states)),\
@@ -155,16 +161,55 @@ class SecurityGuard():
             self.phantom_state_machine.set_latest_states(state_vector)
 
     def contextual_anomaly_detection(self, testing_event_states, testing_benign_dict):
-        benign_event_states = self.frame.testing_events_states # For state calibration usage
         alarm_position_events = []
         self.initialize_phantom_machine()
         for evt_id, (event, states) in enumerate(testing_event_states):
             anomaly_score = self._compute_event_anomaly_score(event, self.phantom_state_machine)
             if anomaly_score >= self.score_threshold:
+                # Raise an alarm and report to users
                 alarm_position_events.append((evt_id, event))
-            benign_state = benign_event_states[testing_benign_dict[evt_id]][1]
-            self.phantom_state_machine.set_latest_states(benign_state)
+            # Restore the lagged system state (the lagged system states after the latest benign event happens)
+            lagged_system_states = testing_benign_dict[evt_id][1]
+            self.phantom_state_machine.flush(lagged_system_states)
         return alarm_position_events
+
+    def kmax_anomaly_detection(self, testing_event_states, testing_benign_dict, k_max):
+        """
+        This function is responsible for determining the contextual anomaly or collective anomaly.
+
+        Return values:
+        alarm_position_chains (list[int, list/AttrEvent]):
+            when kmax = 1, it returns a list of (event_id, anomaly_event)
+            When kmax > 1, it returns a list of (event_id, list[anomaly_event])
+        """
+        alarm_start_positions = []
+        alarm_chains = []
+        self.initialize_phantom_machine()
+        anomaly_chain = []
+        for evt_id, (event, states) in enumerate(testing_event_states):
+            anomaly_score = self._compute_event_anomaly_score(event, self.phantom_state_machine)
+            if len(anomaly_chain)>0 and anomaly_score < self.score_threshold:
+                # A collective anomaly instance is detected
+                anomaly_chain.append(event)
+            elif len(anomaly_chain)==0 and anomaly_score >= self.score_threshold:
+                # Record the position of the contextual anomaly, and start maintaining the anomaly chain
+                alarm_start_positions.append(evt_id)
+                anomaly_chain.append(event)
+            self.phantom_state_machine.set_latest_states(states)
+
+            if len(anomaly_chain)==k_max or (0<len(anomaly_chain)<k_max and anomaly_score >= self.score_threshold):
+                # Raise an alarm and restore the phantom state machine to the latest stable one
+                if k_max == 1:
+                    alarm_chains.append(anomaly_chain[0])
+                else:
+                    alarm_chains.append(anomaly_chain.copy())
+                anomaly_chain = []
+                # Restore the phantom state machine to the latest stable version
+                latest_stable_lagged_states = testing_benign_dict[evt_id][1]
+                self.phantom_state_machine.flush(latest_stable_lagged_states)
+        assert(len(alarm_start_positions) == len(alarm_chains))
+        return list(zip(alarm_start_positions, alarm_chains))
+
 
     def analyze_detection_results(self):
         tps = sum([len(tp_list) for tp_list in self.tp_debugging_dict.values()])

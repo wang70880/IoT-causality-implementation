@@ -11,17 +11,25 @@ Interaction Mining evalutation for model causal
 Interaction Mining evalutation for model arm
      [Precision, Recall, F1] = 0.39166666666666666, 0.27167630057803466, 0.32081911262798635
 Interaction Mining evalutation for model haw
-     [Precision, Recall, F1] = 0.5276381909547738, 0.6069364161849711, 0.5645161290322581
-[Eficiency] 3.860894532998403 v.s. 0.007177011171976725 v.s. 0.017545080184936522
+     [Precision, Recall, F1] = 0.7857142857142857, 0.1907514450867052, 0.30697674418604654
+[Eficiency] 3.877438422044118 v.s. 0.0068041046460469564 v.s. 0.01759089231491089 v.s. 2.3134868502616883
 Total # injected anomalies: 4000
-[causal-Model Contextual Anomaly Detection for Case-0] Precision, recall, f1 = 0.899, 0.948, 0.923
-[ocsvm-Model Contextual Anomaly Detection for Case-0] Precision, recall, f1 = 0.303, 0.247, 0.272
+[causal-Model Contextual Anomaly Detection for Case-0] Precision, recall, f1 = 0.893, 0.947, 0.919
+[ocsvm-Model Contextual Anomaly Detection for Case-0] Precision, recall, f1 = 0.478, 0.800, 0.598
+[arm-Model Contextual Anomaly Detection for Case-0] Precision, recall, f1 = 0.384, 0.499, 0.434
+[hawatcher-Model Contextual Anomaly Detection for Case-0] Precision, recall, f1 = 0.259, 0.025, 0.046
 Total # injected anomalies: 4000
-[causal-Model Contextual Anomaly Detection for Case-1] Precision, recall, f1 = 0.975, 0.965, 0.970
-[ocsvm-Model Contextual Anomaly Detection for Case-1] Precision, recall, f1 = 0.306, 0.227, 0.261
-Total # injected anomalies: 4000
-[causal-Model Contextual Anomaly Detection for Case-2] Precision, recall, f1 = 0.997, 0.997, 0.997
-[ocsvm-Model Contextual Anomaly Detection for Case-2] Precision, recall, f1 = 0.306, 0.013, 0.025
-Total # injected anomalies: 2151
-[causal-Model Contextual Anomaly Detection for Case-3] Precision, recall, f1 = 0.906, 0.999, 0.950
-[ocsvm-Model Contextual Anomaly Detection for Case-3] Precision, recall, f1 = 0.201, 0.311, 0.244
+[causal-Model Contextual Anomaly Detection for Case-1] Precision, recall, f1 = 0.971, 0.964, 0.967
+[ocsvm-Model Contextual Anomaly Detection for Case-1] Precision, recall, f1 = 0.491, 0.876, 0.629
+[arm-Model Contextual Anomaly Detection for Case-1] Precision, recall, f1 = 0.366, 0.650, 0.468
+[hawatcher-Model Contextual Anomaly Detection for Case-1] Precision, recall, f1 = 0.458, 0.593, 0.517
+Total # injected anomalies: 1000
+[causal-Model Contextual Anomaly Detection for Case-2] Precision, recall, f1 = 0.991, 0.997, 0.994
+[ocsvm-Model Contextual Anomaly Detection for Case-2] Precision, recall, f1 = 0.830, 0.842, 0.836
+[arm-Model Contextual Anomaly Detection for Case-2] Precision, recall, f1 = 0.835, 0.596, 0.695
+[hawatcher-Model Contextual Anomaly Detection for Case-2] Precision, recall, f1 = 0.875, 0.449, 0.594
+Total # injected anomalies: 2000
+[causal-Model Contextual Anomaly Detection for Case-3] Precision, recall, f1 = 0.871, 0.998, 0.930
+[ocsvm-Model Contextual Anomaly Detection for Case-3] Precision, recall, f1 = 0.346, 0.911, 0.502
+[arm-Model Contextual Anomaly Detection for Case-3] Precision, recall, f1 = 0.346, 0.839, 0.490
+[hawatcher-Model Contextual Anomaly Detection for Case-3] Precision, recall, f1 = 0.362, 0.093, 0.148

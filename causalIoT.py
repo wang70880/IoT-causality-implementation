@@ -168,7 +168,7 @@ tau_max = int(sys.argv[4]); tau_min = 1
     # 0.3 PC discovery parameters
 pc_alpha = float(sys.argv[5]); max_conds_dim = int(sys.argv[6]); maximum_comb = int(sys.argv[7]); n_max_edges = 10
     # 0.5 Anomaly generation parameters
-n_anomalies = 4000; sig_level = 0.99
+sig_level = 0.99
 
 # 1. Load data and create data frame
 dl_start = time()
@@ -218,55 +218,50 @@ with open('{}{}'.format(event_preprocessor.result_path, 'identified-edges'), 'w+
     convert_file.write(json.dumps(causal_edges))
 causal_bayesian_fitter = BayesianFitter(frame, tau_max, causal_edges, n_max_edges=n_max_edges, model_name='causal')
 
-# 2. Prepare the benchmark for interaction mining: Association Rule Mining
+"""Initiate the interaction mining evaluation"""
+# Prepare the benchmark for interaction mining: ARM and HAWatcher.
 arm_start = time()
-armer = ARMMiner(frame, tau_max, 0.8, 0.95)
+armer = ARMMiner(frame, tau_max, 0.5, 0.95)
 arm_time = _elapsed_minutes(arm_start)
 hawatcher_start = time()
 hawatcher = HAWatcher(event_preprocessor, frame, tau_max, 0.95)
 haw_time = _elapsed_minutes(hawatcher_start)
-#hawatcher_miner = IoTWatcher(event_preprocessor, frame, tau_max)
-
-## 3. Prepare the ground truth
+ocsvm_start = time()
+ocsvmer = OCSVMer(frame, tau_max)
+ocsvm_time = _elapsed_minutes(ocsvm_start)
+# Prepare the ground truth
 evaluator = Evaluator(event_preprocessor, frame, tau_max, pc_alpha)
-
-"""Initiate the discovery evaluation"""
+# Compare the precision, recall, F1, and efficiency of these methods
 causal_tp, causal_fp, causal_fn, causal_precision, causal_recall, causal_f1 = evaluator.evaluate_discovery_accuracy(nor_causal_array, evaluator.nor_golden_array, causal_filtered_edge_infos, causal_edge_infos, 'causal', 0)
 arm_tp, arm_fp, arm_fn, arm_precision, arm_recall, arm_f1 = evaluator.evaluate_discovery_accuracy(armer.nor_mining_array, evaluator.nor_golden_array, model='arm', verbosity=0)
 haw_tp, haw_fp, haw_fn, haw_precision, haw_recall, haw_f1 = evaluator.evaluate_discovery_accuracy(hawatcher.nor_mining_array, evaluator.nor_golden_array, model='haw', verbosity=0)
-#asso_tp, asso_fp, asso_fn, asso_precision, asso_recall, asso_f1 = evaluator.evaluate_discovery_accuracy(asso_miner.nor_mining_array, evaluator.nor_golden_array, 0)
-#haw_tp, haw_fp, haw_fn, haw_precision, haw_recall, haw_f1 = evaluator.evaluate_discovery_accuracy(hawatcher_miner.nor_mining_array, evaluator.nor_golden_array, 0)
-#print("*** Interaction mining evaluation for {} ground truth interactions ***".format(causal_tp+causal_fn))
-#print("[Precision] {} v.s. {}".format(causal_precision, arm_precision))
-#print("[Recall] {} v.s. {}".format(causal_recall, arm_recall))
-#print("[F1] {} v.s. {}".format(causal_f1, arm_f1))
-print("[Eficiency] {} v.s. {} v.s. {}".format(pc_time, arm_time, haw_time))
+print("[Eficiency] {} v.s. {} v.s. {} v.s. {}".format(pc_time, arm_time, haw_time, ocsvm_time))
 
-"""Initiate the bayesian fitting process, and create corresponding Security Guard (for cuasal and ARM model)"""
-ground_truth_fitter = BayesianFitter(frame, tau_max, evaluator.golden_edges, n_max_edges, model_name='Golden')
-ground_truth_fitter.bayesian_parameter_estimation()
-
+"""Initiate the parameter estimation process"""
 causal_bayesian_fitter.bayesian_parameter_estimation()
 causal_security_guard = SecurityGuard(frame, causal_bayesian_fitter, sig_level)
 
-"""Benchmark establishment"""
-
-#arm_bayesian_fitter = BayesianFitter(frame, tau_max, arm_miner.mining_edges, n_max_edges=n_max_edges, model_name='arm')
-#arm_bayesian_fitter.bayesian_parameter_estimation()
-#arm_security_guard = SecurityGuard(frame, arm_bayesian_fitter, sig_level)
-
-ocsvmer = OCSVMer(frame, tau_max)
-
 """Initiate anomaly injection, detection, and evaluation"""
-# 5. Inject contextual anomaly, initiate the detection, and initiate the evaluation
+# Anomaly detection benchmarks:
+    # Rule-based: ARM and HAWatcher
+    # ML-based: OCSVM
+armer = armer
+hawatcher = hawatcher
+ocsvmer = ocsvmer
+# Inject the contextual anomaly, detection, and the evaluation.
+ground_truth_fitter = BayesianFitter(frame, tau_max, evaluator.golden_edges, n_max_edges, model_name='Golden')
+ground_truth_fitter.bayesian_parameter_estimation()
+
+n_anomalies_dict = {0:4000, 1:4000, 2:5000, 3:2000}
 for case_id in range(0, 4):
-    testing_event_states, anomaly_positions, testing_benign_dict = evaluator.inject_contextual_anomalies(ground_truth_fitter, sig_level, n_anomalies, case_id)
+    testing_event_states, anomaly_positions, testing_benign_dict = evaluator.inject_contextual_anomalies(ground_truth_fitter, sig_level, n_anomalies_dict[case_id], case_id)
     # For causal and arm bayesian network, they are stateful, and need the testing_benign_dict to recover the normal system state.
-    causal_alarm_position_events = causal_security_guard.contextual_anomaly_detection(testing_event_states, testing_benign_dict)
-    ocsvm_alarm_position_events = ocsvmer.contextual_anomaly_detection(testing_event_states)
-    #arm_alarm_position_events = armer.contextual_anomaly_detection(testing_event_states, testing_benign_dict)
-    # For the OCSVM, it is not needed.
+    causal_alarm_position_events = causal_security_guard.kmax_anomaly_detection(testing_event_states, testing_benign_dict, k_max=1)
+    ocsvm_alarm_position_events = ocsvmer.anomaly_detection(testing_event_states)
+    arm_alarm_position_events = armer.anomaly_detection(testing_event_states, testing_benign_dict)
+    hawatcher_alarm_position_events = hawatcher.anomaly_detection(testing_event_states, testing_benign_dict)
 
     evaluator.evaluate_contextual_detection_accuracy(causal_alarm_position_events, anomaly_positions, case_id, 'causal')
     evaluator.evaluate_contextual_detection_accuracy(ocsvm_alarm_position_events, anomaly_positions, case_id, 'ocsvm')
-    #evaluator.evaluate_contextual_detection_accuracy(arm_alarm_position_events, anomaly_positions, case_id, 'arm')
+    evaluator.evaluate_contextual_detection_accuracy(arm_alarm_position_events, anomaly_positions, case_id, 'arm')
+    evaluator.evaluate_contextual_detection_accuracy(hawatcher_alarm_position_events, anomaly_positions, case_id, 'hawatcher')

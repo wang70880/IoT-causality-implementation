@@ -188,6 +188,7 @@ class HAWatcher():
     def __init__(self, event_preprocessor, frame, tau_max, min_confidence=0.95):
         self.event_preprocessor:'GeneralProcessor' = event_preprocessor
         self.frame = frame
+        self.var_names = self.frame.var_names; self.n_vars = len(self.var_names)
         self.background_generator:'BackgroundGenerator' = BackgroundGenerator(event_preprocessor, frame, tau_max)
         #self.association_miner:'AssociationMiner' = association_miner
         self.tau_max = tau_max
@@ -255,14 +256,40 @@ class HAWatcher():
 
         # 2. Then exmaine these interactions by checking the conditional probability. It is equivlent to an ARM problem with certain confidence about the rule
         # The support is set low because candidate interactions have been selected by the background knowledge.
-        armer = ARMMiner(self.frame, self.tau_max, min_support=0.01, min_confidence=self.min_confidence)
-        nor_mining_array = armer.nor_mining_array + candidate_interactions; nor_mining_array[nor_mining_array==2] = 1
-
-        rule_dict = defaultdict(list) # For each outcome, the dict stores all its prerequisites, i.e., the list of causes
-        for index, x in np.ndenumerate(nor_mining_array):
-            if x == 1:
-                c_infos = [k for k in rule_dict.keys() if k[0]==index[1]]
-                for c_info in c_infos:
-                    p_infos = [v for v in rule_dict[c_info] if v[0]==index[0]]
-                    rule_dict[c_info] += p_infos
+        rule_dict = {}
+        nor_mining_array:'np.ndarray' = np.zeros((self.n_vars, self.n_vars), dtype=np.int8)
+        armer = ARMMiner(self.frame, self.tau_max, min_support=0.25, min_confidence=self.min_confidence)
+        for c_situ in armer.rule_dict.keys():
+            for p_situ in armer.rule_dict[c_situ]:
+                # Add the p_situ only if (p_index, c_index) is a candidate interaction
+                if candidate_interactions[p_situ[0], c_situ[0]]>0:
+                    rule_dict[c_situ] = rule_dict[c_situ] if c_situ in rule_dict.keys() else []
+                    rule_dict[c_situ].append(p_situ)
+                    nor_mining_array[p_situ[0], c_situ[0]] = 1
         return rule_dict, nor_mining_array
+
+    """Function classes for anomaly detection"""
+
+    def anomaly_detection(self, testing_event_states, testing_benign_dict):
+        alarm_position_events = []
+        last_system_states = testing_benign_dict[0][1][:self.n_vars]
+        for evt_id, (event, states) in enumerate(testing_event_states):
+            c_index = self.var_names.index(event.dev)
+            c_situ = (c_index, event.value)
+            if c_situ not in self.rule_dict.keys():
+                # If no rule is found about the current device, it is assumed to be normal.
+                last_system_states = states.copy()
+                continue
+            # Otherwise, we find a list of rules self.rule_dict[c_index], which set the current device as the consecutive device
+            p_indices = [p_index[0] for p_index in self.rule_dict[c_situ]]
+            p_hypo_values = [p_index[1] for p_index in self.rule_dict[c_situ]]
+            p_observed_values = [last_system_states[index] for index in p_indices]
+            assert(len(p_hypo_values)==len(p_observed_values))
+            if len([i for i in range(len(p_hypo_values)) if p_hypo_values[i]!=p_observed_values[i]])>0:
+                # If any rule is violated, raise an alarm here
+                alarm_position_events.append((evt_id, event))
+                last_system_states = testing_benign_dict[evt_id][1][:self.n_vars]
+            else:
+                # If all rule testings are passed, it is a normal event, update the lagged system states according to the event
+                last_system_states = states.copy()
+        return alarm_position_events

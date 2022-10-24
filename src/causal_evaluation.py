@@ -396,8 +396,15 @@ class Evaluator():
         var_names = frame.var_names
         benign_event_states:'list[tuple(AttrEvent,ndarray)]' = frame.testing_events_states
 
-        # 1. Determine the candidate anomaly positions and store it to a dict with evt_id -> (anomalous-event, anomalous-states)
+        # 0. Before injecting anomalies, get the lagged system states of the normal testing events
         security_guard = SecurityGuard(frame, ground_truth_fitter, sig_level)
+        benign_lagged_states = defaultdict(list)
+        # For each benign event, we record the lagged states after it happens
+        for evt_id, (event, states) in enumerate(benign_event_states):
+            security_guard.phantom_state_machine.set_latest_states(states)
+            benign_lagged_states[evt_id] = security_guard.phantom_state_machine.phantom_states.copy()
+
+        # 1. Determine the candidate anomaly positions and store it to a dict with evt_id -> (anomalous-event, anomalous-states)
         candidate_position_anomalies = {}
         if case_id<=2:
             security_guard.initialize_phantom_machine()
@@ -419,7 +426,7 @@ class Evaluator():
         elif case_id==3:
             # We hope to guarantee a minimum number of injected anomalies.
             # Each time the malicious automation rules are generated and the anomaly positions are determined, the number of anomalies should be larger than 1000
-            while len(list(candidate_position_anomalies.keys())) < 2000:
+            while len(list(candidate_position_anomalies.keys())) < n_anomaly:
                 security_guard.initialize_phantom_machine()
                 candidate_position_anomalies = {}
                 n_auto = 15
@@ -446,17 +453,17 @@ class Evaluator():
         new_event_id = 0
         security_guard.initialize_phantom_machine()
         for evt_id, (event, states) in enumerate(benign_event_states):
-            # 3.1 First add benign testing events
+            # 2.1 First add benign testing events
             security_guard.phantom_state_machine.set_latest_states(states)
             new_testing_event_states.append((event, states))
-            testing_benign_dict[new_event_id] = evt_id
+            testing_benign_dict[new_event_id] = (evt_id, benign_lagged_states[evt_id])
             new_event_id += 1
-            # 3.2 Add the anomalous event
+            # 2.2 Add the anomalous event
             if evt_id in selected_anomaly_positions:
                 anomaly_event_state = candidate_position_anomalies[evt_id]
                 new_testing_event_states.append(anomaly_event_state)
                 anomaly_positions.append(new_event_id)
-                testing_benign_dict[new_event_id] = evt_id # For rolling back
+                testing_benign_dict[new_event_id] = (evt_id, benign_lagged_states[evt_id]) # For rolling back
                 new_event_id += 1
         print("Total # injected anomalies: {}".format(len(anomaly_positions)))
 
