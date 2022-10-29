@@ -25,6 +25,9 @@ class PhantomStateMachine():
         # The latest variable (i.e., lag=1) has the smallest index
         self.phantom_states = [0] * (self.n_vars * self.tau_max)
         assert(len(self.phantom_states) == self.n_lagged_vars)
+    
+    def equal(self, test_states):
+        return len(test_states)==len(self.phantom_states) and all([test_states[i]==self.phantom_states[i] for i in range(len(test_states))])
 
     def set_latest_states(self, state_vector:'list[int]'):
         """
@@ -190,6 +193,7 @@ class SecurityGuard():
             anomaly_score = self._compute_event_anomaly_score(event, self.phantom_state_machine)
             if len(anomaly_chain)>0 and anomaly_score < self.score_threshold:
                 # A collective anomaly instance is detected
+                print("Collective event {} is detected!".format(event))
                 anomaly_chain.append(event)
             elif len(anomaly_chain)==0 and anomaly_score >= self.score_threshold:
                 # Record the position of the contextual anomaly, and start maintaining the anomaly chain
@@ -199,10 +203,7 @@ class SecurityGuard():
 
             if len(anomaly_chain)==k_max or (0<len(anomaly_chain)<k_max and anomaly_score >= self.score_threshold):
                 # Raise an alarm and restore the phantom state machine to the latest stable one
-                if k_max == 1:
-                    alarm_chains.append(anomaly_chain[0])
-                else:
-                    alarm_chains.append(anomaly_chain.copy())
+                alarm_chains.append(anomaly_chain.copy())
                 anomaly_chain = []
                 # Restore the phantom state machine to the latest stable version
                 latest_stable_lagged_states = testing_benign_dict[evt_id][1]

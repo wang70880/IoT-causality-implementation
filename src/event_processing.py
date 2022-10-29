@@ -429,8 +429,8 @@ class Cprocessor(GeneralProcessor):
 
 	def initiate_data_preprocessing(self):
 		parsed_events = self.sanitize_raw_events()
-		unified_parsed_events = self.unify_value_type_by_change(parsed_events)
-		#unified_parsed_events = self.unify_value_type(parsed_events)
+		#unified_parsed_events = self.unify_value_type_by_change(parsed_events)
+		unified_parsed_events = self.unify_value_type(parsed_events)
 		self.create_preprocessed_data_file(unified_parsed_events)
 
 class Hprocessor(GeneralProcessor):

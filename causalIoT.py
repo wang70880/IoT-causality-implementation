@@ -16,8 +16,9 @@ from mpi4py import MPI
 
 from pgmpy.models import BayesianNetwork 
 from pgmpy.estimators import MaximumLikelihoodEstimator, BayesianEstimator
+from src.benchmark.markov_miner import MarkovMiner
 from src.benchmark.iotwatcher import HAWatcher
-from src.benchmark.association_miner import AssociationMiner
+from src.benchmark.bayesian_network import BayesianMiner
 
 from src.tigramite.tigramite import data_processing as pp
 from src.tigramite.tigramite.pcmci import PCMCI
@@ -219,49 +220,88 @@ with open('{}{}'.format(event_preprocessor.result_path, 'identified-edges'), 'w+
 causal_bayesian_fitter = BayesianFitter(frame, tau_max, causal_edges, n_max_edges=n_max_edges, model_name='causal')
 
 """Initiate the interaction mining evaluation"""
-# Prepare the benchmark for interaction mining: ARM and HAWatcher.
-arm_start = time()
-armer = ARMMiner(frame, tau_max, 0.5, 0.95)
-arm_time = _elapsed_minutes(arm_start)
-hawatcher_start = time()
-hawatcher = HAWatcher(event_preprocessor, frame, tau_max, 0.95)
-haw_time = _elapsed_minutes(hawatcher_start)
+# Prepare the benchmark for interaction mining
+#bayesian_start = time()
+#bayesianer = BayesianMiner(causal_bayesian_fitter.pd_dataframe, tau_max)
+#bayesian_edges, bayesian_array, nor_bayesian_array = bayesianer.structure_learning()
+#bayesian_time = _elapsed_minutes(bayesian_start)
+markov_start = time()
+markov_miner = MarkovMiner(frame, tau_max, sig_level)
+markov_time = _elapsed_minutes(markov_start)
 ocsvm_start = time()
 ocsvmer = OCSVMer(frame, tau_max)
 ocsvm_time = _elapsed_minutes(ocsvm_start)
+#arm_start = time()
+#armer = ARMMiner(frame, tau_max, 0.5, 0.95)
+#arm_time = _elapsed_minutes(arm_start)
+hawatcher_start = time()
+hawatcher = HAWatcher(event_preprocessor, frame, tau_max, 0.95)
+haw_time = _elapsed_minutes(hawatcher_start)
 # Prepare the ground truth
 evaluator = Evaluator(event_preprocessor, frame, tau_max, pc_alpha)
 # Compare the precision, recall, F1, and efficiency of these methods
-causal_tp, causal_fp, causal_fn, causal_precision, causal_recall, causal_f1 = evaluator.evaluate_discovery_accuracy(nor_causal_array, evaluator.nor_golden_array, causal_filtered_edge_infos, causal_edge_infos, 'causal', 0)
-arm_tp, arm_fp, arm_fn, arm_precision, arm_recall, arm_f1 = evaluator.evaluate_discovery_accuracy(armer.nor_mining_array, evaluator.nor_golden_array, model='arm', verbosity=0)
-haw_tp, haw_fp, haw_fn, haw_precision, haw_recall, haw_f1 = evaluator.evaluate_discovery_accuracy(hawatcher.nor_mining_array, evaluator.nor_golden_array, model='haw', verbosity=0)
-print("[Eficiency] {} v.s. {} v.s. {} v.s. {}".format(pc_time, arm_time, haw_time, ocsvm_time))
+causal_tp, causal_fp, causal_fn, causal_precision, causal_recall, causal_f1 = evaluator.evaluate_discovery_accuracy(nor_causal_array, evaluator.nor_golden_array, causal_filtered_edge_infos, causal_edge_infos, 'causal', hawatcher.background_generator, 1)
+exit()
+#bayesian_tp, bayesian_fp, bayesian_fn, bayesian_precision, bayesian_recall, bayesian_f1 = evaluator.evaluate_discovery_accuracy(nor_bayesian_array, evaluator.nor_golden_array, model='bayesian', verbosity=0)
+#arm_tp, arm_fp, arm_fn, arm_precision, arm_recall, arm_f1 = evaluator.evaluate_discovery_accuracy(armer.nor_mining_array, evaluator.nor_golden_array, model='arm', verbosity=0)
+#haw_tp, haw_fp, haw_fn, haw_precision, haw_recall, haw_f1 = evaluator.evaluate_discovery_accuracy(hawatcher.nor_mining_array, evaluator.nor_golden_array, model='haw', verbosity=0)
+#print("[Eficiency] {} v.s. {} v.s. {} v.s. {} v.s. {}".format(pc_time, bayesian_time, ocsvm_time, arm_time, haw_time))
+print("[Eficiency] {} v.s. {} v.s. {} v.s. {}".format(pc_time, markov_time, ocsvm_time, haw_time))
 
 """Initiate the parameter estimation process"""
 causal_bayesian_fitter.bayesian_parameter_estimation()
 causal_security_guard = SecurityGuard(frame, causal_bayesian_fitter, sig_level)
 
-"""Initiate anomaly injection, detection, and evaluation"""
-# Anomaly detection benchmarks:
-    # Rule-based: ARM and HAWatcher
-    # ML-based: OCSVM
-armer = armer
-hawatcher = hawatcher
-ocsvmer = ocsvmer
-# Inject the contextual anomaly, detection, and the evaluation.
 ground_truth_fitter = BayesianFitter(frame, tau_max, evaluator.golden_edges, n_max_edges, model_name='Golden')
 ground_truth_fitter.bayesian_parameter_estimation()
 
-n_anomalies_dict = {0:4000, 1:4000, 2:5000, 3:2000}
-for case_id in range(0, 4):
-    testing_event_states, anomaly_positions, testing_benign_dict = evaluator.inject_contextual_anomalies(ground_truth_fitter, sig_level, n_anomalies_dict[case_id], case_id)
-    # For causal and arm bayesian network, they are stateful, and need the testing_benign_dict to recover the normal system state.
-    causal_alarm_position_events = causal_security_guard.kmax_anomaly_detection(testing_event_states, testing_benign_dict, k_max=1)
-    ocsvm_alarm_position_events = ocsvmer.anomaly_detection(testing_event_states)
-    arm_alarm_position_events = armer.anomaly_detection(testing_event_states, testing_benign_dict)
-    hawatcher_alarm_position_events = hawatcher.anomaly_detection(testing_event_states, testing_benign_dict)
+# JC TEST: test the collective anomaly chain generation
+case_id = 0
+evaluator.analyze_false_contextual_results(causal_bayesian_fitter, ground_truth_fitter, sig_level, case_id)
 
-    evaluator.evaluate_contextual_detection_accuracy(causal_alarm_position_events, anomaly_positions, case_id, 'causal')
-    evaluator.evaluate_contextual_detection_accuracy(ocsvm_alarm_position_events, anomaly_positions, case_id, 'ocsvm')
-    evaluator.evaluate_contextual_detection_accuracy(arm_alarm_position_events, anomaly_positions, case_id, 'arm')
-    evaluator.evaluate_contextual_detection_accuracy(hawatcher_alarm_position_events, anomaly_positions, case_id, 'hawatcher')
+#testing_event_states, anomaly_positions, testing_benign_dict = evaluator.inject_collective_anomalies(ground_truth_fitter, sig_level, 500, anomaly_case, kmax)
+#causal_alarm_position_chains = causal_security_guard.kmax_anomaly_detection(testing_event_states, testing_benign_dict, k_max=kmax)
+#evaluator.evaluate_collective_detection_accuracy(causal_alarm_position_chains, anomaly_positions, kmax, anomaly_case, 'causal')
+exit()
+# JC TEST END
+
+"""Initiate anomaly injection, detection, and evaluation"""
+# Anomaly detection benchmarks:
+    # Stochastic-based: Markov chain
+    # Rule-based: HAWatcher
+    # ML-based: OCSVM
+#armer = armer
+markov_miner = markov_miner
+hawatcher = hawatcher
+ocsvmer = ocsvmer
+
+# Anomaly injection, detection, and evaluation
+n_anomalies_dict = {0:4000, 1:4000, 2:4000, 3:2000}
+n_loops = 100
+for case_id in range(0, 4):
+    causal_results = []; markov_results = []; ocsvm_results = []; haw_results = []
+    for i in range(n_loops):
+        testing_event_states, anomaly_positions, testing_benign_dict = evaluator.inject_contextual_anomalies(ground_truth_fitter, sig_level, n_anomalies_dict[case_id], case_id)
+        # For causal and arm bayesian network, they are stateful, and need the testing_benign_dict to recover the normal system state.
+        causal_alarm_position_events = causal_security_guard.kmax_anomaly_detection(testing_event_states, testing_benign_dict, k_max=1)
+        #bayesian_alarm_position_events = bayesian_security_guard.kmax_anomaly_detection(testing_event_states, testing_benign_dict, k_max=1)
+        markov_alarm_position_events = markov_miner.anomaly_detection(testing_event_states, testing_benign_dict)
+        ocsvm_alarm_position_events = ocsvmer.anomaly_detection(testing_event_states)
+        #arm_alarm_position_events = armer.anomaly_detection(testing_event_states, testing_benign_dict)
+        hawatcher_alarm_position_events = hawatcher.anomaly_detection(testing_event_states, testing_benign_dict)
+
+        causal_precision, causal_recall, causal_f1 = evaluator.evaluate_contextual_detection_accuracy(causal_alarm_position_events, anomaly_positions, case_id, 'causal')
+        #evaluator.evaluate_contextual_detection_accuracy(bayesian_alarm_position_events, anomaly_positions, case_id, 'bayesian')
+        markov_precision, markov_recall, markov_f1 = evaluator.evaluate_contextual_detection_accuracy(markov_alarm_position_events, anomaly_positions, case_id, 'markov')
+        ocsvm_precision, ocsvm_recall, ocsvm_f1 = evaluator.evaluate_contextual_detection_accuracy(ocsvm_alarm_position_events, anomaly_positions, case_id, 'ocsvm')
+        #evaluator.evaluate_contextual_detection_accuracy(arm_alarm_position_events, anomaly_positions, case_id, 'arm')
+        haw_precision, haw_recall, haw_f1 = evaluator.evaluate_contextual_detection_accuracy(hawatcher_alarm_position_events, anomaly_positions, case_id, 'hawatcher')
+        causal_results.append((causal_precision, causal_recall, causal_f1))
+        markov_results.append((markov_precision, markov_recall, markov_f1))
+        ocsvm_results.append((ocsvm_precision, ocsvm_recall, ocsvm_f1))
+        haw_results.append((haw_precision, haw_recall, haw_f1))
+    print("[Case {}] Avaerge detection accuracy for Causal, Markov, OCSVM, HAW".format(case_id))
+    print("{} {} {}".format(statistics.mean([x[0] for x in causal_results]), statistics.mean([x[1] for x in causal_results]), statistics.mean([x[2] for x in causal_results])))
+    print("{} {} {}".format(statistics.mean([x[0] for x in markov_results]), statistics.mean([x[1] for x in markov_results]), statistics.mean([x[2] for x in markov_results])))
+    print("{} {} {}".format(statistics.mean([x[0] for x in ocsvm_results]), statistics.mean([x[1] for x in ocsvm_results]), statistics.mean([x[2] for x in ocsvm_results])))
+    print("{} {} {}".format(statistics.mean([x[0] for x in haw_results]), statistics.mean([x[1] for x in haw_results]), statistics.mean([x[2] for x in haw_results])))

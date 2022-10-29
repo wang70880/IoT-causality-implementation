@@ -22,6 +22,7 @@ class BayesianFitter:
         self.frame:'DataFrame' = frame; self.tau_max = tau_max; self.use_training = use_training
         self.dataframe:'pp.DataFrame' = self.frame.training_dataframe if self.use_training else self.frame.testing_dataframe
         self.var_names = self.frame.var_names; self.n_vars = len(self.var_names)
+        self.n_max_edges = n_max_edges
 
         self.extended_name_device_dict:'dict[str, DevAttribute]' = defaultdict(DevAttribute) # The str-DevAttribute dict using the attr name as the dict key
         self.extended_index_device_dict:'dict[int, DevAttribute]' = defaultdict(DevAttribute) # The str-DevAttribute dict using the attr index as the dict key
