@@ -450,7 +450,6 @@ class Cprocessor(GeneralProcessor):
 			cur_states[name_device_dict[unified_event.dev].index] = unified_event.value
 			last_states = cur_states
 			trigger = (unified_event.dev, unified_event.value)
-			while
 			if trigger in automations.keys():
 				action_dev, action_value = automations[trigger]
 		if self.verbosity:
