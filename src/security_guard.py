@@ -208,20 +208,17 @@ class SecurityGuard():
                 pass
             elif len(anomaly_chain)==0 and anomaly_score >= self.score_threshold:
                 # Record the position of the contextual anomaly, and start maintaining the anomaly chain
-                print("A chain ID {} created.".format(evt_id))
                 alarm_start_positions.append(evt_id)
                 anomaly_chain = [event]
 
             self.phantom_state_machine.set_latest_states(states)
 
             if (len(anomaly_chain) == kmax) or (len(anomaly_chain)>0 and evt_id == len(testing_event_states)-1):
-                print("     Chain finishes with length: {}".format(len(anomaly_chain)))
                 alarm_chains.append(anomaly_chain.copy())
                 anomaly_chain = []
                 latest_stable_lagged_states = testing_benign_dict[evt_id][1]
                 self.phantom_state_machine.flush(latest_stable_lagged_states)
 
-        print("For k={}, {} v.s. {}".format(kmax, len(alarm_start_positions), len(alarm_chains)))
         #print("TP, FP = {}, {}".format(tp, fp))
         assert(len(alarm_start_positions) == len(alarm_chains))
         return list(zip(alarm_start_positions, alarm_chains))

@@ -254,7 +254,6 @@ ground_truth_fitter = BayesianFitter(frame, tau_max, evaluator.golden_edges, n_m
 ground_truth_fitter.bayesian_parameter_estimation()
 
 # JC TEST: test the collective anomaly chain generation
-case_id = 0; kmax = 2
 n_anomalies_dict = {0:4000, 1:4000, 2:4000, 3:2000}
 for kmax in range(2, 5):
     for case_id in range(0, 2):

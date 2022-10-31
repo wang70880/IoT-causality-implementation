@@ -414,6 +414,9 @@ class Cprocessor(GeneralProcessor):
 		return unified_parsed_events
 
 	def create_preprocessed_data_file(self, unified_parsed_events: "list[AttrEvent]"):
+		automations = self.randomly_generate_automations(n_auto=10)
+		print("Added automation rules in the training phase:")
+		pprint(automations)
 		fout = open(self.transition_data, 'w+')
 		# 1. Identify all devices in the dataset
 		var_names = set()
@@ -446,6 +449,10 @@ class Cprocessor(GeneralProcessor):
 			# Update the current state vector
 			cur_states[name_device_dict[unified_event.dev].index] = unified_event.value
 			last_states = cur_states
+			trigger = (unified_event.dev, unified_event.value)
+			while
+			if trigger in automations.keys():
+				action_dev, action_value = automations[trigger]
 		if self.verbosity:
 			attrs = list(attr_occurrence_dict.keys())
 			attr_n_devs = [len(attr_occurrence_dict[attr].keys()) for attr in attrs]
