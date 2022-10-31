@@ -1,4 +1,5 @@
 import jenkspy
+import random
 import math
 import statistics
 import numpy as np
@@ -261,11 +262,14 @@ class Cprocessor(GeneralProcessor):
 				inp = parsed_event.dev.split("_")
 				if len(inp) <= 1:
 					continue
-				#parsed_event.dev = inp[0]
-			# 1.3 Remove redundant events (which implies no state transitions)
+			# 1.3 Remvoe duplicated devices. In this dataset, L5 = L8 = L12 = L16.
+			# Theefore, we only keep one device, that is, L16
+			if parsed_event.attr == 'Dimmer' and parsed_event.dev in ['L5', 'L8', 'L12']:
+				continue
+			# 1.4 Remove redundant events (which implies no state transitions)
 			if device_state_dict[parsed_event.dev] == parsed_event.value:
 				continue
-			# 1.4 Count legitimate events.
+			# 1.5 Count legitimate events.
 			attr_occurrence_dict[parsed_event.attr][parsed_event.dev] = 1 if parsed_event.dev not in attr_occurrence_dict[parsed_event.attr].keys()\
 					else attr_occurrence_dict[parsed_event.attr][parsed_event.dev] + 1
 			device_state_dict[parsed_event.dev] = parsed_event.value
@@ -278,6 +282,30 @@ class Cprocessor(GeneralProcessor):
 			attr_n_events = [sum(list(attr_occurrence_dict[attr].values())) for attr in attrs]
 			print("[Data Sanitization] Candidate attrs, n_devices, and n_events: {}".format(list(zip(attrs, attr_n_devs, attr_n_events))))
 		return qualified_events
+
+	def randomly_generate_automations(self, n_auto):
+		conditions = ['Brightness-Sensor', 'Infrared-Movement-Sensor', 'Contact-Sensor', 'Power-Sensor', 'Water-Meter', 'Contact-Sensor', 'Dimmer', 'Switch']
+		outcomes = ['Power-Sensor', 'Water-Meter', 'Contact-Sensor', 'Dimmer', 'Switch']
+		candidate_condition_devices = []; candidate_outcome_devices = []
+		for condition_attr in conditions:
+			candidate_condition_devices += self.attr_dev_dict[condition_attr]
+		for outcome_attr in outcomes:
+			candidate_outcome_devices += self.attr_dev_dict[outcome_attr]
+		candidate_conditions = [(dev, val) for dev in candidate_condition_devices for val in [0, 1]]
+		candidate_actions = [(dev, val) for dev in candidate_outcome_devices for val in [0, 1]]
+
+		automations = {}
+		while len(automations.keys())==0:
+			selected_conditions = random.choices(candidate_conditions, k=n_auto)
+			selected_actions = random.choices(candidate_actions, k=n_auto)
+			if any([selected_conditions[i][0]==selected_actions[i][0] for i in range(n_auto)]): # There is self-triggerd rule, i.e., trigger.dev==action.dev
+				continue
+			if all([selected_actions[i] not in selected_conditions for i in range(n_auto)]): # There is no chained rules
+				continue
+			for i in range(n_auto):
+				automations[selected_conditions[i]] = selected_actions[i]
+
+		return automations
 
 	def unify_value_type(self, parsed_events: "list[AttrEvent]") -> "list[AttrEvent]":
 		"""

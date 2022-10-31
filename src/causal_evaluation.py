@@ -21,12 +21,17 @@ from src.tigramite.tigramite.independence_tests.chi2 import ChiSquare
 
 class Evaluator():
 
-    def __init__(self, event_preprocessor, frame, tau_max, pc_alpha):
+    def __init__(self, event_preprocessor, frame, tau_max, pc_alpha, golden_edges=None, golden_array=None, nor_golden_array=None):
         self.event_preprocessor:'GeneralProcessor' = event_preprocessor
         self.frame:'DataFrame' = frame
         self.tau_max = tau_max
         self.pc_alpha = pc_alpha
-        self.golden_edges, self.golden_array, self.nor_golden_array = self._construct_golden_standard()
+        if golden_edges is None:
+            self.golden_edges, self.golden_array, self.nor_golden_array = self._construct_golden_standard()
+        else:
+            self.golden_edges = golden_edges
+            self.golden_array = golden_array
+            self.nor_golden_array = nor_golden_array
     
     """Helper functions."""
 
@@ -86,7 +91,7 @@ class Evaluator():
             for lag in range(1, self.tau_max+1):
                 selected_links[outcome].append((cause, -lag))
         # For all candidate time lags, we filter them according to the statistical test, and get the ranked edge sets
-        asso_miner = AssociationMiner(self.event_preprocessor, self.frame, self.tau_max, self.pc_alpha*100)
+        asso_miner = AssociationMiner(self.event_preprocessor, self.frame, self.tau_max, 0.6)
         golden_edges, golden_array, nor_golden_array = asso_miner.interaction_mining(selected_links)
         return golden_edges, golden_array, nor_golden_array
 
@@ -119,6 +124,7 @@ class Evaluator():
         # Auxillary variables
         frame:'DataFrame' = self.frame
         index_device_dict:'dict[DevAttribute]' = frame.index_device_dict
+        frequency_array = background_generator.frequency_array
 
         # 1. Calculate tp, fp, fn
         tp, fp, fn, precision, recall, f1_score = self.calculate_matrix_accuracy(evaluated_array, golden_array)
@@ -139,7 +145,8 @@ class Evaluator():
                 pair_info = {
                     'adev-pair': '{}->{}'.format(index_device_dict[index[0]].name, index_device_dict[index[1]].name),
                     'attr-pair': (index_device_dict[index[0]].attr, index_device_dict[index[1]].attr),
-                    'spatial': (index_device_dict[index[0]].location, index_device_dict[index[1]].location)
+                    'spatial': (index_device_dict[index[0]].location, index_device_dict[index[1]].location),
+                    'frequency': max(list(frequency_array[index[0], index[1], :]))
                 }
                 if evaluated_array[index] == 1 and golden_array[index] == 1:
                     edge_infos = [edge_info for edge_info in identified_edge_infos[index[1]] if edge_info[0][1][0]==index[0]]
@@ -196,7 +203,7 @@ class Evaluator():
         #drawer.plot_interaction_graph(pcmci, golden_standard_array==1, 'golden-interaction')
         # 3. Calculate the tau-free-precision and tau-free-recall for discovered results
         print("Interaction Mining evalutation for model {}".format(model))
-        print("     [Precision, Recall, F1] = {}, {}, {}".format(precision, recall, f1_score))
+        print("     [FP, FN, Precision, Recall, F1] = {}, {}, {}, {}, {}".format(fp, fn, precision, recall, f1_score))
         if verbosity:
             for k, v in tp_info_dict.items():
                 print("     {} discovered {} interactions: {}".format(len(v), k, v))
@@ -558,7 +565,7 @@ class Evaluator():
                                 candidate_anomaly_chains.append([(candidate_event, anomalous_states, temp_state_machine)])
                     else:
                         for cur_chain in candidate_anomaly_chains:
-                            if len(cur_chain) < k: # If the current chain is a borken chain which cannot propagate anymore at some timestamp, do not consider it again
+                            if len(cur_chain) != k: # If the current chain is a borken chain which cannot propagate anymore at some timestamp, do not consider it again
                                 continue
                             last_event, last_states, state_machine = cur_chain[-1]
                             candidate_collective_events = identify_candidate_collective_events(last_event, state_machine, int_attrs)
@@ -568,17 +575,12 @@ class Evaluator():
                             anomalous_states = last_states.copy(); anomalous_states[var_names.index(collective_event.dev)] = collective_event.value
                             state_machine.set_latest_states(anomalous_states)
                             cur_chain.append((collective_event, anomalous_states, state_machine))
-                
                 # 2. Randomly select an anomaly chain at each position
+                candidate_anomaly_chains = [chain for chain in candidate_anomaly_chains if len(chain)==kmax]
                 if len(candidate_anomaly_chains) == 0:
                     continue
                 selected_anomaly_chain = random.choice(candidate_anomaly_chains)
                 candidate_position_chains[evt_id] = [(tup[0], tup[1]) for tup in selected_anomaly_chain] # We do not need the recorded state machine, we only need the anomalous event and the states
-
-        #for id, chain in candidate_position_chains.items():
-        #    print("Suitable collective anomaly injection position: {}".format(id))
-        #    for event, state in chain:
-        #        print("     event, state: {}, {}".format(event, state))
 
         # 2. Insert the selected anomaly chain to the testing sequence
         new_testing_event_states:'list[tuple(AttrEvent,ndarray)]' = []; anomaly_positions = []; testing_benign_dict:'dict[int]' = {}
@@ -589,19 +591,29 @@ class Evaluator():
         new_event_id = 0
         security_guard.initialize_phantom_machine()
         # 2.2 Traverse the benign event sequence. If it is normal: Add it to the testing seqeuence; Otherwise start injecting the anomaly chain
+        #print("[KMAX={}] Collective anomaly injection.".format(kmax))
         for evt_id, (event, states) in enumerate(benign_event_states):
             security_guard.phantom_state_machine.set_latest_states(states)
             new_testing_event_states.append((event, states))
             testing_benign_dict[new_event_id] = (evt_id, benign_lagged_states[evt_id], benign_lagged_events[evt_id])
             new_event_id += 1
             if evt_id in selected_anomaly_positions:
+                #print("     Position {} with phantom states: {}".format(new_event_id, security_guard.phantom_state_machine.get_lagged_states()))
                 anomaly_positions.append(new_event_id)
                 anomaly_chain = candidate_position_chains[evt_id]
-                for anomaly_event_state in anomaly_chain:
+                for id, anomaly_event_state in enumerate(anomaly_chain):
+                    if id == 0:
+                        assert(security_guard._compute_event_anomaly_score(anomaly_event_state[0], security_guard.phantom_state_machine) >= security_guard.score_threshold)
+                    else:
+                        temp_state_machine = deepcopy(security_guard.phantom_state_machine)
+                        for i in range(id):
+                            temp_state_machine.set_latest_states(anomaly_chain[i][1])
+                        assert(security_guard._compute_event_anomaly_score(anomaly_event_state[0], temp_state_machine) < security_guard.score_threshold)
+                    #print("             {} with state {}".format(anomaly_event_state[0], anomaly_event_state[1]))
                     new_testing_event_states.append(anomaly_event_state)
                     testing_benign_dict[new_event_id] = (evt_id, benign_lagged_states[evt_id], benign_lagged_events[evt_id]) # For rolling back
                     new_event_id += 1
-        print("# anomaly cases and testing events: {} {}".format(len(anomaly_positions), len(new_testing_event_states)))
+        #print("# anomaly cases and testing events: {} {}".format(len(anomaly_positions), len(new_testing_event_states)))
         return new_testing_event_states, anomaly_positions, testing_benign_dict
 
     """Function classes for anomaly detection evaluation."""
@@ -614,7 +626,7 @@ class Evaluator():
         return precision, recall, f1
     
     def evaluate_collective_detection_accuracy(self, alarm_position_chains, anomaly_positions, kmax, case_id, model_name='unknown'):
-        anomaly_cases = self.get_int_anomaly_dict()[case_id]
+        anomaly_cases = self.get_int_collective_anomaly_dict(kmax)[case_id]
         alarm_positions = []
         chain_length_dict = defaultdict(int)
         for alarm in alarm_position_chains:
@@ -623,6 +635,7 @@ class Evaluator():
             if len(alarm_events) < kmax: # For those anomaly chains which are partially identified: Removed them.
                 continue
             alarm_attrs = [event.attr for event in alarm_events]
+            #print("Detected anomaly chain at position {} with attributes: {}".format(alarm[0], alarm_attrs))
             if all([alarm_attrs[i] in anomaly_cases[i] for i in range(len(alarm_attrs))]): # If the reported chain satisfies the case
                 alarm_positions.append(alarm[0])
         pprint(chain_length_dict)
