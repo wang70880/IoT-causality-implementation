@@ -38,7 +38,7 @@ class DataDebugger():
             self.preprocessor = Hprocessor(dataset=dataset, partition_days=partition_days, training_ratio=training_ratio, verbosity=1)
         elif self.dataset.startswith('contextact'):
             self.preprocessor = Cprocessor(dataset=dataset, partition_days=partition_days, training_ratio=training_ratio, verbosity=1)
-        self.preprocessor.initiate_data_preprocessing()
+        #self.preprocessor.initiate_data_preprocessing()
         self.preprocessor.data_loading()
     
     def validate_discretization(self):
@@ -270,9 +270,14 @@ if __name__ == '__main__':
     event_preprocessor:'GeneralProcessor' = data_debugger.preprocessor
     frame:'DataFrame' = data_debugger.preprocessor.frame_dict[int_frame_id]
 
-    markov_miner = MarkovMiner(frame, tau_max, sig_level=0.99)
-
+    evaluator = Evaluator(event_preprocessor, frame, tau_max, alpha)
     exit()
+    ground_truth_fitter = BayesianFitter(frame, tau_max, evaluator.golden_edges, n_max_edges, model_name='Golden')
+    ground_truth_fitter.bayesian_parameter_estimation()
+    testing_event_states, anomaly_positions, testing_benign_dict = evaluator.inject_collective_anomalies(ground_truth_fitter, sig_level, 500, 2, 3)
+    exit()
+
+    markov_miner = MarkovMiner(frame, tau_max, sig_level=0.99)
 
     association_miner = AssociationMiner(event_preprocessor, frame, tau_max, alpha)
 

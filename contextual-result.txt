@@ -1,0 +1,1291 @@
+
+********************** Parameter Settings **********************
+    pc-alpha=0.001, partition_days=8, n_training_events=54748, n_testing_events=13687, max(dim)=9, max(comb)=10
+
+*** Dataset Overview ***
+     Number of training records, devices, and attributes = 54748, 22, 7
+     device list=['C15', 'C3', 'Eau_Froide_Evier_Instantanee', 'I10_Droite_Haut', 'I11_Droite_Haut', 'L15', 'L16', 'Luminosite_Cuisine', 'Luminosite_Lit', 'Luminosite_Salon', 'Luminosite_Table', 'Presence_Cuisine', 'Presence_Lit', 'Presence_SDB', 'Presence_Salon', 'Presence_Table', 'Puissance_Chauffe_Eau', 'Puissance_Four', 'Puissance_Frigo', 'Puissance_Lave_Vaisselle', 'Puissance_Plaques', 'Puissance_Volets_Roulants']
+     attribute list=['Brightness-Sensor', 'Contact-Sensor', 'Dimmer', 'Infrared-Movement-Sensor', 'Power-Sensor', 'Switch', 'Water-Meter']
+Interaction Mining evalutation for model causal
+     [FP, FN, Precision, Recall, F1] = 8, 6, 0.9595959595959596, 0.9693877551020408, 0.964467005076142
+[Bayesian Fitting] ALERT! The variable Luminosite_Salon owns the maximum in-degree 15 (larger than 10). This variable may slow down the fitting process!
+[Bayesian Fitting] ALERT! The variable Luminosite_Salon owns the maximum in-degree 15 (larger than 10). This variable may slow down the fitting process!
+[Training Efficiency] 5.463055729866028 v.s. 0.2036225159962972 v.s. 5.412311812241872 v.s. 0.022297815481821696
+[Bayesian Fitting] ALERT! The variable Luminosite_Salon owns the maximum in-degree 15 (larger than 10). This variable may slow down the fitting process!
+[CASE=0] Calculated score threshold Causal v.s. Ground = 0.9929639401934917 v.s. 0.9920300751879699
+Anomaly case 0: FP, FN, Pre, Recall = 137 319 0.964117338920901 0.92025
+Significant true positive detected: ('Luminosite_Cuisine', 1, 1.0, 1.0)
+count: 246
+info: Parent situation: [('Puissance_Four(-1)', 0), ('Luminosite_Cuisine(-1)', 0), ('Puissance_Four(-2)', 0), ('L15(-1)', 0), ('Luminosite_Cuisine(-2)', 0), ('Puissance_Plaques(-1)', 1), ('Puissance_Plaques(-2)', 0), ('C3(-1)', 0), ('C3(-2)', 0)]
+                                [Model similarity] common parents = ['C3(-1)', 'C3(-2)', 'L15(-1)', 'Luminosite_Cuisine(-1)', 'Luminosite_Cuisine(-2)', 'Puissance_Four(-1)', 'Puissance_Four(-2)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Luminosite_Salon(-1)', 'Luminosite_Table(-1)', 'Luminosite_Table(-2)']
+                                [Model difference] ground - causal = []
+
+Significant true positive detected: ('Luminosite_Salon', 1, 1.0, 1.0)
+count: 460
+info: Parent situation: [('Luminosite_Salon(-2)', 0), ('Luminosite_Salon(-1)', 0), ('Presence_Table(-2)', 0), ('Puissance_Four(-1)', 0), ('Puissance_Four(-2)', 0), ('Presence_Lit(-1)', 0), ('Presence_Lit(-2)', 0), ('Presence_Salon(-1)', 0), ('Presence_Salon(-2)', 0), ('Puissance_Lave_Vaisselle(-1)', 0), ('Puissance_Plaques(-1)', 1), ('Puissance_Plaques(-2)', 0), ('Puissance_Lave_Vaisselle(-2)', 0), ('Puissance_Frigo(-2)', 0), ('Luminosite_Cuisine(-2)', 0)]
+                                [Model similarity] common parents = ['Luminosite_Salon(-1)', 'Luminosite_Salon(-2)', 'Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Presence_Table(-2)', 'Puissance_Four(-1)', 'Puissance_Four(-2)', 'Puissance_Frigo(-2)', 'Puissance_Lave_Vaisselle(-1)', 'Puissance_Lave_Vaisselle(-2)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Puissance_Frigo(-1)']
+                                [Model difference] ground - causal = ['Luminosite_Cuisine(-2)']
+
+Significant true positive detected: ('Luminosite_Lit', 1, 1.0, 1.0)
+count: 361
+info: Parent situation: [('Luminosite_Lit(-1)', 0), ('Luminosite_Lit(-2)', 0), ('Presence_Table(-1)', 1), ('Presence_Table(-2)', 0), ('Puissance_Plaques(-2)', 0), ('Puissance_Plaques(-1)', 0), ('Presence_SDB(-1)', 0), ('Presence_SDB(-2)', 0)]
+                                [Model similarity] common parents = ['Luminosite_Lit(-1)', 'Luminosite_Lit(-2)', 'Presence_Table(-1)', 'Presence_Table(-2)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Luminosite_Salon(-1)', 'Luminosite_Salon(-2)', 'Presence_Cuisine(-1)', 'Presence_Cuisine(-2)']
+                                [Model difference] ground - causal = ['Presence_SDB(-1)', 'Presence_SDB(-2)']
+
+Significant true positive detected: ('Luminosite_Table', 1, 1.0, 1.0)
+count: 261
+info: Parent situation: [('Luminosite_Table(-1)', 0), ('Luminosite_Table(-2)', 1), ('Puissance_Volets_Roulants(-1)', 0), ('Presence_Salon(-1)', 0), ('Presence_Salon(-2)', 0), ('Presence_Cuisine(-1)', 0), ('Presence_Table(-1)', 0), ('C15(-1)', 0), ('Puissance_Chauffe_Eau(-1)', 0), ('Puissance_Chauffe_Eau(-2)', 0), ('Puissance_Plaques(-2)', 0), ('Puissance_Plaques(-1)', 0), ('Luminosite_Cuisine(-1)', 0), ('Luminosite_Cuisine(-2)', 0), ('Puissance_Volets_Roulants(-2)', 0)]
+                                [Model similarity] common parents = ['Luminosite_Cuisine(-1)', 'Luminosite_Cuisine(-2)', 'Luminosite_Table(-1)', 'Luminosite_Table(-2)', 'Presence_Cuisine(-1)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Presence_Table(-1)', 'Puissance_Chauffe_Eau(-1)', 'Puissance_Chauffe_Eau(-2)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)', 'Puissance_Volets_Roulants(-1)']
+                                [Model difference] causal - ground = ['Luminosite_Salon(-1)', 'Luminosite_Salon(-2)']
+                                [Model difference] ground - causal = ['C15(-1)', 'Puissance_Volets_Roulants(-2)']
+
+Significant true positive detected: ('Luminosite_Cuisine', 1, 0.9996104907816151, 1.0)
+count: 573
+info: Parent situation: [('Puissance_Four(-1)', 0), ('Luminosite_Cuisine(-1)', 0), ('Puissance_Four(-2)', 0), ('L15(-1)', 0), ('Luminosite_Cuisine(-2)', 0), ('Puissance_Plaques(-1)', 0), ('Puissance_Plaques(-2)', 0), ('C3(-1)', 0), ('C3(-2)', 0)]
+                                [Model similarity] common parents = ['C3(-1)', 'C3(-2)', 'L15(-1)', 'Luminosite_Cuisine(-1)', 'Luminosite_Cuisine(-2)', 'Puissance_Four(-1)', 'Puissance_Four(-2)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Luminosite_Salon(-1)', 'Luminosite_Table(-1)', 'Luminosite_Table(-2)']
+                                [Model difference] ground - causal = []
+
+Significant true positive detected: ('Luminosite_Lit', 1, 0.9998367702268894, 0.9998155548724255)
+count: 310
+info: Parent situation: [('Luminosite_Lit(-1)', 0), ('Luminosite_Lit(-2)', 0), ('Presence_Table(-1)', 0), ('Presence_Table(-2)', 0), ('Puissance_Plaques(-2)', 0), ('Puissance_Plaques(-1)', 0), ('Presence_SDB(-1)', 0), ('Presence_SDB(-2)', 0)]
+                                [Model similarity] common parents = ['Luminosite_Lit(-1)', 'Luminosite_Lit(-2)', 'Presence_Table(-1)', 'Presence_Table(-2)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Luminosite_Salon(-1)', 'Luminosite_Salon(-2)', 'Presence_Cuisine(-1)', 'Presence_Cuisine(-2)']
+                                [Model difference] ground - causal = ['Presence_SDB(-1)', 'Presence_SDB(-2)']
+
+Significant true positive detected: ('Luminosite_Table', 1, 0.9992644053943605, 0.9991447874796887)
+count: 233
+info: Parent situation: [('Luminosite_Table(-1)', 0), ('Luminosite_Table(-2)', 0), ('Puissance_Volets_Roulants(-1)', 0), ('Presence_Salon(-1)', 0), ('Presence_Salon(-2)', 0), ('Presence_Cuisine(-1)', 0), ('Presence_Table(-1)', 0), ('C15(-1)', 0), ('Puissance_Chauffe_Eau(-1)', 0), ('Puissance_Chauffe_Eau(-2)', 0), ('Puissance_Plaques(-2)', 0), ('Puissance_Plaques(-1)', 0), ('Luminosite_Cuisine(-1)', 0), ('Luminosite_Cuisine(-2)', 0), ('Puissance_Volets_Roulants(-2)', 0)]
+                                [Model similarity] common parents = ['Luminosite_Cuisine(-1)', 'Luminosite_Cuisine(-2)', 'Luminosite_Table(-1)', 'Luminosite_Table(-2)', 'Presence_Cuisine(-1)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Presence_Table(-1)', 'Puissance_Chauffe_Eau(-1)', 'Puissance_Chauffe_Eau(-2)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)', 'Puissance_Volets_Roulants(-1)']
+                                [Model difference] causal - ground = ['Luminosite_Salon(-1)', 'Luminosite_Salon(-2)']
+                                [Model difference] ground - causal = ['C15(-1)', 'Puissance_Volets_Roulants(-2)']
+
+Significant true positive detected: ('Luminosite_Table', 0, 1.0, 1.0)
+count: 238
+info: Parent situation: [('Luminosite_Table(-1)', 1), ('Luminosite_Table(-2)', 1), ('Puissance_Volets_Roulants(-1)', 0), ('Presence_Salon(-1)', 0), ('Presence_Salon(-2)', 0), ('Presence_Cuisine(-1)', 0), ('Presence_Table(-1)', 0), ('C15(-1)', 0), ('Puissance_Chauffe_Eau(-1)', 0), ('Puissance_Chauffe_Eau(-2)', 0), ('Puissance_Plaques(-2)', 0), ('Puissance_Plaques(-1)', 0), ('Luminosite_Cuisine(-1)', 1), ('Luminosite_Cuisine(-2)', 1), ('Puissance_Volets_Roulants(-2)', 0)]
+                                [Model similarity] common parents = ['Luminosite_Cuisine(-1)', 'Luminosite_Cuisine(-2)', 'Luminosite_Table(-1)', 'Luminosite_Table(-2)', 'Presence_Cuisine(-1)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Presence_Table(-1)', 'Puissance_Chauffe_Eau(-1)', 'Puissance_Chauffe_Eau(-2)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)', 'Puissance_Volets_Roulants(-1)']
+                                [Model difference] causal - ground = ['Luminosite_Salon(-1)', 'Luminosite_Salon(-2)']
+                                [Model difference] ground - causal = ['C15(-1)', 'Puissance_Volets_Roulants(-2)']
+
+Significant false positive detected: ('Luminosite_Lit', 0, 1.0, 1.0)
+count: 12
+info: Parent situation: [('Luminosite_Lit(-1)', 1), ('Luminosite_Lit(-2)', 1), ('Presence_Table(-1)', 0), ('Presence_Table(-2)', 0), ('Puissance_Plaques(-2)', 1), ('Puissance_Plaques(-1)', 0), ('Presence_SDB(-1)', 0), ('Presence_SDB(-2)', 0)]
+                                [Model similarity] common parents = ['Luminosite_Lit(-1)', 'Luminosite_Lit(-2)', 'Presence_Table(-1)', 'Presence_Table(-2)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Luminosite_Salon(-1)', 'Luminosite_Salon(-2)', 'Presence_Cuisine(-1)', 'Presence_Cuisine(-2)']
+                                [Model difference] ground - causal = ['Presence_SDB(-1)', 'Presence_SDB(-2)']
+[Model shift] A model shift is detected. Training v.s. Testing probability: 0.0 v.s. 0.008645533141210415
+
+Significant false positive detected: ('Luminosite_Table', 0, 1.0, 1.0)
+count: 10
+info: Parent situation: [('Luminosite_Table(-1)', 1), ('Luminosite_Table(-2)', 0), ('Puissance_Volets_Roulants(-1)', 0), ('Presence_Salon(-1)', 0), ('Presence_Salon(-2)', 0), ('Presence_Cuisine(-1)', 0), ('Presence_Table(-1)', 1), ('C15(-1)', 0), ('Puissance_Chauffe_Eau(-1)', 0), ('Puissance_Chauffe_Eau(-2)', 0), ('Puissance_Plaques(-2)', 0), ('Puissance_Plaques(-1)', 0), ('Luminosite_Cuisine(-1)', 0), ('Luminosite_Cuisine(-2)', 0), ('Puissance_Volets_Roulants(-2)', 0)]
+                                [Model similarity] common parents = ['Luminosite_Cuisine(-1)', 'Luminosite_Cuisine(-2)', 'Luminosite_Table(-1)', 'Luminosite_Table(-2)', 'Presence_Cuisine(-1)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Presence_Table(-1)', 'Puissance_Chauffe_Eau(-1)', 'Puissance_Chauffe_Eau(-2)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)', 'Puissance_Volets_Roulants(-1)']
+                                [Model difference] causal - ground = ['Luminosite_Salon(-1)', 'Luminosite_Salon(-2)']
+                                [Model difference] ground - causal = ['C15(-1)', 'Puissance_Volets_Roulants(-2)']
+[Model shift] A model shift is detected. Training v.s. Testing probability: 0.0 v.s. 0.25
+
+Significant false positive detected: ('Luminosite_Salon', 1, 0.9985855728429985, 0.998567335243553)
+count: 16
+info: Parent situation: [('Luminosite_Salon(-2)', 0), ('Luminosite_Salon(-1)', 0), ('Presence_Table(-2)', 1), ('Puissance_Four(-1)', 0), ('Puissance_Four(-2)', 0), ('Presence_Lit(-1)', 0), ('Presence_Lit(-2)', 0), ('Presence_Salon(-1)', 1), ('Presence_Salon(-2)', 1), ('Puissance_Lave_Vaisselle(-1)', 0), ('Puissance_Plaques(-1)', 0), ('Puissance_Plaques(-2)', 0), ('Puissance_Lave_Vaisselle(-2)', 0), ('Puissance_Frigo(-2)', 0), ('Luminosite_Cuisine(-2)', 0)]
+                                [Model similarity] common parents = ['Luminosite_Salon(-1)', 'Luminosite_Salon(-2)', 'Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Presence_Table(-2)', 'Puissance_Four(-1)', 'Puissance_Four(-2)', 'Puissance_Frigo(-2)', 'Puissance_Lave_Vaisselle(-1)', 'Puissance_Lave_Vaisselle(-2)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Puissance_Frigo(-1)']
+                                [Model difference] ground - causal = ['Luminosite_Cuisine(-2)']
+[Model shift] A model shift is detected. Training v.s. Testing probability: 0.0014144271570014633 v.s. 0.02363367799113736
+
+Significant false negative detected: ('Luminosite_Salon', 1, 0.9969485614646905, 0.9891472868217054)
+count: 12
+info: Parent situation: [('Luminosite_Salon(-2)', 0), ('Luminosite_Salon(-1)', 0), ('Presence_Table(-2)', 0), ('Puissance_Four(-1)', 0), ('Puissance_Four(-2)', 0), ('Presence_Lit(-1)', 1), ('Presence_Lit(-2)', 1), ('Presence_Salon(-1)', 0), ('Presence_Salon(-2)', 0), ('Puissance_Lave_Vaisselle(-1)', 0), ('Puissance_Plaques(-1)', 0), ('Puissance_Plaques(-2)', 0), ('Puissance_Lave_Vaisselle(-2)', 0), ('Puissance_Frigo(-2)', 0), ('Luminosite_Cuisine(-2)', 0)]
+                                [Model similarity] common parents = ['Luminosite_Salon(-1)', 'Luminosite_Salon(-2)', 'Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Presence_Table(-2)', 'Puissance_Four(-1)', 'Puissance_Four(-2)', 'Puissance_Frigo(-2)', 'Puissance_Lave_Vaisselle(-1)', 'Puissance_Lave_Vaisselle(-2)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Puissance_Frigo(-1)']
+                                [Model difference] ground - causal = ['Luminosite_Cuisine(-2)']
+
+Significant false negative detected: ('Luminosite_Cuisine', 1, 0.9996104907816151, 0.9444444444444444)
+count: 52
+info: Parent situation: [('Puissance_Four(-1)', 0), ('Luminosite_Cuisine(-1)', 0), ('Puissance_Four(-2)', 0), ('L15(-1)', 0), ('Luminosite_Cuisine(-2)', 0), ('Puissance_Plaques(-1)', 0), ('Puissance_Plaques(-2)', 0), ('C3(-1)', 0), ('C3(-2)', 0)]
+                                [Model similarity] common parents = ['C3(-1)', 'C3(-2)', 'L15(-1)', 'Luminosite_Cuisine(-1)', 'Luminosite_Cuisine(-2)', 'Puissance_Four(-1)', 'Puissance_Four(-2)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Luminosite_Salon(-1)', 'Luminosite_Table(-1)', 'Luminosite_Table(-2)']
+                                [Model difference] ground - causal = []
+
+Significant false negative detected: ('Luminosite_Lit', 0, 1.0, 0.5)
+count: 159
+info: Parent situation: [('Luminosite_Lit(-1)', 1), ('Luminosite_Lit(-2)', 1), ('Presence_Table(-1)', 1), ('Presence_Table(-2)', 1), ('Puissance_Plaques(-2)', 0), ('Puissance_Plaques(-1)', 0), ('Presence_SDB(-1)', 0), ('Presence_SDB(-2)', 0)]
+                                [Model similarity] common parents = ['Luminosite_Lit(-1)', 'Luminosite_Lit(-2)', 'Presence_Table(-1)', 'Presence_Table(-2)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Luminosite_Salon(-1)', 'Luminosite_Salon(-2)', 'Presence_Cuisine(-1)', 'Presence_Cuisine(-2)']
+                                [Model difference] ground - causal = ['Presence_SDB(-1)', 'Presence_SDB(-2)']
+
+Significant false negative detected: ('Luminosite_Table', 0, 1.0, 0.5)
+count: 17
+info: Parent situation: [('Luminosite_Table(-1)', 1), ('Luminosite_Table(-2)', 1), ('Puissance_Volets_Roulants(-1)', 0), ('Presence_Salon(-1)', 1), ('Presence_Salon(-2)', 1), ('Presence_Cuisine(-1)', 0), ('Presence_Table(-1)', 1), ('C15(-1)', 0), ('Puissance_Chauffe_Eau(-1)', 0), ('Puissance_Chauffe_Eau(-2)', 0), ('Puissance_Plaques(-2)', 0), ('Puissance_Plaques(-1)', 0), ('Luminosite_Cuisine(-1)', 0), ('Luminosite_Cuisine(-2)', 0), ('Puissance_Volets_Roulants(-2)', 0)]
+                                [Model similarity] common parents = ['Luminosite_Cuisine(-1)', 'Luminosite_Cuisine(-2)', 'Luminosite_Table(-1)', 'Luminosite_Table(-2)', 'Presence_Cuisine(-1)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Presence_Table(-1)', 'Puissance_Chauffe_Eau(-1)', 'Puissance_Chauffe_Eau(-2)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)', 'Puissance_Volets_Roulants(-1)']
+                                [Model difference] causal - ground = ['Luminosite_Salon(-1)', 'Luminosite_Salon(-2)']
+                                [Model difference] ground - causal = ['C15(-1)', 'Puissance_Volets_Roulants(-2)']
+
+Significant false negative detected: ('Luminosite_Lit', 0, 0.9971181556195965, 0.5)
+count: 25
+info: Parent situation: [('Luminosite_Lit(-1)', 1), ('Luminosite_Lit(-2)', 1), ('Presence_Table(-1)', 1), ('Presence_Table(-2)', 1), ('Puissance_Plaques(-2)', 1), ('Puissance_Plaques(-1)', 0), ('Presence_SDB(-1)', 0), ('Presence_SDB(-2)', 0)]
+                                [Model similarity] common parents = ['Luminosite_Lit(-1)', 'Luminosite_Lit(-2)', 'Presence_Table(-1)', 'Presence_Table(-2)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Luminosite_Salon(-1)', 'Luminosite_Salon(-2)', 'Presence_Cuisine(-1)', 'Presence_Cuisine(-2)']
+                                [Model difference] ground - causal = ['Presence_SDB(-1)', 'Presence_SDB(-2)']
+
+Significant false negative detected: ('Luminosite_Cuisine', 0, 1.0, 0.5)
+count: 33
+info: Parent situation: [('Puissance_Four(-1)', 1), ('Luminosite_Cuisine(-1)', 1), ('Puissance_Four(-2)', 1), ('L15(-1)', 1), ('Luminosite_Cuisine(-2)', 1), ('Puissance_Plaques(-1)', 0), ('Puissance_Plaques(-2)', 0), ('C3(-1)', 0), ('C3(-2)', 0)]
+                                [Model similarity] common parents = ['C3(-1)', 'C3(-2)', 'L15(-1)', 'Luminosite_Cuisine(-1)', 'Luminosite_Cuisine(-2)', 'Puissance_Four(-1)', 'Puissance_Four(-2)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Luminosite_Salon(-1)', 'Luminosite_Table(-1)', 'Luminosite_Table(-2)']
+                                [Model difference] ground - causal = []
+
+Significant true negative detected: ('Puissance_Plaques', 0, 0.0, 0.0)
+count: 802
+info: Parent situation: [('Puissance_Plaques(-2)', 0), ('Puissance_Plaques(-1)', 1), ('Presence_Salon(-1)', 0), ('Puissance_Four(-1)', 0), ('Presence_Lit(-1)', 0), ('Presence_Salon(-2)', 0), ('Puissance_Four(-2)', 0), ('Presence_Lit(-2)', 0), ('Luminosite_Salon(-2)', 0), ('Luminosite_Cuisine(-1)', 0), ('Presence_Cuisine(-2)', 0), ('Puissance_Frigo(-1)', 0), ('Presence_Cuisine(-1)', 0), ('Luminosite_Cuisine(-2)', 0), ('Puissance_Lave_Vaisselle(-1)', 0)]
+                                [Model similarity] common parents = ['Luminosite_Salon(-2)', 'Presence_Cuisine(-1)', 'Presence_Cuisine(-2)', 'Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Salon(-1)', 'Puissance_Four(-1)', 'Puissance_Frigo(-1)', 'Puissance_Lave_Vaisselle(-1)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['L15(-1)', 'L15(-2)', 'Luminosite_Salon(-1)', 'Presence_Table(-1)']
+                                [Model difference] ground - causal = ['Luminosite_Cuisine(-1)', 'Luminosite_Cuisine(-2)', 'Presence_Salon(-2)', 'Puissance_Four(-2)']
+
+haw-fn-info: [('C3', 1)]
+markov-fn-info: ['Luminosite_Lit0', 'Puissance_Plaques1']
+Significant true negative detected: ('Puissance_Lave_Vaisselle', 1, 0.0, 0.0)
+count: 618
+info: Parent situation: [('Presence_Salon(-1)', 1), ('Presence_Salon(-2)', 0), ('Puissance_Plaques(-1)', 0), ('Luminosite_Salon(-1)', 0), ('Puissance_Four(-1)', 0), ('Puissance_Frigo(-1)', 0), ('Puissance_Lave_Vaisselle(-2)', 0)]
+                                [Model similarity] common parents = ['Luminosite_Salon(-1)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Puissance_Four(-1)', 'Puissance_Frigo(-1)', 'Puissance_Lave_Vaisselle(-2)', 'Puissance_Plaques(-1)']
+                                [Model difference] causal - ground = []
+                                [Model difference] ground - causal = []
+
+markov-fn-info: ['Luminosite_Lit0', 'Presence_Salon1']
+Significant true negative detected: ('Puissance_Lave_Vaisselle', 0, 0.002140910860256917, 0.002140910860256917)
+count: 608
+info: Parent situation: [('Presence_Salon(-1)', 1), ('Presence_Salon(-2)', 1), ('Puissance_Plaques(-1)', 0), ('Luminosite_Salon(-1)', 0), ('Puissance_Four(-1)', 0), ('Puissance_Frigo(-1)', 0), ('Puissance_Lave_Vaisselle(-2)', 0)]
+                                [Model similarity] common parents = ['Luminosite_Salon(-1)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Puissance_Four(-1)', 'Puissance_Frigo(-1)', 'Puissance_Lave_Vaisselle(-2)', 'Puissance_Plaques(-1)']
+                                [Model difference] causal - ground = []
+                                [Model difference] ground - causal = []
+
+haw-fn-info: [('C3', 1), ('Puissance_Four', 1), ('Presence_Table', 1)]
+markov-fn-info: ['L161', 'Puissance_Lave_Vaisselle1']
+Significant true negative detected: ('Presence_Table', 1, 0.7975797579757976, 0.7959518599562363)
+count: 115
+info: Parent situation: [('Presence_Table(-1)', 0), ('Presence_Table(-2)', 0), ('Presence_Cuisine(-1)', 0), ('Presence_Lit(-1)', 0), ('Presence_Lit(-2)', 0), ('Presence_Salon(-1)', 1), ('Presence_Salon(-2)', 1), ('Presence_SDB(-1)', 0), ('Presence_SDB(-2)', 0), ('Puissance_Frigo(-2)', 0), ('Puissance_Frigo(-1)', 0), ('L15(-2)', 0), ('L15(-1)', 0), ('Puissance_Plaques(-2)', 0), ('Puissance_Plaques(-1)', 0)]
+                                [Model similarity] common parents = ['L15(-1)', 'L15(-2)', 'Presence_Cuisine(-1)', 'Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_SDB(-1)', 'Presence_SDB(-2)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Presence_Table(-1)', 'Presence_Table(-2)', 'Puissance_Frigo(-1)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Luminosite_Salon(-2)']
+                                [Model difference] ground - causal = ['Puissance_Frigo(-2)']
+
+haw-fn-info: [('Luminosite_Salon', 1), ('Luminosite_Salon', 1), ('Luminosite_Salon', 1), ('Luminosite_Salon', 1), ('Luminosite_Salon', 1)]
+markov-fn-info: ['Puissance_Volets_Roulants0', 'Luminosite_Salon1']
+Significant true negative detected: ('Luminosite_Salon', 1, 0.1021897810218978, 0.09225092250922506)
+count: 276
+info: Parent situation: [('Luminosite_Salon(-2)', 0), ('Luminosite_Salon(-1)', 0), ('Presence_Table(-2)', 0), ('Puissance_Four(-1)', 0), ('Puissance_Four(-2)', 0), ('Presence_Lit(-1)', 0), ('Presence_Lit(-2)', 0), ('Presence_Salon(-1)', 1), ('Presence_Salon(-2)', 1), ('Puissance_Lave_Vaisselle(-1)', 0), ('Puissance_Plaques(-1)', 0), ('Puissance_Plaques(-2)', 0), ('Puissance_Lave_Vaisselle(-2)', 0), ('Puissance_Frigo(-2)', 0), ('Luminosite_Cuisine(-2)', 0)]
+                                [Model similarity] common parents = ['Luminosite_Salon(-1)', 'Luminosite_Salon(-2)', 'Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Presence_Table(-2)', 'Puissance_Four(-1)', 'Puissance_Four(-2)', 'Puissance_Frigo(-2)', 'Puissance_Lave_Vaisselle(-1)', 'Puissance_Lave_Vaisselle(-2)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Puissance_Frigo(-1)']
+                                [Model difference] ground - causal = ['Luminosite_Cuisine(-2)']
+
+haw-fn-info: [('Luminosite_Cuisine', 0)]
+markov-fn-info: ['I11_Droite_Haut0', 'Presence_Table1']
+Significant true negative detected: ('Presence_Cuisine', 1, 0.898465171192444, 0.8974978050921861)
+count: 145
+info: Parent situation: [('Presence_Cuisine(-1)', 0), ('Presence_Cuisine(-2)', 0), ('Presence_Table(-1)', 1), ('Presence_Table(-2)', 1), ('Presence_Lit(-1)', 0), ('Presence_Lit(-2)', 0), ('C3(-2)', 0), ('C3(-1)', 0), ('L15(-2)', 0), ('L15(-1)', 0), ('Presence_SDB(-1)', 0), ('Presence_SDB(-2)', 0), ('C15(-1)', 0), ('C15(-2)', 0), ('Puissance_Frigo(-2)', 0)]
+                                [Model similarity] common parents = ['C15(-1)', 'C3(-1)', 'C3(-2)', 'L15(-1)', 'L15(-2)', 'Presence_Cuisine(-1)', 'Presence_Cuisine(-2)', 'Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Table(-1)', 'Presence_Table(-2)']
+                                [Model difference] causal - ground = ['Eau_Froide_Evier_Instantanee(-1)', 'Eau_Froide_Evier_Instantanee(-2)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] ground - causal = ['C15(-2)', 'Presence_SDB(-1)', 'Presence_SDB(-2)', 'Puissance_Frigo(-2)']
+
+markov-fn-info: ('Luminosite_Salon0', 'Luminosite_Salon1')
+Significant true negative detected: ('Luminosite_Salon', 1, 0.640020540910647, 0.6012096012096012)
+count: 362
+info: Parent situation: [('Luminosite_Salon(-2)', 0), ('Luminosite_Salon(-1)', 0), ('Presence_Table(-2)', 0), ('Puissance_Four(-1)', 0), ('Puissance_Four(-2)', 0), ('Presence_Lit(-1)', 0), ('Presence_Lit(-2)', 0), ('Presence_Salon(-1)', 0), ('Presence_Salon(-2)', 0), ('Puissance_Lave_Vaisselle(-1)', 0), ('Puissance_Plaques(-1)', 0), ('Puissance_Plaques(-2)', 0), ('Puissance_Lave_Vaisselle(-2)', 0), ('Puissance_Frigo(-2)', 0), ('Luminosite_Cuisine(-2)', 0)]
+                                [Model similarity] common parents = ['Luminosite_Salon(-1)', 'Luminosite_Salon(-2)', 'Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Presence_Table(-2)', 'Puissance_Four(-1)', 'Puissance_Four(-2)', 'Puissance_Frigo(-2)', 'Puissance_Lave_Vaisselle(-1)', 'Puissance_Lave_Vaisselle(-2)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Puissance_Frigo(-1)']
+                                [Model difference] ground - causal = ['Luminosite_Cuisine(-2)']
+
+haw-fn-info: [('Luminosite_Cuisine', 0)]
+markov-fn-info: ('I10_Droite_Haut0', 'Puissance_Chauffe_Eau0')
+Significant true negative detected: ('Luminosite_Salon', 0, 0.002474022761009387, 0.002962962962962945)
+count: 344
+info: Parent situation: [('Luminosite_Salon(-2)', 0), ('Luminosite_Salon(-1)', 1), ('Presence_Table(-2)', 1), ('Puissance_Four(-1)', 0), ('Puissance_Four(-2)', 0), ('Presence_Lit(-1)', 0), ('Presence_Lit(-2)', 0), ('Presence_Salon(-1)', 0), ('Presence_Salon(-2)', 0), ('Puissance_Lave_Vaisselle(-1)', 0), ('Puissance_Plaques(-1)', 0), ('Puissance_Plaques(-2)', 0), ('Puissance_Lave_Vaisselle(-2)', 0), ('Puissance_Frigo(-2)', 0), ('Luminosite_Cuisine(-2)', 0)]
+                                [Model similarity] common parents = ['Luminosite_Salon(-1)', 'Luminosite_Salon(-2)', 'Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Presence_Table(-2)', 'Puissance_Four(-1)', 'Puissance_Four(-2)', 'Puissance_Frigo(-2)', 'Puissance_Lave_Vaisselle(-1)', 'Puissance_Lave_Vaisselle(-2)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Puissance_Frigo(-1)']
+                                [Model difference] ground - causal = ['Luminosite_Cuisine(-2)']
+
+haw-fn-info: [('Presence_Salon', 1)]
+Significant true negative detected: ('Presence_Salon', 1, 0.9154955621301775, 0.8292682926829268)
+count: 114
+info: Parent situation: [('Presence_Salon(-1)', 0), ('Presence_Salon(-2)', 0), ('Presence_Table(-1)', 1), ('Presence_Table(-2)', 1), ('Presence_Lit(-1)', 0), ('Presence_Lit(-2)', 0), ('Puissance_Lave_Vaisselle(-1)', 0), ('Puissance_Plaques(-2)', 0), ('Puissance_Plaques(-1)', 0), ('Puissance_Four(-1)', 0), ('Puissance_Four(-2)', 0), ('Puissance_Frigo(-1)', 0), ('Luminosite_Cuisine(-1)', 0), ('Luminosite_Cuisine(-2)', 0), ('Puissance_Frigo(-2)', 0)]
+                                [Model similarity] common parents = ['Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Presence_Table(-1)', 'Presence_Table(-2)', 'Puissance_Four(-1)', 'Puissance_Four(-2)', 'Puissance_Frigo(-1)', 'Puissance_Lave_Vaisselle(-1)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Luminosite_Salon(-1)', 'Presence_Cuisine(-2)', 'Puissance_Lave_Vaisselle(-2)']
+                                [Model difference] ground - causal = ['Luminosite_Cuisine(-1)', 'Luminosite_Cuisine(-2)', 'Puissance_Frigo(-2)']
+
+haw-fn-info: [('Puissance_Lave_Vaisselle', 1), ('Puissance_Lave_Vaisselle', 1)]
+markov-fn-info: ('Luminosite_Salon0', 'Luminosite_Salon1')
+Significant true negative detected: ('Puissance_Frigo', 0, 0.0, 0.0)
+count: 785
+info: Parent situation: [('Presence_Lit(-1)', 0), ('Presence_Table(-1)', 0), ('Presence_Table(-2)', 0), ('Puissance_Plaques(-1)', 0), ('Presence_Salon(-1)', 0), ('Puissance_Four(-1)', 0), ('Puissance_Frigo(-2)', 0), ('Luminosite_Salon(-1)', 0), ('Puissance_Frigo(-1)', 1), ('Puissance_Lave_Vaisselle(-1)', 0), ('Presence_Lit(-2)', 0), ('C3(-2)', 0)]
+                                [Model similarity] common parents = ['C3(-2)', 'Luminosite_Salon(-1)', 'Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Salon(-1)', 'Presence_Table(-1)', 'Presence_Table(-2)', 'Puissance_Four(-1)', 'Puissance_Frigo(-1)', 'Puissance_Frigo(-2)', 'Puissance_Lave_Vaisselle(-1)', 'Puissance_Plaques(-1)']
+                                [Model difference] causal - ground = []
+                                [Model difference] ground - causal = []
+
+haw-fn-info: [('C3', 1), ('Puissance_Four', 1)]
+markov-fn-info: ['C31', 'Puissance_Frigo1']
+Significant true negative detected: ('Presence_Salon', 1, 0.9154955621301775, 0.902753108348135)
+count: 106
+info: Parent situation: [('Presence_Salon(-1)', 0), ('Presence_Salon(-2)', 0), ('Presence_Table(-1)', 1), ('Presence_Table(-2)', 1), ('Presence_Lit(-1)', 0), ('Presence_Lit(-2)', 0), ('Puissance_Lave_Vaisselle(-1)', 0), ('Puissance_Plaques(-2)', 0), ('Puissance_Plaques(-1)', 0), ('Puissance_Four(-1)', 0), ('Puissance_Four(-2)', 0), ('Puissance_Frigo(-1)', 0), ('Luminosite_Cuisine(-1)', 0), ('Luminosite_Cuisine(-2)', 0), ('Puissance_Frigo(-2)', 0)]
+                                [Model similarity] common parents = ['Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Presence_Table(-1)', 'Presence_Table(-2)', 'Puissance_Four(-1)', 'Puissance_Four(-2)', 'Puissance_Frigo(-1)', 'Puissance_Lave_Vaisselle(-1)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Luminosite_Salon(-1)', 'Presence_Cuisine(-2)', 'Puissance_Lave_Vaisselle(-2)']
+                                [Model difference] ground - causal = ['Luminosite_Cuisine(-1)', 'Luminosite_Cuisine(-2)', 'Puissance_Frigo(-2)']
+
+haw-fn-info: [('Puissance_Lave_Vaisselle', 1), ('Puissance_Lave_Vaisselle', 1)]
+markov-fn-info: ('Luminosite_Salon0', 'Luminosite_Salon1')
+Significant true negative detected: ('Presence_Cuisine', 0, 0.9477832512315271, 0.9307984790874525)
+count: 123
+info: Parent situation: [('Presence_Cuisine(-1)', 1), ('Presence_Cuisine(-2)', 1), ('Presence_Table(-1)', 1), ('Presence_Table(-2)', 1), ('Presence_Lit(-1)', 0), ('Presence_Lit(-2)', 0), ('C3(-2)', 0), ('C3(-1)', 0), ('L15(-2)', 0), ('L15(-1)', 0), ('Presence_SDB(-1)', 0), ('Presence_SDB(-2)', 0), ('C15(-1)', 0), ('C15(-2)', 0), ('Puissance_Frigo(-2)', 0)]
+                                [Model similarity] common parents = ['C15(-1)', 'C3(-1)', 'C3(-2)', 'L15(-1)', 'L15(-2)', 'Presence_Cuisine(-1)', 'Presence_Cuisine(-2)', 'Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Table(-1)', 'Presence_Table(-2)']
+                                [Model difference] causal - ground = ['Eau_Froide_Evier_Instantanee(-1)', 'Eau_Froide_Evier_Instantanee(-2)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] ground - causal = ['C15(-2)', 'Presence_SDB(-1)', 'Presence_SDB(-2)', 'Puissance_Frigo(-2)']
+
+markov-fn-info: ['Presence_Cuisine1', 'Luminosite_Lit0']
+Significant true negative detected: ('Presence_Table', 0, 0.7431693989071038, 0.39644970414201186)
+count: 137
+info: Parent situation: [('Presence_Table(-1)', 1), ('Presence_Table(-2)', 1), ('Presence_Cuisine(-1)', 0), ('Presence_Lit(-1)', 0), ('Presence_Lit(-2)', 0), ('Presence_Salon(-1)', 1), ('Presence_Salon(-2)', 1), ('Presence_SDB(-1)', 0), ('Presence_SDB(-2)', 0), ('Puissance_Frigo(-2)', 0), ('Puissance_Frigo(-1)', 0), ('L15(-2)', 0), ('L15(-1)', 0), ('Puissance_Plaques(-2)', 0), ('Puissance_Plaques(-1)', 0)]
+                                [Model similarity] common parents = ['L15(-1)', 'L15(-2)', 'Presence_Cuisine(-1)', 'Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_SDB(-1)', 'Presence_SDB(-2)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Presence_Table(-1)', 'Presence_Table(-2)', 'Puissance_Frigo(-1)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Luminosite_Salon(-2)']
+                                [Model difference] ground - causal = ['Puissance_Frigo(-2)']
+
+markov-fn-info: ('Luminosite_Salon0', 'Luminosite_Salon1')
+haw-fn-info: [('Luminosite_Salon', 0)]
+Significant true negative detected: ('Presence_Salon', 1, 0.3086053412462908, 0.2835130970724191)
+count: 148
+info: Parent situation: [('Presence_Salon(-1)', 0), ('Presence_Salon(-2)', 1), ('Presence_Table(-1)', 0), ('Presence_Table(-2)', 0), ('Presence_Lit(-1)', 0), ('Presence_Lit(-2)', 0), ('Puissance_Lave_Vaisselle(-1)', 0), ('Puissance_Plaques(-2)', 0), ('Puissance_Plaques(-1)', 0), ('Puissance_Four(-1)', 0), ('Puissance_Four(-2)', 0), ('Puissance_Frigo(-1)', 0), ('Luminosite_Cuisine(-1)', 0), ('Luminosite_Cuisine(-2)', 0), ('Puissance_Frigo(-2)', 0)]
+                                [Model similarity] common parents = ['Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Presence_Table(-1)', 'Presence_Table(-2)', 'Puissance_Four(-1)', 'Puissance_Four(-2)', 'Puissance_Frigo(-1)', 'Puissance_Lave_Vaisselle(-1)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Luminosite_Salon(-1)', 'Presence_Cuisine(-2)', 'Puissance_Lave_Vaisselle(-2)']
+                                [Model difference] ground - causal = ['Luminosite_Cuisine(-1)', 'Luminosite_Cuisine(-2)', 'Puissance_Frigo(-2)']
+
+haw-fn-info: [('Puissance_Lave_Vaisselle', 1), ('Puissance_Lave_Vaisselle', 1)]
+Significant true negative detected: ('Presence_Cuisine', 0, 0.6124469589816124, 0.6135401974612129)
+count: 116
+info: Parent situation: [('Presence_Cuisine(-1)', 1), ('Presence_Cuisine(-2)', 0), ('Presence_Table(-1)', 1), ('Presence_Table(-2)', 1), ('Presence_Lit(-1)', 0), ('Presence_Lit(-2)', 0), ('C3(-2)', 0), ('C3(-1)', 0), ('L15(-2)', 0), ('L15(-1)', 0), ('Presence_SDB(-1)', 0), ('Presence_SDB(-2)', 0), ('C15(-1)', 0), ('C15(-2)', 0), ('Puissance_Frigo(-2)', 0)]
+                                [Model similarity] common parents = ['C15(-1)', 'C3(-1)', 'C3(-2)', 'L15(-1)', 'L15(-2)', 'Presence_Cuisine(-1)', 'Presence_Cuisine(-2)', 'Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Table(-1)', 'Presence_Table(-2)']
+                                [Model difference] causal - ground = ['Eau_Froide_Evier_Instantanee(-1)', 'Eau_Froide_Evier_Instantanee(-2)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] ground - causal = ['C15(-2)', 'Presence_SDB(-1)', 'Presence_SDB(-2)', 'Puissance_Frigo(-2)']
+
+markov-fn-info: ['Luminosite_Table1', 'Presence_Cuisine1']
+Significant true negative detected: ('Luminosite_Cuisine', 1, 0.0, 0.0)
+count: 226
+info: Parent situation: [('Puissance_Four(-1)', 1), ('Luminosite_Cuisine(-1)', 0), ('Puissance_Four(-2)', 0), ('L15(-1)', 0), ('Luminosite_Cuisine(-2)', 0), ('Puissance_Plaques(-1)', 0), ('Puissance_Plaques(-2)', 0), ('C3(-1)', 0), ('C3(-2)', 0)]
+                                [Model similarity] common parents = ['C3(-1)', 'C3(-2)', 'L15(-1)', 'Luminosite_Cuisine(-1)', 'Luminosite_Cuisine(-2)', 'Puissance_Four(-1)', 'Puissance_Four(-2)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Luminosite_Salon(-1)', 'Luminosite_Table(-1)', 'Luminosite_Table(-2)']
+                                [Model difference] ground - causal = []
+
+haw-fn-info: [('Presence_Cuisine', 1)]
+markov-fn-info: ['Luminosite_Lit0', 'Puissance_Four1']
+Significant true negative detected: ('L15', 1, 0.0, 0.0)
+count: 256
+info: Parent situation: [('L15(-1)', 0), ('L15(-2)', 0), ('Presence_SDB(-1)', 0), ('Presence_SDB(-2)', 0), ('Puissance_Four(-1)', 0), ('Puissance_Four(-2)', 0), ('Luminosite_Cuisine(-1)', 1), ('Presence_Cuisine(-1)', 0), ('Puissance_Chauffe_Eau(-1)', 0), ('Puissance_Chauffe_Eau(-2)', 0), ('I11_Droite_Haut(-2)', 0), ('Presence_Lit(-1)', 0), ('Luminosite_Cuisine(-2)', 0)]
+                                [Model similarity] common parents = ['I11_Droite_Haut(-2)', 'L15(-1)', 'L15(-2)', 'Luminosite_Cuisine(-1)', 'Luminosite_Cuisine(-2)', 'Presence_Cuisine(-1)', 'Presence_Lit(-1)', 'Presence_SDB(-1)', 'Presence_SDB(-2)', 'Puissance_Chauffe_Eau(-1)', 'Puissance_Chauffe_Eau(-2)', 'Puissance_Four(-1)', 'Puissance_Four(-2)']
+                                [Model difference] causal - ground = []
+                                [Model difference] ground - causal = []
+
+markov-fn-info: ('Luminosite_Cuisine1', 'Luminosite_Cuisine0')
+Significant true negative detected: ('Luminosite_Cuisine', 0, 0.0, 0.0)
+count: 227
+info: Parent situation: [('Puissance_Four(-1)', 1), ('Luminosite_Cuisine(-1)', 1), ('Puissance_Four(-2)', 1), ('L15(-1)', 0), ('Luminosite_Cuisine(-2)', 1), ('Puissance_Plaques(-1)', 0), ('Puissance_Plaques(-2)', 0), ('C3(-1)', 0), ('C3(-2)', 0)]
+                                [Model similarity] common parents = ['C3(-1)', 'C3(-2)', 'L15(-1)', 'Luminosite_Cuisine(-1)', 'Luminosite_Cuisine(-2)', 'Puissance_Four(-1)', 'Puissance_Four(-2)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Luminosite_Salon(-1)', 'Luminosite_Table(-1)', 'Luminosite_Table(-2)']
+                                [Model difference] ground - causal = []
+
+haw-fn-info: [('Presence_Salon', 1)]
+markov-fn-info: ('L150', 'Luminosite_Salon1')
+Significant true negative detected: ('Presence_Lit', 0, 0.37443854634544715, 0.40191938579654507)
+count: 471
+info: Parent situation: [('Presence_Lit(-1)', 1), ('Presence_Lit(-2)', 1), ('Presence_Cuisine(-1)', 0), ('Presence_Cuisine(-2)', 0), ('Presence_Table(-1)', 0), ('Presence_Table(-2)', 0), ('Puissance_Frigo(-1)', 0), ('Presence_Salon(-1)', 0), ('Presence_Salon(-2)', 0), ('Puissance_Plaques(-1)', 0), ('Puissance_Plaques(-2)', 0), ('Luminosite_Salon(-2)', 0), ('Luminosite_Salon(-1)', 0), ('Puissance_Four(-2)', 0), ('Puissance_Chauffe_Eau(-1)', 0)]
+                                [Model similarity] common parents = ['Presence_Cuisine(-1)', 'Presence_Cuisine(-2)', 'Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Presence_Table(-1)', 'Presence_Table(-2)', 'Puissance_Chauffe_Eau(-1)', 'Puissance_Frigo(-1)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['L15(-1)', 'L15(-2)', 'Puissance_Chauffe_Eau(-2)']
+                                [Model difference] ground - causal = ['Luminosite_Salon(-1)', 'Luminosite_Salon(-2)', 'Puissance_Four(-2)']
+
+haw-fn-info: [('Presence_SDB', 1)]
+Significant true negative detected: ('Puissance_Four', 0, 0.0, 0.0)
+count: 219
+info: Parent situation: [('Puissance_Four(-1)', 1), ('Luminosite_Cuisine(-1)', 0), ('Puissance_Four(-2)', 1), ('Luminosite_Cuisine(-2)', 1), ('L15(-1)', 0), ('L15(-2)', 0), ('Puissance_Plaques(-1)', 0), ('Puissance_Plaques(-2)', 0), ('Presence_Salon(-2)', 0), ('Presence_Salon(-1)', 0), ('Luminosite_Salon(-1)', 0), ('Luminosite_Salon(-2)', 0), ('Puissance_Frigo(-1)', 0), ('Presence_Cuisine(-2)', 1), ('Presence_Cuisine(-1)', 1)]
+                                [Model similarity] common parents = ['L15(-1)', 'L15(-2)', 'Luminosite_Cuisine(-1)', 'Luminosite_Salon(-1)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Puissance_Four(-1)', 'Puissance_Four(-2)', 'Puissance_Frigo(-1)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Presence_SDB(-1)', 'Presence_SDB(-2)', 'Puissance_Frigo(-2)', 'Puissance_Lave_Vaisselle(-1)']
+                                [Model difference] ground - causal = ['Luminosite_Cuisine(-2)', 'Luminosite_Salon(-2)', 'Presence_Cuisine(-1)', 'Presence_Cuisine(-2)']
+
+haw-fn-info: [('Presence_Cuisine', 1), ('Presence_Salon', 1)]
+Significant true negative detected: ('Presence_Cuisine', 1, 0.7573221757322176, 0.7566063977746871)
+count: 108
+info: Parent situation: [('Presence_Cuisine(-1)', 0), ('Presence_Cuisine(-2)', 1), ('Presence_Table(-1)', 1), ('Presence_Table(-2)', 1), ('Presence_Lit(-1)', 0), ('Presence_Lit(-2)', 0), ('C3(-2)', 0), ('C3(-1)', 0), ('L15(-2)', 0), ('L15(-1)', 0), ('Presence_SDB(-1)', 0), ('Presence_SDB(-2)', 0), ('C15(-1)', 0), ('C15(-2)', 0), ('Puissance_Frigo(-2)', 0)]
+                                [Model similarity] common parents = ['C15(-1)', 'C3(-1)', 'C3(-2)', 'L15(-1)', 'L15(-2)', 'Presence_Cuisine(-1)', 'Presence_Cuisine(-2)', 'Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Table(-1)', 'Presence_Table(-2)']
+                                [Model difference] causal - ground = ['Eau_Froide_Evier_Instantanee(-1)', 'Eau_Froide_Evier_Instantanee(-2)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] ground - causal = ['C15(-2)', 'Presence_SDB(-1)', 'Presence_SDB(-2)', 'Puissance_Frigo(-2)']
+
+markov-fn-info: ['Luminosite_Lit0', 'Presence_Cuisine0']
+Significant true negative detected: ('Puissance_Plaques', 0, 0.5, 0.0)
+count: 144
+info: Parent situation: [('Puissance_Plaques(-2)', 0), ('Puissance_Plaques(-1)', 1), ('Presence_Salon(-1)', 0), ('Puissance_Four(-1)', 0), ('Presence_Lit(-1)', 0), ('Presence_Salon(-2)', 0), ('Puissance_Four(-2)', 0), ('Presence_Lit(-2)', 0), ('Luminosite_Salon(-2)', 1), ('Luminosite_Cuisine(-1)', 1), ('Presence_Cuisine(-2)', 1), ('Puissance_Frigo(-1)', 0), ('Presence_Cuisine(-1)', 1), ('Luminosite_Cuisine(-2)', 1), ('Puissance_Lave_Vaisselle(-1)', 0)]
+                                [Model similarity] common parents = ['Luminosite_Salon(-2)', 'Presence_Cuisine(-1)', 'Presence_Cuisine(-2)', 'Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Salon(-1)', 'Puissance_Four(-1)', 'Puissance_Frigo(-1)', 'Puissance_Lave_Vaisselle(-1)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['L15(-1)', 'L15(-2)', 'Luminosite_Salon(-1)', 'Presence_Table(-1)']
+                                [Model difference] ground - causal = ['Luminosite_Cuisine(-1)', 'Luminosite_Cuisine(-2)', 'Presence_Salon(-2)', 'Puissance_Four(-2)']
+
+haw-fn-info: [('C3', 1), ('Presence_Salon', 1), ('Presence_Table', 1)]
+markov-fn-info: ['L150', 'Puissance_Plaques1']
+[Bayesian Fitting] ALERT! The variable Luminosite_Salon owns the maximum in-degree 15 (larger than 10). This variable may slow down the fitting process!
+[CASE=1] Calculated score threshold Causal v.s. Ground = 0.9929639401934917 v.s. 0.9920300751879699
+Anomaly case 1: FP, FN, Pre, Recall = 169 247 0.9569097399286078 0.93825
+Significant true positive detected: ('C15', 1, 1.0, 1.0)
+count: 577
+info: Parent situation: [('C15(-1)', 0), ('C15(-2)', 0), ('Presence_Cuisine(-1)', 0), ('Presence_Cuisine(-2)', 0), ('Presence_Salon(-1)', 0), ('Puissance_Plaques(-1)', 0), ('Puissance_Plaques(-2)', 0), ('C3(-1)', 0)]
+                                [Model similarity] common parents = ['C15(-1)', 'C15(-2)', 'C3(-1)', 'Presence_Cuisine(-1)', 'Presence_Cuisine(-2)', 'Presence_Salon(-1)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Luminosite_Table(-2)']
+                                [Model difference] ground - causal = []
+
+Significant true positive detected: ('Presence_Lit', 1, 1.0, 1.0)
+count: 508
+info: Parent situation: [('Presence_Lit(-1)', 0), ('Presence_Lit(-2)', 0), ('Presence_Cuisine(-1)', 0), ('Presence_Cuisine(-2)', 0), ('Presence_Table(-1)', 0), ('Presence_Table(-2)', 0), ('Puissance_Frigo(-1)', 0), ('Presence_Salon(-1)', 0), ('Presence_Salon(-2)', 0), ('Puissance_Plaques(-1)', 1), ('Puissance_Plaques(-2)', 0), ('Luminosite_Salon(-2)', 0), ('Luminosite_Salon(-1)', 0), ('Puissance_Four(-2)', 0), ('Puissance_Chauffe_Eau(-1)', 0)]
+                                [Model similarity] common parents = ['Presence_Cuisine(-1)', 'Presence_Cuisine(-2)', 'Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Presence_Table(-1)', 'Presence_Table(-2)', 'Puissance_Chauffe_Eau(-1)', 'Puissance_Frigo(-1)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['L15(-1)', 'L15(-2)', 'Puissance_Chauffe_Eau(-2)']
+                                [Model difference] ground - causal = ['Luminosite_Salon(-1)', 'Luminosite_Salon(-2)', 'Puissance_Four(-2)']
+
+Significant true positive detected: ('C3', 1, 1.0, 1.0)
+count: 574
+info: Parent situation: [('C3(-1)', 0), ('C3(-2)', 0), ('Presence_Cuisine(-1)', 0), ('Presence_Cuisine(-2)', 0), ('Luminosite_Cuisine(-1)', 1), ('Luminosite_Cuisine(-2)', 1), ('Presence_Salon(-1)', 0), ('Puissance_Frigo(-1)', 0)]
+                                [Model similarity] common parents = ['C3(-1)', 'C3(-2)', 'Luminosite_Cuisine(-1)', 'Luminosite_Cuisine(-2)', 'Presence_Cuisine(-1)', 'Presence_Cuisine(-2)', 'Presence_Salon(-1)', 'Puissance_Frigo(-1)']
+                                [Model difference] causal - ground = []
+                                [Model difference] ground - causal = []
+
+Significant true positive detected: ('Presence_Salon', 1, 1.0, 1.0)
+count: 223
+info: Parent situation: [('Presence_Salon(-1)', 0), ('Presence_Salon(-2)', 0), ('Presence_Table(-1)', 0), ('Presence_Table(-2)', 0), ('Presence_Lit(-1)', 0), ('Presence_Lit(-2)', 0), ('Puissance_Lave_Vaisselle(-1)', 0), ('Puissance_Plaques(-2)', 0), ('Puissance_Plaques(-1)', 0), ('Puissance_Four(-1)', 0), ('Puissance_Four(-2)', 0), ('Puissance_Frigo(-1)', 1), ('Luminosite_Cuisine(-1)', 0), ('Luminosite_Cuisine(-2)', 0), ('Puissance_Frigo(-2)', 0)]
+                                [Model similarity] common parents = ['Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Presence_Table(-1)', 'Presence_Table(-2)', 'Puissance_Four(-1)', 'Puissance_Four(-2)', 'Puissance_Frigo(-1)', 'Puissance_Lave_Vaisselle(-1)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Luminosite_Salon(-1)', 'Presence_Cuisine(-2)', 'Puissance_Lave_Vaisselle(-2)']
+                                [Model difference] ground - causal = ['Luminosite_Cuisine(-1)', 'Luminosite_Cuisine(-2)', 'Puissance_Frigo(-2)']
+
+Significant true positive detected: ('Presence_SDB', 1, 0.9993367722918202, 0.9993367722918202)
+count: 265
+info: Parent situation: [('Presence_SDB(-1)', 0), ('Presence_SDB(-2)', 0), ('L15(-1)', 0), ('I11_Droite_Haut(-1)', 0), ('Puissance_Chauffe_Eau(-1)', 0), ('I11_Droite_Haut(-2)', 0), ('Puissance_Chauffe_Eau(-2)', 0), ('Presence_Cuisine(-1)', 0), ('Puissance_Four(-1)', 0), ('Puissance_Plaques(-2)', 0), ('Puissance_Plaques(-1)', 0), ('Presence_Lit(-1)', 0), ('Presence_Lit(-2)', 0), ('Puissance_Four(-2)', 0)]
+                                [Model similarity] common parents = ['I11_Droite_Haut(-1)', 'I11_Droite_Haut(-2)', 'L15(-1)', 'Presence_Cuisine(-1)', 'Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_SDB(-1)', 'Presence_SDB(-2)', 'Puissance_Chauffe_Eau(-1)', 'Puissance_Chauffe_Eau(-2)', 'Puissance_Four(-1)', 'Puissance_Four(-2)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = []
+                                [Model difference] ground - causal = []
+
+Significant false positive detected: ('Presence_Salon', 1, 0.9974066390041494, 0.9974093264248705)
+count: 25
+info: Parent situation: [('Presence_Salon(-1)', 0), ('Presence_Salon(-2)', 0), ('Presence_Table(-1)', 0), ('Presence_Table(-2)', 0), ('Presence_Lit(-1)', 0), ('Presence_Lit(-2)', 0), ('Puissance_Lave_Vaisselle(-1)', 0), ('Puissance_Plaques(-2)', 1), ('Puissance_Plaques(-1)', 0), ('Puissance_Four(-1)', 0), ('Puissance_Four(-2)', 0), ('Puissance_Frigo(-1)', 0), ('Luminosite_Cuisine(-1)', 0), ('Luminosite_Cuisine(-2)', 0), ('Puissance_Frigo(-2)', 0)]
+                                [Model similarity] common parents = ['Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Presence_Table(-1)', 'Presence_Table(-2)', 'Puissance_Four(-1)', 'Puissance_Four(-2)', 'Puissance_Frigo(-1)', 'Puissance_Lave_Vaisselle(-1)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Luminosite_Salon(-1)', 'Presence_Cuisine(-2)', 'Puissance_Lave_Vaisselle(-2)']
+                                [Model difference] ground - causal = ['Luminosite_Cuisine(-1)', 'Luminosite_Cuisine(-2)', 'Puissance_Frigo(-2)']
+[Model shift] A model shift is detected. Training v.s. Testing probability: 0.002593360995850613 v.s. 0.07605633802816902
+
+Significant false positive detected: ('C3', 1, 0.99428488750633, 0.99428488750633)
+count: 11
+info: Parent situation: [('C3(-1)', 0), ('C3(-2)', 0), ('Presence_Cuisine(-1)', 1), ('Presence_Cuisine(-2)', 1), ('Luminosite_Cuisine(-1)', 0), ('Luminosite_Cuisine(-2)', 0), ('Presence_Salon(-1)', 0), ('Puissance_Frigo(-1)', 0)]
+                                [Model similarity] common parents = ['C3(-1)', 'C3(-2)', 'Luminosite_Cuisine(-1)', 'Luminosite_Cuisine(-2)', 'Presence_Cuisine(-1)', 'Presence_Cuisine(-2)', 'Presence_Salon(-1)', 'Puissance_Frigo(-1)']
+                                [Model difference] causal - ground = []
+                                [Model difference] ground - causal = []
+[Model shift] A model shift is detected. Training v.s. Testing probability: 0.0057151124936699604 v.s. 0.005235602094240788
+
+Significant false positive detected: ('Presence_Table', 0, 1.0, 1.0)
+count: 10
+info: Parent situation: [('Presence_Table(-1)', 1), ('Presence_Table(-2)', 1), ('Presence_Cuisine(-1)', 1), ('Presence_Lit(-1)', 0), ('Presence_Lit(-2)', 0), ('Presence_Salon(-1)', 0), ('Presence_Salon(-2)', 1), ('Presence_SDB(-1)', 1), ('Presence_SDB(-2)', 1), ('Puissance_Frigo(-2)', 0), ('Puissance_Frigo(-1)', 0), ('L15(-2)', 0), ('L15(-1)', 0), ('Puissance_Plaques(-2)', 0), ('Puissance_Plaques(-1)', 0)]
+                                [Model similarity] common parents = ['L15(-1)', 'L15(-2)', 'Presence_Cuisine(-1)', 'Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_SDB(-1)', 'Presence_SDB(-2)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Presence_Table(-1)', 'Presence_Table(-2)', 'Puissance_Frigo(-1)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Luminosite_Salon(-2)']
+                                [Model difference] ground - causal = ['Puissance_Frigo(-2)']
+[Model shift] A model shift is detected. Training v.s. Testing probability: 0.0 v.s. 0.5714285714285714
+
+Significant false positive detected: ('Presence_Table', 1, 1.0, 1.0)
+count: 19
+info: Parent situation: [('Presence_Table(-1)', 0), ('Presence_Table(-2)', 1), ('Presence_Cuisine(-1)', 1), ('Presence_Lit(-1)', 0), ('Presence_Lit(-2)', 0), ('Presence_Salon(-1)', 0), ('Presence_Salon(-2)', 0), ('Presence_SDB(-1)', 1), ('Presence_SDB(-2)', 1), ('Puissance_Frigo(-2)', 0), ('Puissance_Frigo(-1)', 0), ('L15(-2)', 0), ('L15(-1)', 0), ('Puissance_Plaques(-2)', 0), ('Puissance_Plaques(-1)', 0)]
+                                [Model similarity] common parents = ['L15(-1)', 'L15(-2)', 'Presence_Cuisine(-1)', 'Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_SDB(-1)', 'Presence_SDB(-2)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Presence_Table(-1)', 'Presence_Table(-2)', 'Puissance_Frigo(-1)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Luminosite_Salon(-2)']
+                                [Model difference] ground - causal = ['Puissance_Frigo(-2)']
+[Model shift] A model shift is detected. Training v.s. Testing probability: 0.0 v.s. 0.7
+
+Significant false negative detected: ('C15', 1, 0.9920300751879699, 0.9922516658918332)
+count: 83
+info: Parent situation: [('C15(-1)', 0), ('C15(-2)', 0), ('Presence_Cuisine(-1)', 1), ('Presence_Cuisine(-2)', 1), ('Presence_Salon(-1)', 0), ('Puissance_Plaques(-1)', 0), ('Puissance_Plaques(-2)', 0), ('C3(-1)', 0)]
+                                [Model similarity] common parents = ['C15(-1)', 'C15(-2)', 'C3(-1)', 'Presence_Cuisine(-1)', 'Presence_Cuisine(-2)', 'Presence_Salon(-1)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Luminosite_Table(-2)']
+                                [Model difference] ground - causal = []
+
+Significant false negative detected: ('Presence_Salon', 1, 0.996345363179534, 0.9817184643510055)
+count: 39
+info: Parent situation: [('Presence_Salon(-1)', 0), ('Presence_Salon(-2)', 0), ('Presence_Table(-1)', 0), ('Presence_Table(-2)', 0), ('Presence_Lit(-1)', 0), ('Presence_Lit(-2)', 0), ('Puissance_Lave_Vaisselle(-1)', 0), ('Puissance_Plaques(-2)', 0), ('Puissance_Plaques(-1)', 0), ('Puissance_Four(-1)', 0), ('Puissance_Four(-2)', 0), ('Puissance_Frigo(-1)', 0), ('Luminosite_Cuisine(-1)', 0), ('Luminosite_Cuisine(-2)', 0), ('Puissance_Frigo(-2)', 0)]
+                                [Model similarity] common parents = ['Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Presence_Table(-1)', 'Presence_Table(-2)', 'Puissance_Four(-1)', 'Puissance_Four(-2)', 'Puissance_Frigo(-1)', 'Puissance_Lave_Vaisselle(-1)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Luminosite_Salon(-1)', 'Presence_Cuisine(-2)', 'Puissance_Lave_Vaisselle(-2)']
+                                [Model difference] ground - causal = ['Luminosite_Cuisine(-1)', 'Luminosite_Cuisine(-2)', 'Puissance_Frigo(-2)']
+
+Significant false negative detected: ('C3', 1, 0.9927140255009107, 0.9927140255009107)
+count: 10
+info: Parent situation: [('C3(-1)', 0), ('C3(-2)', 0), ('Presence_Cuisine(-1)', 1), ('Presence_Cuisine(-2)', 0), ('Luminosite_Cuisine(-1)', 0), ('Luminosite_Cuisine(-2)', 0), ('Presence_Salon(-1)', 0), ('Puissance_Frigo(-1)', 0)]
+                                [Model similarity] common parents = ['C3(-1)', 'C3(-2)', 'Luminosite_Cuisine(-1)', 'Luminosite_Cuisine(-2)', 'Presence_Cuisine(-1)', 'Presence_Cuisine(-2)', 'Presence_Salon(-1)', 'Puissance_Frigo(-1)']
+                                [Model difference] causal - ground = []
+                                [Model difference] ground - causal = []
+
+Significant false negative detected: ('C15', 1, 0.9920300751879699, 0.9847715736040609)
+count: 58
+info: Parent situation: [('C15(-1)', 0), ('C15(-2)', 0), ('Presence_Cuisine(-1)', 1), ('Presence_Cuisine(-2)', 1), ('Presence_Salon(-1)', 0), ('Puissance_Plaques(-1)', 0), ('Puissance_Plaques(-2)', 0), ('C3(-1)', 0)]
+                                [Model similarity] common parents = ['C15(-1)', 'C15(-2)', 'C3(-1)', 'Presence_Cuisine(-1)', 'Presence_Cuisine(-2)', 'Presence_Salon(-1)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Luminosite_Table(-2)']
+                                [Model difference] ground - causal = []
+
+Significant false negative detected: ('C15', 1, 0.9924418604651163, 0.9310344827586207)
+count: 14
+info: Parent situation: [('C15(-1)', 0), ('C15(-2)', 0), ('Presence_Cuisine(-1)', 1), ('Presence_Cuisine(-2)', 1), ('Presence_Salon(-1)', 0), ('Puissance_Plaques(-1)', 0), ('Puissance_Plaques(-2)', 1), ('C3(-1)', 0)]
+                                [Model similarity] common parents = ['C15(-1)', 'C15(-2)', 'C3(-1)', 'Presence_Cuisine(-1)', 'Presence_Cuisine(-2)', 'Presence_Salon(-1)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Luminosite_Table(-2)']
+                                [Model difference] ground - causal = []
+
+Significant false negative detected: ('C15', 1, 1.0, 0.5)
+count: 15
+info: Parent situation: [('C15(-1)', 0), ('C15(-2)', 0), ('Presence_Cuisine(-1)', 0), ('Presence_Cuisine(-2)', 0), ('Presence_Salon(-1)', 1), ('Puissance_Plaques(-1)', 0), ('Puissance_Plaques(-2)', 1), ('C3(-1)', 0)]
+                                [Model similarity] common parents = ['C15(-1)', 'C15(-2)', 'C3(-1)', 'Presence_Cuisine(-1)', 'Presence_Cuisine(-2)', 'Presence_Salon(-1)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Luminosite_Table(-2)']
+                                [Model difference] ground - causal = []
+
+Significant true negative detected: ('Puissance_Plaques', 0, 0.0, 0.0)
+count: 802
+info: Parent situation: [('Puissance_Plaques(-2)', 0), ('Puissance_Plaques(-1)', 1), ('Presence_Salon(-1)', 0), ('Puissance_Four(-1)', 0), ('Presence_Lit(-1)', 0), ('Presence_Salon(-2)', 0), ('Puissance_Four(-2)', 0), ('Presence_Lit(-2)', 0), ('Luminosite_Salon(-2)', 0), ('Luminosite_Cuisine(-1)', 0), ('Presence_Cuisine(-2)', 0), ('Puissance_Frigo(-1)', 0), ('Presence_Cuisine(-1)', 0), ('Luminosite_Cuisine(-2)', 0), ('Puissance_Lave_Vaisselle(-1)', 0)]
+                                [Model similarity] common parents = ['Luminosite_Salon(-2)', 'Presence_Cuisine(-1)', 'Presence_Cuisine(-2)', 'Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Salon(-1)', 'Puissance_Four(-1)', 'Puissance_Frigo(-1)', 'Puissance_Lave_Vaisselle(-1)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['L15(-1)', 'L15(-2)', 'Luminosite_Salon(-1)', 'Presence_Table(-1)']
+                                [Model difference] ground - causal = ['Luminosite_Cuisine(-1)', 'Luminosite_Cuisine(-2)', 'Presence_Salon(-2)', 'Puissance_Four(-2)']
+
+haw-fn-info: [('C3', 1)]
+markov-fn-info: ['Luminosite_Lit0', 'Puissance_Plaques1']
+Significant true negative detected: ('Presence_Salon', 0, 0.5685210312075983, 0.5539143279172821)
+count: 118
+info: Parent situation: [('Presence_Salon(-1)', 1), ('Presence_Salon(-2)', 1), ('Presence_Table(-1)', 0), ('Presence_Table(-2)', 1), ('Presence_Lit(-1)', 0), ('Presence_Lit(-2)', 0), ('Puissance_Lave_Vaisselle(-1)', 0), ('Puissance_Plaques(-2)', 0), ('Puissance_Plaques(-1)', 0), ('Puissance_Four(-1)', 0), ('Puissance_Four(-2)', 0), ('Puissance_Frigo(-1)', 0), ('Luminosite_Cuisine(-1)', 0), ('Luminosite_Cuisine(-2)', 0), ('Puissance_Frigo(-2)', 0)]
+                                [Model similarity] common parents = ['Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Presence_Table(-1)', 'Presence_Table(-2)', 'Puissance_Four(-1)', 'Puissance_Four(-2)', 'Puissance_Frigo(-1)', 'Puissance_Lave_Vaisselle(-1)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Luminosite_Salon(-1)', 'Presence_Cuisine(-2)', 'Puissance_Lave_Vaisselle(-2)']
+                                [Model difference] ground - causal = ['Luminosite_Cuisine(-1)', 'Luminosite_Cuisine(-2)', 'Puissance_Frigo(-2)']
+
+markov-fn-info: ('Presence_Table0', 'C151')
+Significant true negative detected: ('Puissance_Plaques', 1, 0.2020320437670965, 0.17612346799818435)
+count: 113
+info: Parent situation: [('Puissance_Plaques(-2)', 1), ('Puissance_Plaques(-1)', 0), ('Presence_Salon(-1)', 0), ('Puissance_Four(-1)', 0), ('Presence_Lit(-1)', 0), ('Presence_Salon(-2)', 0), ('Puissance_Four(-2)', 0), ('Presence_Lit(-2)', 0), ('Luminosite_Salon(-2)', 0), ('Luminosite_Cuisine(-1)', 0), ('Presence_Cuisine(-2)', 0), ('Puissance_Frigo(-1)', 0), ('Presence_Cuisine(-1)', 0), ('Luminosite_Cuisine(-2)', 0), ('Puissance_Lave_Vaisselle(-1)', 0)]
+                                [Model similarity] common parents = ['Luminosite_Salon(-2)', 'Presence_Cuisine(-1)', 'Presence_Cuisine(-2)', 'Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Salon(-1)', 'Puissance_Four(-1)', 'Puissance_Frigo(-1)', 'Puissance_Lave_Vaisselle(-1)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['L15(-1)', 'L15(-2)', 'Luminosite_Salon(-1)', 'Presence_Table(-1)']
+                                [Model difference] ground - causal = ['Luminosite_Cuisine(-1)', 'Luminosite_Cuisine(-2)', 'Presence_Salon(-2)', 'Puissance_Four(-2)']
+
+markov-fn-info: ('Puissance_Plaques0', 'Presence_Salon1')
+Significant true negative detected: ('Puissance_Lave_Vaisselle', 1, 0.0, 0.0)
+count: 618
+info: Parent situation: [('Presence_Salon(-1)', 1), ('Presence_Salon(-2)', 0), ('Puissance_Plaques(-1)', 0), ('Luminosite_Salon(-1)', 0), ('Puissance_Four(-1)', 0), ('Puissance_Frigo(-1)', 0), ('Puissance_Lave_Vaisselle(-2)', 0)]
+                                [Model similarity] common parents = ['Luminosite_Salon(-1)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Puissance_Four(-1)', 'Puissance_Frigo(-1)', 'Puissance_Lave_Vaisselle(-2)', 'Puissance_Plaques(-1)']
+                                [Model difference] causal - ground = []
+                                [Model difference] ground - causal = []
+
+markov-fn-info: ['Luminosite_Lit0', 'Presence_Salon1']
+Significant true negative detected: ('Puissance_Lave_Vaisselle', 0, 0.002140910860256917, 0.002140910860256917)
+count: 608
+info: Parent situation: [('Presence_Salon(-1)', 1), ('Presence_Salon(-2)', 1), ('Puissance_Plaques(-1)', 0), ('Luminosite_Salon(-1)', 0), ('Puissance_Four(-1)', 0), ('Puissance_Frigo(-1)', 0), ('Puissance_Lave_Vaisselle(-2)', 0)]
+                                [Model similarity] common parents = ['Luminosite_Salon(-1)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Puissance_Four(-1)', 'Puissance_Frigo(-1)', 'Puissance_Lave_Vaisselle(-2)', 'Puissance_Plaques(-1)']
+                                [Model difference] causal - ground = []
+                                [Model difference] ground - causal = []
+
+haw-fn-info: [('C3', 1), ('Puissance_Four', 1), ('Presence_Table', 1)]
+markov-fn-info: ['L161', 'Puissance_Lave_Vaisselle1']
+Significant true negative detected: ('Presence_Table', 1, 0.7975797579757976, 0.7959518599562363)
+count: 115
+info: Parent situation: [('Presence_Table(-1)', 0), ('Presence_Table(-2)', 0), ('Presence_Cuisine(-1)', 0), ('Presence_Lit(-1)', 0), ('Presence_Lit(-2)', 0), ('Presence_Salon(-1)', 1), ('Presence_Salon(-2)', 1), ('Presence_SDB(-1)', 0), ('Presence_SDB(-2)', 0), ('Puissance_Frigo(-2)', 0), ('Puissance_Frigo(-1)', 0), ('L15(-2)', 0), ('L15(-1)', 0), ('Puissance_Plaques(-2)', 0), ('Puissance_Plaques(-1)', 0)]
+                                [Model similarity] common parents = ['L15(-1)', 'L15(-2)', 'Presence_Cuisine(-1)', 'Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_SDB(-1)', 'Presence_SDB(-2)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Presence_Table(-1)', 'Presence_Table(-2)', 'Puissance_Frigo(-1)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Luminosite_Salon(-2)']
+                                [Model difference] ground - causal = ['Puissance_Frigo(-2)']
+
+haw-fn-info: [('Luminosite_Salon', 1), ('Luminosite_Salon', 1), ('Luminosite_Salon', 1), ('Luminosite_Salon', 1), ('Luminosite_Salon', 1)]
+markov-fn-info: ('Puissance_Lave_Vaisselle0', 'Presence_Lit1')
+Significant true negative detected: ('Luminosite_Salon', 1, 0.1021897810218978, 0.09225092250922506)
+count: 276
+info: Parent situation: [('Luminosite_Salon(-2)', 0), ('Luminosite_Salon(-1)', 0), ('Presence_Table(-2)', 0), ('Puissance_Four(-1)', 0), ('Puissance_Four(-2)', 0), ('Presence_Lit(-1)', 0), ('Presence_Lit(-2)', 0), ('Presence_Salon(-1)', 1), ('Presence_Salon(-2)', 1), ('Puissance_Lave_Vaisselle(-1)', 0), ('Puissance_Plaques(-1)', 0), ('Puissance_Plaques(-2)', 0), ('Puissance_Lave_Vaisselle(-2)', 0), ('Puissance_Frigo(-2)', 0), ('Luminosite_Cuisine(-2)', 0)]
+                                [Model similarity] common parents = ['Luminosite_Salon(-1)', 'Luminosite_Salon(-2)', 'Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Presence_Table(-2)', 'Puissance_Four(-1)', 'Puissance_Four(-2)', 'Puissance_Frigo(-2)', 'Puissance_Lave_Vaisselle(-1)', 'Puissance_Lave_Vaisselle(-2)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Puissance_Frigo(-1)']
+                                [Model difference] ground - causal = ['Luminosite_Cuisine(-2)']
+
+markov-fn-info: ('Presence_Table1', 'Presence_Table0')
+Significant true negative detected: ('Presence_Cuisine', 1, 0.898465171192444, 0.8974978050921861)
+count: 145
+info: Parent situation: [('Presence_Cuisine(-1)', 0), ('Presence_Cuisine(-2)', 0), ('Presence_Table(-1)', 1), ('Presence_Table(-2)', 1), ('Presence_Lit(-1)', 0), ('Presence_Lit(-2)', 0), ('C3(-2)', 0), ('C3(-1)', 0), ('L15(-2)', 0), ('L15(-1)', 0), ('Presence_SDB(-1)', 0), ('Presence_SDB(-2)', 0), ('C15(-1)', 0), ('C15(-2)', 0), ('Puissance_Frigo(-2)', 0)]
+                                [Model similarity] common parents = ['C15(-1)', 'C3(-1)', 'C3(-2)', 'L15(-1)', 'L15(-2)', 'Presence_Cuisine(-1)', 'Presence_Cuisine(-2)', 'Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Table(-1)', 'Presence_Table(-2)']
+                                [Model difference] causal - ground = ['Eau_Froide_Evier_Instantanee(-1)', 'Eau_Froide_Evier_Instantanee(-2)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] ground - causal = ['C15(-2)', 'Presence_SDB(-1)', 'Presence_SDB(-2)', 'Puissance_Frigo(-2)']
+
+markov-fn-info: ('Luminosite_Salon0', 'C151')
+Significant true negative detected: ('Luminosite_Salon', 1, 0.640020540910647, 0.6012096012096012)
+count: 362
+info: Parent situation: [('Luminosite_Salon(-2)', 0), ('Luminosite_Salon(-1)', 0), ('Presence_Table(-2)', 0), ('Puissance_Four(-1)', 0), ('Puissance_Four(-2)', 0), ('Presence_Lit(-1)', 0), ('Presence_Lit(-2)', 0), ('Presence_Salon(-1)', 0), ('Presence_Salon(-2)', 0), ('Puissance_Lave_Vaisselle(-1)', 0), ('Puissance_Plaques(-1)', 0), ('Puissance_Plaques(-2)', 0), ('Puissance_Lave_Vaisselle(-2)', 0), ('Puissance_Frigo(-2)', 0), ('Luminosite_Cuisine(-2)', 0)]
+                                [Model similarity] common parents = ['Luminosite_Salon(-1)', 'Luminosite_Salon(-2)', 'Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Presence_Table(-2)', 'Puissance_Four(-1)', 'Puissance_Four(-2)', 'Puissance_Frigo(-2)', 'Puissance_Lave_Vaisselle(-1)', 'Puissance_Lave_Vaisselle(-2)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Puissance_Frigo(-1)']
+                                [Model difference] ground - causal = ['Luminosite_Cuisine(-2)']
+
+markov-fn-info: ('Presence_Table1', 'Presence_Salon1')
+Significant true negative detected: ('Luminosite_Salon', 0, 0.002474022761009387, 0.002962962962962945)
+count: 344
+info: Parent situation: [('Luminosite_Salon(-2)', 0), ('Luminosite_Salon(-1)', 1), ('Presence_Table(-2)', 1), ('Puissance_Four(-1)', 0), ('Puissance_Four(-2)', 0), ('Presence_Lit(-1)', 0), ('Presence_Lit(-2)', 0), ('Presence_Salon(-1)', 0), ('Presence_Salon(-2)', 0), ('Puissance_Lave_Vaisselle(-1)', 0), ('Puissance_Plaques(-1)', 0), ('Puissance_Plaques(-2)', 0), ('Puissance_Lave_Vaisselle(-2)', 0), ('Puissance_Frigo(-2)', 0), ('Luminosite_Cuisine(-2)', 0)]
+                                [Model similarity] common parents = ['Luminosite_Salon(-1)', 'Luminosite_Salon(-2)', 'Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Presence_Table(-2)', 'Puissance_Four(-1)', 'Puissance_Four(-2)', 'Puissance_Frigo(-2)', 'Puissance_Lave_Vaisselle(-1)', 'Puissance_Lave_Vaisselle(-2)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Puissance_Frigo(-1)']
+                                [Model difference] ground - causal = ['Luminosite_Cuisine(-2)']
+
+haw-fn-info: [('Presence_Salon', 1)]
+Significant true negative detected: ('Presence_Salon', 1, 0.9154955621301775, 0.8292682926829268)
+count: 114
+info: Parent situation: [('Presence_Salon(-1)', 0), ('Presence_Salon(-2)', 0), ('Presence_Table(-1)', 1), ('Presence_Table(-2)', 1), ('Presence_Lit(-1)', 0), ('Presence_Lit(-2)', 0), ('Puissance_Lave_Vaisselle(-1)', 0), ('Puissance_Plaques(-2)', 0), ('Puissance_Plaques(-1)', 0), ('Puissance_Four(-1)', 0), ('Puissance_Four(-2)', 0), ('Puissance_Frigo(-1)', 0), ('Luminosite_Cuisine(-1)', 0), ('Luminosite_Cuisine(-2)', 0), ('Puissance_Frigo(-2)', 0)]
+                                [Model similarity] common parents = ['Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Presence_Table(-1)', 'Presence_Table(-2)', 'Puissance_Four(-1)', 'Puissance_Four(-2)', 'Puissance_Frigo(-1)', 'Puissance_Lave_Vaisselle(-1)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Luminosite_Salon(-1)', 'Presence_Cuisine(-2)', 'Puissance_Lave_Vaisselle(-2)']
+                                [Model difference] ground - causal = ['Luminosite_Cuisine(-1)', 'Luminosite_Cuisine(-2)', 'Puissance_Frigo(-2)']
+
+haw-fn-info: [('Puissance_Lave_Vaisselle', 1), ('Puissance_Lave_Vaisselle', 1)]
+markov-fn-info: ('Luminosite_Salon0', 'C31')
+Significant true negative detected: ('Puissance_Frigo', 0, 0.0, 0.0)
+count: 785
+info: Parent situation: [('Presence_Lit(-1)', 0), ('Presence_Table(-1)', 0), ('Presence_Table(-2)', 0), ('Puissance_Plaques(-1)', 0), ('Presence_Salon(-1)', 0), ('Puissance_Four(-1)', 0), ('Puissance_Frigo(-2)', 0), ('Luminosite_Salon(-1)', 0), ('Puissance_Frigo(-1)', 1), ('Puissance_Lave_Vaisselle(-1)', 0), ('Presence_Lit(-2)', 0), ('C3(-2)', 0)]
+                                [Model similarity] common parents = ['C3(-2)', 'Luminosite_Salon(-1)', 'Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Salon(-1)', 'Presence_Table(-1)', 'Presence_Table(-2)', 'Puissance_Four(-1)', 'Puissance_Frigo(-1)', 'Puissance_Frigo(-2)', 'Puissance_Lave_Vaisselle(-1)', 'Puissance_Plaques(-1)']
+                                [Model difference] causal - ground = []
+                                [Model difference] ground - causal = []
+
+haw-fn-info: [('C3', 1), ('Puissance_Four', 1)]
+markov-fn-info: ['C31', 'Puissance_Frigo1']
+Significant true negative detected: ('Presence_Salon', 1, 0.9154955621301775, 0.902753108348135)
+count: 106
+info: Parent situation: [('Presence_Salon(-1)', 0), ('Presence_Salon(-2)', 0), ('Presence_Table(-1)', 1), ('Presence_Table(-2)', 1), ('Presence_Lit(-1)', 0), ('Presence_Lit(-2)', 0), ('Puissance_Lave_Vaisselle(-1)', 0), ('Puissance_Plaques(-2)', 0), ('Puissance_Plaques(-1)', 0), ('Puissance_Four(-1)', 0), ('Puissance_Four(-2)', 0), ('Puissance_Frigo(-1)', 0), ('Luminosite_Cuisine(-1)', 0), ('Luminosite_Cuisine(-2)', 0), ('Puissance_Frigo(-2)', 0)]
+                                [Model similarity] common parents = ['Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Presence_Table(-1)', 'Presence_Table(-2)', 'Puissance_Four(-1)', 'Puissance_Four(-2)', 'Puissance_Frigo(-1)', 'Puissance_Lave_Vaisselle(-1)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Luminosite_Salon(-1)', 'Presence_Cuisine(-2)', 'Puissance_Lave_Vaisselle(-2)']
+                                [Model difference] ground - causal = ['Luminosite_Cuisine(-1)', 'Luminosite_Cuisine(-2)', 'Puissance_Frigo(-2)']
+
+haw-fn-info: [('Puissance_Lave_Vaisselle', 1), ('Puissance_Lave_Vaisselle', 1)]
+markov-fn-info: ('Luminosite_Salon0', 'C31')
+Significant true negative detected: ('Presence_Cuisine', 0, 0.9477832512315271, 0.9307984790874525)
+count: 123
+info: Parent situation: [('Presence_Cuisine(-1)', 1), ('Presence_Cuisine(-2)', 1), ('Presence_Table(-1)', 1), ('Presence_Table(-2)', 1), ('Presence_Lit(-1)', 0), ('Presence_Lit(-2)', 0), ('C3(-2)', 0), ('C3(-1)', 0), ('L15(-2)', 0), ('L15(-1)', 0), ('Presence_SDB(-1)', 0), ('Presence_SDB(-2)', 0), ('C15(-1)', 0), ('C15(-2)', 0), ('Puissance_Frigo(-2)', 0)]
+                                [Model similarity] common parents = ['C15(-1)', 'C3(-1)', 'C3(-2)', 'L15(-1)', 'L15(-2)', 'Presence_Cuisine(-1)', 'Presence_Cuisine(-2)', 'Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Table(-1)', 'Presence_Table(-2)']
+                                [Model difference] causal - ground = ['Eau_Froide_Evier_Instantanee(-1)', 'Eau_Froide_Evier_Instantanee(-2)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] ground - causal = ['C15(-2)', 'Presence_SDB(-1)', 'Presence_SDB(-2)', 'Puissance_Frigo(-2)']
+
+markov-fn-info: ('Puissance_Lave_Vaisselle0', 'Presence_Lit1')
+Significant true negative detected: ('Presence_Table', 0, 0.7431693989071038, 0.39644970414201186)
+count: 137
+info: Parent situation: [('Presence_Table(-1)', 1), ('Presence_Table(-2)', 1), ('Presence_Cuisine(-1)', 0), ('Presence_Lit(-1)', 0), ('Presence_Lit(-2)', 0), ('Presence_Salon(-1)', 1), ('Presence_Salon(-2)', 1), ('Presence_SDB(-1)', 0), ('Presence_SDB(-2)', 0), ('Puissance_Frigo(-2)', 0), ('Puissance_Frigo(-1)', 0), ('L15(-2)', 0), ('L15(-1)', 0), ('Puissance_Plaques(-2)', 0), ('Puissance_Plaques(-1)', 0)]
+                                [Model similarity] common parents = ['L15(-1)', 'L15(-2)', 'Presence_Cuisine(-1)', 'Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_SDB(-1)', 'Presence_SDB(-2)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Presence_Table(-1)', 'Presence_Table(-2)', 'Puissance_Frigo(-1)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Luminosite_Salon(-2)']
+                                [Model difference] ground - causal = ['Puissance_Frigo(-2)']
+
+markov-fn-info: ('Luminosite_Salon0', 'C31')
+haw-fn-info: [('C15', 0)]
+Significant true negative detected: ('Presence_Salon', 1, 0.3086053412462908, 0.2835130970724191)
+count: 148
+info: Parent situation: [('Presence_Salon(-1)', 0), ('Presence_Salon(-2)', 1), ('Presence_Table(-1)', 0), ('Presence_Table(-2)', 0), ('Presence_Lit(-1)', 0), ('Presence_Lit(-2)', 0), ('Puissance_Lave_Vaisselle(-1)', 0), ('Puissance_Plaques(-2)', 0), ('Puissance_Plaques(-1)', 0), ('Puissance_Four(-1)', 0), ('Puissance_Four(-2)', 0), ('Puissance_Frigo(-1)', 0), ('Luminosite_Cuisine(-1)', 0), ('Luminosite_Cuisine(-2)', 0), ('Puissance_Frigo(-2)', 0)]
+                                [Model similarity] common parents = ['Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Presence_Table(-1)', 'Presence_Table(-2)', 'Puissance_Four(-1)', 'Puissance_Four(-2)', 'Puissance_Frigo(-1)', 'Puissance_Lave_Vaisselle(-1)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Luminosite_Salon(-1)', 'Presence_Cuisine(-2)', 'Puissance_Lave_Vaisselle(-2)']
+                                [Model difference] ground - causal = ['Luminosite_Cuisine(-1)', 'Luminosite_Cuisine(-2)', 'Puissance_Frigo(-2)']
+
+haw-fn-info: [('Puissance_Lave_Vaisselle', 1), ('Puissance_Lave_Vaisselle', 1)]
+markov-fn-info: ('Presence_Salon0', 'C151')
+Significant true negative detected: ('Presence_Cuisine', 0, 0.6124469589816124, 0.6135401974612129)
+count: 116
+info: Parent situation: [('Presence_Cuisine(-1)', 1), ('Presence_Cuisine(-2)', 0), ('Presence_Table(-1)', 1), ('Presence_Table(-2)', 1), ('Presence_Lit(-1)', 0), ('Presence_Lit(-2)', 0), ('C3(-2)', 0), ('C3(-1)', 0), ('L15(-2)', 0), ('L15(-1)', 0), ('Presence_SDB(-1)', 0), ('Presence_SDB(-2)', 0), ('C15(-1)', 0), ('C15(-2)', 0), ('Puissance_Frigo(-2)', 0)]
+                                [Model similarity] common parents = ['C15(-1)', 'C3(-1)', 'C3(-2)', 'L15(-1)', 'L15(-2)', 'Presence_Cuisine(-1)', 'Presence_Cuisine(-2)', 'Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Table(-1)', 'Presence_Table(-2)']
+                                [Model difference] causal - ground = ['Eau_Froide_Evier_Instantanee(-1)', 'Eau_Froide_Evier_Instantanee(-2)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] ground - causal = ['C15(-2)', 'Presence_SDB(-1)', 'Presence_SDB(-2)', 'Puissance_Frigo(-2)']
+
+markov-fn-info: ('Presence_Cuisine1', 'C31')
+Significant true negative detected: ('Luminosite_Cuisine', 1, 0.0, 0.0)
+count: 226
+info: Parent situation: [('Puissance_Four(-1)', 1), ('Luminosite_Cuisine(-1)', 0), ('Puissance_Four(-2)', 0), ('L15(-1)', 0), ('Luminosite_Cuisine(-2)', 0), ('Puissance_Plaques(-1)', 0), ('Puissance_Plaques(-2)', 0), ('C3(-1)', 0), ('C3(-2)', 0)]
+                                [Model similarity] common parents = ['C3(-1)', 'C3(-2)', 'L15(-1)', 'Luminosite_Cuisine(-1)', 'Luminosite_Cuisine(-2)', 'Puissance_Four(-1)', 'Puissance_Four(-2)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Luminosite_Salon(-1)', 'Luminosite_Table(-1)', 'Luminosite_Table(-2)']
+                                [Model difference] ground - causal = []
+
+haw-fn-info: [('Presence_Cuisine', 1)]
+markov-fn-info: ['Luminosite_Lit0', 'Puissance_Four1']
+Significant true negative detected: ('L15', 1, 0.0, 0.0)
+count: 256
+info: Parent situation: [('L15(-1)', 0), ('L15(-2)', 0), ('Presence_SDB(-1)', 0), ('Presence_SDB(-2)', 0), ('Puissance_Four(-1)', 0), ('Puissance_Four(-2)', 0), ('Luminosite_Cuisine(-1)', 1), ('Presence_Cuisine(-1)', 0), ('Puissance_Chauffe_Eau(-1)', 0), ('Puissance_Chauffe_Eau(-2)', 0), ('I11_Droite_Haut(-2)', 0), ('Presence_Lit(-1)', 0), ('Luminosite_Cuisine(-2)', 0)]
+                                [Model similarity] common parents = ['I11_Droite_Haut(-2)', 'L15(-1)', 'L15(-2)', 'Luminosite_Cuisine(-1)', 'Luminosite_Cuisine(-2)', 'Presence_Cuisine(-1)', 'Presence_Lit(-1)', 'Presence_SDB(-1)', 'Presence_SDB(-2)', 'Puissance_Chauffe_Eau(-1)', 'Puissance_Chauffe_Eau(-2)', 'Puissance_Four(-1)', 'Puissance_Four(-2)']
+                                [Model difference] causal - ground = []
+                                [Model difference] ground - causal = []
+
+markov-fn-info: ['Luminosite_Lit1', 'Luminosite_Cuisine1']
+Significant true negative detected: ('Luminosite_Cuisine', 0, 0.0, 0.0)
+count: 227
+info: Parent situation: [('Puissance_Four(-1)', 1), ('Luminosite_Cuisine(-1)', 1), ('Puissance_Four(-2)', 1), ('L15(-1)', 0), ('Luminosite_Cuisine(-2)', 1), ('Puissance_Plaques(-1)', 0), ('Puissance_Plaques(-2)', 0), ('C3(-1)', 0), ('C3(-2)', 0)]
+                                [Model similarity] common parents = ['C3(-1)', 'C3(-2)', 'L15(-1)', 'Luminosite_Cuisine(-1)', 'Luminosite_Cuisine(-2)', 'Puissance_Four(-1)', 'Puissance_Four(-2)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Luminosite_Salon(-1)', 'Luminosite_Table(-1)', 'Luminosite_Table(-2)']
+                                [Model difference] ground - causal = []
+
+haw-fn-info: [('Presence_Salon', 1)]
+markov-fn-info: ['Presence_Table0', 'Luminosite_Salon0']
+Significant true negative detected: ('Presence_Salon', 0, 0.8069112931955824, 0.48611111111111116)
+count: 133
+info: Parent situation: [('Presence_Salon(-1)', 1), ('Presence_Salon(-2)', 1), ('Presence_Table(-1)', 1), ('Presence_Table(-2)', 1), ('Presence_Lit(-1)', 0), ('Presence_Lit(-2)', 0), ('Puissance_Lave_Vaisselle(-1)', 0), ('Puissance_Plaques(-2)', 0), ('Puissance_Plaques(-1)', 0), ('Puissance_Four(-1)', 0), ('Puissance_Four(-2)', 0), ('Puissance_Frigo(-1)', 0), ('Luminosite_Cuisine(-1)', 0), ('Luminosite_Cuisine(-2)', 0), ('Puissance_Frigo(-2)', 0)]
+                                [Model similarity] common parents = ['Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Presence_Table(-1)', 'Presence_Table(-2)', 'Puissance_Four(-1)', 'Puissance_Four(-2)', 'Puissance_Frigo(-1)', 'Puissance_Lave_Vaisselle(-1)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Luminosite_Salon(-1)', 'Presence_Cuisine(-2)', 'Puissance_Lave_Vaisselle(-2)']
+                                [Model difference] ground - causal = ['Luminosite_Cuisine(-1)', 'Luminosite_Cuisine(-2)', 'Puissance_Frigo(-2)']
+
+markov-fn-info: ('Puissance_Lave_Vaisselle0', 'C31')
+Significant true negative detected: ('Presence_Lit', 0, 0.37443854634544715, 0.40191938579654507)
+count: 471
+info: Parent situation: [('Presence_Lit(-1)', 1), ('Presence_Lit(-2)', 1), ('Presence_Cuisine(-1)', 0), ('Presence_Cuisine(-2)', 0), ('Presence_Table(-1)', 0), ('Presence_Table(-2)', 0), ('Puissance_Frigo(-1)', 0), ('Presence_Salon(-1)', 0), ('Presence_Salon(-2)', 0), ('Puissance_Plaques(-1)', 0), ('Puissance_Plaques(-2)', 0), ('Luminosite_Salon(-2)', 0), ('Luminosite_Salon(-1)', 0), ('Puissance_Four(-2)', 0), ('Puissance_Chauffe_Eau(-1)', 0)]
+                                [Model similarity] common parents = ['Presence_Cuisine(-1)', 'Presence_Cuisine(-2)', 'Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Presence_Table(-1)', 'Presence_Table(-2)', 'Puissance_Chauffe_Eau(-1)', 'Puissance_Frigo(-1)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['L15(-1)', 'L15(-2)', 'Puissance_Chauffe_Eau(-2)']
+                                [Model difference] ground - causal = ['Luminosite_Salon(-1)', 'Luminosite_Salon(-2)', 'Puissance_Four(-2)']
+
+haw-fn-info: [('Presence_SDB', 1)]
+markov-fn-info: ('Puissance_Frigo0', 'Presence_Cuisine1')
+Significant true negative detected: ('Puissance_Four', 0, 0.0, 0.0)
+count: 219
+info: Parent situation: [('Puissance_Four(-1)', 1), ('Luminosite_Cuisine(-1)', 0), ('Puissance_Four(-2)', 1), ('Luminosite_Cuisine(-2)', 1), ('L15(-1)', 0), ('L15(-2)', 0), ('Puissance_Plaques(-1)', 0), ('Puissance_Plaques(-2)', 0), ('Presence_Salon(-2)', 0), ('Presence_Salon(-1)', 0), ('Luminosite_Salon(-1)', 0), ('Luminosite_Salon(-2)', 0), ('Puissance_Frigo(-1)', 0), ('Presence_Cuisine(-2)', 1), ('Presence_Cuisine(-1)', 1)]
+                                [Model similarity] common parents = ['L15(-1)', 'L15(-2)', 'Luminosite_Cuisine(-1)', 'Luminosite_Salon(-1)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Puissance_Four(-1)', 'Puissance_Four(-2)', 'Puissance_Frigo(-1)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Presence_SDB(-1)', 'Presence_SDB(-2)', 'Puissance_Frigo(-2)', 'Puissance_Lave_Vaisselle(-1)']
+                                [Model difference] ground - causal = ['Luminosite_Cuisine(-2)', 'Luminosite_Salon(-2)', 'Presence_Cuisine(-1)', 'Presence_Cuisine(-2)']
+
+haw-fn-info: [('Presence_Cuisine', 1), ('Presence_Salon', 1)]
+Significant true negative detected: ('Puissance_Frigo', 1, 0.5192012288786483, 0.5192012288786483)
+count: 124
+info: Parent situation: [('Presence_Lit(-1)', 0), ('Presence_Table(-1)', 0), ('Presence_Table(-2)', 0), ('Puissance_Plaques(-1)', 0), ('Presence_Salon(-1)', 0), ('Puissance_Four(-1)', 0), ('Puissance_Frigo(-2)', 1), ('Luminosite_Salon(-1)', 0), ('Puissance_Frigo(-1)', 0), ('Puissance_Lave_Vaisselle(-1)', 0), ('Presence_Lit(-2)', 0), ('C3(-2)', 0)]
+                                [Model similarity] common parents = ['C3(-2)', 'Luminosite_Salon(-1)', 'Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Salon(-1)', 'Presence_Table(-1)', 'Presence_Table(-2)', 'Puissance_Four(-1)', 'Puissance_Frigo(-1)', 'Puissance_Frigo(-2)', 'Puissance_Lave_Vaisselle(-1)', 'Puissance_Plaques(-1)']
+                                [Model difference] causal - ground = []
+                                [Model difference] ground - causal = []
+
+markov-fn-info: ('Puissance_Frigo0', 'Presence_SDB1')
+Significant true negative detected: ('Presence_Cuisine', 1, 0.7573221757322176, 0.7566063977746871)
+count: 108
+info: Parent situation: [('Presence_Cuisine(-1)', 0), ('Presence_Cuisine(-2)', 1), ('Presence_Table(-1)', 1), ('Presence_Table(-2)', 1), ('Presence_Lit(-1)', 0), ('Presence_Lit(-2)', 0), ('C3(-2)', 0), ('C3(-1)', 0), ('L15(-2)', 0), ('L15(-1)', 0), ('Presence_SDB(-1)', 0), ('Presence_SDB(-2)', 0), ('C15(-1)', 0), ('C15(-2)', 0), ('Puissance_Frigo(-2)', 0)]
+                                [Model similarity] common parents = ['C15(-1)', 'C3(-1)', 'C3(-2)', 'L15(-1)', 'L15(-2)', 'Presence_Cuisine(-1)', 'Presence_Cuisine(-2)', 'Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Table(-1)', 'Presence_Table(-2)']
+                                [Model difference] causal - ground = ['Eau_Froide_Evier_Instantanee(-1)', 'Eau_Froide_Evier_Instantanee(-2)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] ground - causal = ['C15(-2)', 'Presence_SDB(-1)', 'Presence_SDB(-2)', 'Puissance_Frigo(-2)']
+
+markov-fn-info: ['Luminosite_Lit0', 'Presence_Cuisine0']
+Significant true negative detected: ('Puissance_Plaques', 0, 0.5, 0.0)
+count: 144
+info: Parent situation: [('Puissance_Plaques(-2)', 0), ('Puissance_Plaques(-1)', 1), ('Presence_Salon(-1)', 0), ('Puissance_Four(-1)', 0), ('Presence_Lit(-1)', 0), ('Presence_Salon(-2)', 0), ('Puissance_Four(-2)', 0), ('Presence_Lit(-2)', 0), ('Luminosite_Salon(-2)', 1), ('Luminosite_Cuisine(-1)', 1), ('Presence_Cuisine(-2)', 1), ('Puissance_Frigo(-1)', 0), ('Presence_Cuisine(-1)', 1), ('Luminosite_Cuisine(-2)', 1), ('Puissance_Lave_Vaisselle(-1)', 0)]
+                                [Model similarity] common parents = ['Luminosite_Salon(-2)', 'Presence_Cuisine(-1)', 'Presence_Cuisine(-2)', 'Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Salon(-1)', 'Puissance_Four(-1)', 'Puissance_Frigo(-1)', 'Puissance_Lave_Vaisselle(-1)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['L15(-1)', 'L15(-2)', 'Luminosite_Salon(-1)', 'Presence_Table(-1)']
+                                [Model difference] ground - causal = ['Luminosite_Cuisine(-1)', 'Luminosite_Cuisine(-2)', 'Presence_Salon(-2)', 'Puissance_Four(-2)']
+
+haw-fn-info: [('C3', 1), ('Presence_Salon', 1), ('Presence_Table', 1)]
+markov-fn-info: ['L150', 'Puissance_Plaques1']
+[Bayesian Fitting] ALERT! The variable Luminosite_Salon owns the maximum in-degree 15 (larger than 10). This variable may slow down the fitting process!
+[CASE=2] Calculated score threshold Causal v.s. Ground = 0.9929639401934917 v.s. 0.9920300751879699
+Anomaly case 2: FP, FN, Pre, Recall = 362 112 0.9148235294117647 0.972
+Significant true positive detected: ('C3', 1, 1.0, 1.0)
+count: 273
+info: Parent situation: [('C3(-1)', 0), ('C3(-2)', 0), ('Presence_Cuisine(-1)', 0), ('Presence_Cuisine(-2)', 0), ('Luminosite_Cuisine(-1)', 1), ('Luminosite_Cuisine(-2)', 1), ('Presence_Salon(-1)', 0), ('Puissance_Frigo(-1)', 0)]
+                                [Model similarity] common parents = ['C3(-1)', 'C3(-2)', 'Luminosite_Cuisine(-1)', 'Luminosite_Cuisine(-2)', 'Presence_Cuisine(-1)', 'Presence_Cuisine(-2)', 'Presence_Salon(-1)', 'Puissance_Frigo(-1)']
+                                [Model difference] causal - ground = []
+                                [Model difference] ground - causal = []
+
+Significant true positive detected: ('C15', 1, 1.0, 1.0)
+count: 250
+info: Parent situation: [('C15(-1)', 0), ('C15(-2)', 0), ('Presence_Cuisine(-1)', 0), ('Presence_Cuisine(-2)', 0), ('Presence_Salon(-1)', 0), ('Puissance_Plaques(-1)', 0), ('Puissance_Plaques(-2)', 0), ('C3(-1)', 0)]
+                                [Model similarity] common parents = ['C15(-1)', 'C15(-2)', 'C3(-1)', 'Presence_Cuisine(-1)', 'Presence_Cuisine(-2)', 'Presence_Salon(-1)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Luminosite_Table(-2)']
+                                [Model difference] ground - causal = []
+
+Significant true positive detected: ('I10_Droite_Haut', 1, 0.9995507468833065, 0.9995521636095613)
+count: 402
+info: Parent situation: [('Puissance_Chauffe_Eau(-1)', 0), ('Puissance_Volets_Roulants(-2)', 0), ('Puissance_Chauffe_Eau(-2)', 0)]
+                                [Model similarity] common parents = ['Puissance_Chauffe_Eau(-1)', 'Puissance_Volets_Roulants(-2)']
+                                [Model difference] causal - ground = []
+                                [Model difference] ground - causal = ['Puissance_Chauffe_Eau(-2)']
+
+Significant true positive detected: ('L16', 1, 0.9999069853967073, 0.9999069853967073)
+count: 202
+info: Parent situation: [('L16(-1)', 0), ('L16(-2)', 0), ('Puissance_Plaques(-2)', 0), ('Puissance_Plaques(-1)', 0), ('Luminosite_Salon(-2)', 0), ('Luminosite_Salon(-1)', 0), ('Presence_Table(-1)', 0)]
+                                [Model similarity] common parents = ['L16(-1)', 'L16(-2)', 'Luminosite_Salon(-1)', 'Luminosite_Salon(-2)', 'Presence_Table(-1)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = []
+                                [Model difference] ground - causal = []
+
+Significant true positive detected: ('L15', 1, 1.0, 1.0)
+count: 218
+info: Parent situation: [('L15(-1)', 0), ('L15(-2)', 0), ('Presence_SDB(-1)', 0), ('Presence_SDB(-2)', 0), ('Puissance_Four(-1)', 0), ('Puissance_Four(-2)', 0), ('Luminosite_Cuisine(-1)', 1), ('Presence_Cuisine(-1)', 0), ('Puissance_Chauffe_Eau(-1)', 0), ('Puissance_Chauffe_Eau(-2)', 0), ('I11_Droite_Haut(-2)', 0), ('Presence_Lit(-1)', 0), ('Luminosite_Cuisine(-2)', 1)]
+                                [Model similarity] common parents = ['I11_Droite_Haut(-2)', 'L15(-1)', 'L15(-2)', 'Luminosite_Cuisine(-1)', 'Luminosite_Cuisine(-2)', 'Presence_Cuisine(-1)', 'Presence_Lit(-1)', 'Presence_SDB(-1)', 'Presence_SDB(-2)', 'Puissance_Chauffe_Eau(-1)', 'Puissance_Chauffe_Eau(-2)', 'Puissance_Four(-1)', 'Puissance_Four(-2)']
+                                [Model difference] causal - ground = []
+                                [Model difference] ground - causal = []
+
+Significant false positive detected: ('Puissance_Plaques', 1, 0.9938271604938271, 0.9938563327032136)
+count: 52
+info: Parent situation: [('Puissance_Plaques(-2)', 0), ('Puissance_Plaques(-1)', 0), ('Presence_Salon(-1)', 1), ('Puissance_Four(-1)', 0), ('Presence_Lit(-1)', 0), ('Presence_Salon(-2)', 1), ('Puissance_Four(-2)', 0), ('Presence_Lit(-2)', 0), ('Luminosite_Salon(-2)', 0), ('Luminosite_Cuisine(-1)', 0), ('Presence_Cuisine(-2)', 0), ('Puissance_Frigo(-1)', 0), ('Presence_Cuisine(-1)', 0), ('Luminosite_Cuisine(-2)', 0), ('Puissance_Lave_Vaisselle(-1)', 0)]
+                                [Model similarity] common parents = ['Luminosite_Salon(-2)', 'Presence_Cuisine(-1)', 'Presence_Cuisine(-2)', 'Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Salon(-1)', 'Puissance_Four(-1)', 'Puissance_Frigo(-1)', 'Puissance_Lave_Vaisselle(-1)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['L15(-1)', 'L15(-2)', 'Luminosite_Salon(-1)', 'Presence_Table(-1)']
+                                [Model difference] ground - causal = ['Luminosite_Cuisine(-1)', 'Luminosite_Cuisine(-2)', 'Presence_Salon(-2)', 'Puissance_Four(-2)']
+[Model shift] A model shift is detected. Training v.s. Testing probability: 0.006172839506172867 v.s. 0.05596330275229355
+
+Significant false positive detected: ('C3', 1, 0.99428488750633, 0.99428488750633)
+count: 11
+info: Parent situation: [('C3(-1)', 0), ('C3(-2)', 0), ('Presence_Cuisine(-1)', 1), ('Presence_Cuisine(-2)', 1), ('Luminosite_Cuisine(-1)', 0), ('Luminosite_Cuisine(-2)', 0), ('Presence_Salon(-1)', 0), ('Puissance_Frigo(-1)', 0)]
+                                [Model similarity] common parents = ['C3(-1)', 'C3(-2)', 'Luminosite_Cuisine(-1)', 'Luminosite_Cuisine(-2)', 'Presence_Cuisine(-1)', 'Presence_Cuisine(-2)', 'Presence_Salon(-1)', 'Puissance_Frigo(-1)']
+                                [Model difference] causal - ground = []
+                                [Model difference] ground - causal = []
+[Model shift] A model shift is detected. Training v.s. Testing probability: 0.0057151124936699604 v.s. 0.005235602094240788
+
+Significant false positive detected: ('Eau_Froide_Evier_Instantanee', 1, 0.997311199438859, 0.997378355704698)
+count: 16
+info: Parent situation: [('Eau_Froide_Evier_Instantanee(-2)', 0), ('Presence_Cuisine(-1)', 1), ('Presence_Cuisine(-2)', 1), ('Puissance_Plaques(-1)', 0), ('Presence_Table(-1)', 1), ('Puissance_Frigo(-1)', 0), ('Puissance_Frigo(-2)', 0), ('C3(-1)', 0), ('C3(-2)', 0)]
+                                [Model similarity] common parents = ['Eau_Froide_Evier_Instantanee(-2)', 'Presence_Cuisine(-1)', 'Presence_Cuisine(-2)', 'Presence_Table(-1)', 'Puissance_Plaques(-1)']
+                                [Model difference] causal - ground = []
+                                [Model difference] ground - causal = ['C3(-1)', 'C3(-2)', 'Puissance_Frigo(-1)', 'Puissance_Frigo(-2)']
+[Model shift] A model shift is detected. Training v.s. Testing probability: 0.0026888005611409582 v.s. 0.005410889414947606
+
+Significant false positive detected: ('Puissance_Chauffe_Eau', 1, 0.9974659486854609, 0.9977206121784435)
+count: 10
+info: Parent situation: [('Puissance_Chauffe_Eau(-1)', 0), ('Puissance_Chauffe_Eau(-2)', 0), ('Presence_SDB(-1)', 0), ('Presence_SDB(-2)', 0), ('I10_Droite_Haut(-1)', 0), ('Presence_Table(-1)', 0), ('Puissance_Plaques(-1)', 0), ('Puissance_Plaques(-2)', 0), ('Presence_Lit(-2)', 0), ('Puissance_Four(-1)', 0)]
+                                [Model similarity] common parents = ['I10_Droite_Haut(-1)', 'Presence_Lit(-2)', 'Presence_SDB(-1)', 'Presence_SDB(-2)', 'Presence_Table(-1)', 'Puissance_Chauffe_Eau(-1)', 'Puissance_Chauffe_Eau(-2)', 'Puissance_Four(-1)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['L15(-1)']
+                                [Model difference] ground - causal = []
+[Model shift] A model shift is detected. Training v.s. Testing probability: 0.0025340513145390986 v.s. 0.003098591549295815
+
+Significant false positive detected: ('Puissance_Four', 1, 1.0, 1.0)
+count: 94
+info: Parent situation: [('Puissance_Four(-1)', 0), ('Luminosite_Cuisine(-1)', 0), ('Puissance_Four(-2)', 0), ('Luminosite_Cuisine(-2)', 0), ('L15(-1)', 0), ('L15(-2)', 0), ('Puissance_Plaques(-1)', 0), ('Puissance_Plaques(-2)', 1), ('Presence_Salon(-2)', 1), ('Presence_Salon(-1)', 1), ('Luminosite_Salon(-1)', 0), ('Luminosite_Salon(-2)', 0), ('Puissance_Frigo(-1)', 0), ('Presence_Cuisine(-2)', 0), ('Presence_Cuisine(-1)', 0)]
+                                [Model similarity] common parents = ['L15(-1)', 'L15(-2)', 'Luminosite_Cuisine(-1)', 'Luminosite_Salon(-1)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Puissance_Four(-1)', 'Puissance_Four(-2)', 'Puissance_Frigo(-1)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Presence_SDB(-1)', 'Presence_SDB(-2)', 'Puissance_Frigo(-2)', 'Puissance_Lave_Vaisselle(-1)']
+                                [Model difference] ground - causal = ['Luminosite_Cuisine(-2)', 'Luminosite_Salon(-2)', 'Presence_Cuisine(-1)', 'Presence_Cuisine(-2)']
+[Model shift] A model shift is detected. Training v.s. Testing probability: 0.0 v.s. 0.08673469387755106
+
+Significant false positive detected: ('Puissance_Four', 1, 0.9889737065309584, 0.9942320491015307)
+count: 12
+info: Parent situation: [('Puissance_Four(-1)', 0), ('Luminosite_Cuisine(-1)', 0), ('Puissance_Four(-2)', 0), ('Luminosite_Cuisine(-2)', 0), ('L15(-1)', 0), ('L15(-2)', 0), ('Puissance_Plaques(-1)', 0), ('Puissance_Plaques(-2)', 0), ('Presence_Salon(-2)', 0), ('Presence_Salon(-1)', 0), ('Luminosite_Salon(-1)', 0), ('Luminosite_Salon(-2)', 1), ('Puissance_Frigo(-1)', 0), ('Presence_Cuisine(-2)', 1), ('Presence_Cuisine(-1)', 1)]
+                                [Model similarity] common parents = ['L15(-1)', 'L15(-2)', 'Luminosite_Cuisine(-1)', 'Luminosite_Salon(-1)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Puissance_Four(-1)', 'Puissance_Four(-2)', 'Puissance_Frigo(-1)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Presence_SDB(-1)', 'Presence_SDB(-2)', 'Puissance_Frigo(-2)', 'Puissance_Lave_Vaisselle(-1)']
+                                [Model difference] ground - causal = ['Luminosite_Cuisine(-2)', 'Luminosite_Salon(-2)', 'Presence_Cuisine(-1)', 'Presence_Cuisine(-2)']
+
+Significant false positive detected: ('Puissance_Four', 1, 0.9914741474147415, 0.9942320491015307)
+count: 11
+info: Parent situation: [('Puissance_Four(-1)', 0), ('Luminosite_Cuisine(-1)', 0), ('Puissance_Four(-2)', 0), ('Luminosite_Cuisine(-2)', 0), ('L15(-1)', 0), ('L15(-2)', 0), ('Puissance_Plaques(-1)', 0), ('Puissance_Plaques(-2)', 0), ('Presence_Salon(-2)', 0), ('Presence_Salon(-1)', 0), ('Luminosite_Salon(-1)', 0), ('Luminosite_Salon(-2)', 0), ('Puissance_Frigo(-1)', 0), ('Presence_Cuisine(-2)', 1), ('Presence_Cuisine(-1)', 1)]
+                                [Model similarity] common parents = ['L15(-1)', 'L15(-2)', 'Luminosite_Cuisine(-1)', 'Luminosite_Salon(-1)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Puissance_Four(-1)', 'Puissance_Four(-2)', 'Puissance_Frigo(-1)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Presence_SDB(-1)', 'Presence_SDB(-2)', 'Puissance_Frigo(-2)', 'Puissance_Lave_Vaisselle(-1)']
+                                [Model difference] ground - causal = ['Luminosite_Cuisine(-2)', 'Luminosite_Salon(-2)', 'Presence_Cuisine(-1)', 'Presence_Cuisine(-2)']
+
+Significant false positive detected: ('Puissance_Lave_Vaisselle', 1, 0.9963530269876003, 0.9963530269876003)
+count: 10
+info: Parent situation: [('Presence_Salon(-1)', 1), ('Presence_Salon(-2)', 1), ('Puissance_Plaques(-1)', 0), ('Luminosite_Salon(-1)', 0), ('Puissance_Four(-1)', 0), ('Puissance_Frigo(-1)', 0), ('Puissance_Lave_Vaisselle(-2)', 1)]
+                                [Model similarity] common parents = ['Luminosite_Salon(-1)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Puissance_Four(-1)', 'Puissance_Frigo(-1)', 'Puissance_Lave_Vaisselle(-2)', 'Puissance_Plaques(-1)']
+                                [Model difference] causal - ground = []
+                                [Model difference] ground - causal = []
+[Model shift] A model shift is detected. Training v.s. Testing probability: 0.00364697301239969 v.s. 0.016447368421052655
+
+Significant false negative detected: ('C15', 1, 0.9920300751879699, 0.9922516658918332)
+count: 30
+info: Parent situation: [('C15(-1)', 0), ('C15(-2)', 0), ('Presence_Cuisine(-1)', 1), ('Presence_Cuisine(-2)', 1), ('Presence_Salon(-1)', 0), ('Puissance_Plaques(-1)', 0), ('Puissance_Plaques(-2)', 0), ('C3(-1)', 0)]
+                                [Model similarity] common parents = ['C15(-1)', 'C15(-2)', 'C3(-1)', 'Presence_Cuisine(-1)', 'Presence_Cuisine(-2)', 'Presence_Salon(-1)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Luminosite_Table(-2)']
+                                [Model difference] ground - causal = []
+
+Significant false negative detected: ('C15', 1, 0.9920300751879699, 0.9847715736040609)
+count: 23
+info: Parent situation: [('C15(-1)', 0), ('C15(-2)', 0), ('Presence_Cuisine(-1)', 1), ('Presence_Cuisine(-2)', 1), ('Presence_Salon(-1)', 0), ('Puissance_Plaques(-1)', 0), ('Puissance_Plaques(-2)', 0), ('C3(-1)', 0)]
+                                [Model similarity] common parents = ['C15(-1)', 'C15(-2)', 'C3(-1)', 'Presence_Cuisine(-1)', 'Presence_Cuisine(-2)', 'Presence_Salon(-1)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Luminosite_Table(-2)']
+                                [Model difference] ground - causal = []
+
+Significant true negative detected: ('Puissance_Plaques', 0, 0.0, 0.0)
+count: 802
+info: Parent situation: [('Puissance_Plaques(-2)', 0), ('Puissance_Plaques(-1)', 1), ('Presence_Salon(-1)', 0), ('Puissance_Four(-1)', 0), ('Presence_Lit(-1)', 0), ('Presence_Salon(-2)', 0), ('Puissance_Four(-2)', 0), ('Presence_Lit(-2)', 0), ('Luminosite_Salon(-2)', 0), ('Luminosite_Cuisine(-1)', 0), ('Presence_Cuisine(-2)', 0), ('Puissance_Frigo(-1)', 0), ('Presence_Cuisine(-1)', 0), ('Luminosite_Cuisine(-2)', 0), ('Puissance_Lave_Vaisselle(-1)', 0)]
+                                [Model similarity] common parents = ['Luminosite_Salon(-2)', 'Presence_Cuisine(-1)', 'Presence_Cuisine(-2)', 'Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Salon(-1)', 'Puissance_Four(-1)', 'Puissance_Frigo(-1)', 'Puissance_Lave_Vaisselle(-1)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['L15(-1)', 'L15(-2)', 'Luminosite_Salon(-1)', 'Presence_Table(-1)']
+                                [Model difference] ground - causal = ['Luminosite_Cuisine(-1)', 'Luminosite_Cuisine(-2)', 'Presence_Salon(-2)', 'Puissance_Four(-2)']
+
+haw-fn-info: [('C3', 1)]
+markov-fn-info: ['Luminosite_Lit0', 'Puissance_Plaques1']
+Significant true negative detected: ('Presence_Salon', 0, 0.5685210312075983, 0.5539143279172821)
+count: 118
+info: Parent situation: [('Presence_Salon(-1)', 1), ('Presence_Salon(-2)', 1), ('Presence_Table(-1)', 0), ('Presence_Table(-2)', 1), ('Presence_Lit(-1)', 0), ('Presence_Lit(-2)', 0), ('Puissance_Lave_Vaisselle(-1)', 0), ('Puissance_Plaques(-2)', 0), ('Puissance_Plaques(-1)', 0), ('Puissance_Four(-1)', 0), ('Puissance_Four(-2)', 0), ('Puissance_Frigo(-1)', 0), ('Luminosite_Cuisine(-1)', 0), ('Luminosite_Cuisine(-2)', 0), ('Puissance_Frigo(-2)', 0)]
+                                [Model similarity] common parents = ['Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Presence_Table(-1)', 'Presence_Table(-2)', 'Puissance_Four(-1)', 'Puissance_Four(-2)', 'Puissance_Frigo(-1)', 'Puissance_Lave_Vaisselle(-1)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Luminosite_Salon(-1)', 'Presence_Cuisine(-2)', 'Puissance_Lave_Vaisselle(-2)']
+                                [Model difference] ground - causal = ['Luminosite_Cuisine(-1)', 'Luminosite_Cuisine(-2)', 'Puissance_Frigo(-2)']
+
+markov-fn-info: ('Presence_Table0', 'Puissance_Frigo1')
+Significant true negative detected: ('Puissance_Plaques', 1, 0.2020320437670965, 0.17612346799818435)
+count: 113
+info: Parent situation: [('Puissance_Plaques(-2)', 1), ('Puissance_Plaques(-1)', 0), ('Presence_Salon(-1)', 0), ('Puissance_Four(-1)', 0), ('Presence_Lit(-1)', 0), ('Presence_Salon(-2)', 0), ('Puissance_Four(-2)', 0), ('Presence_Lit(-2)', 0), ('Luminosite_Salon(-2)', 0), ('Luminosite_Cuisine(-1)', 0), ('Presence_Cuisine(-2)', 0), ('Puissance_Frigo(-1)', 0), ('Presence_Cuisine(-1)', 0), ('Luminosite_Cuisine(-2)', 0), ('Puissance_Lave_Vaisselle(-1)', 0)]
+                                [Model similarity] common parents = ['Luminosite_Salon(-2)', 'Presence_Cuisine(-1)', 'Presence_Cuisine(-2)', 'Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Salon(-1)', 'Puissance_Four(-1)', 'Puissance_Frigo(-1)', 'Puissance_Lave_Vaisselle(-1)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['L15(-1)', 'L15(-2)', 'Luminosite_Salon(-1)', 'Presence_Table(-1)']
+                                [Model difference] ground - causal = ['Luminosite_Cuisine(-1)', 'Luminosite_Cuisine(-2)', 'Presence_Salon(-2)', 'Puissance_Four(-2)']
+
+haw-fn-info: [('Puissance_Four', 0)]
+Significant true negative detected: ('Puissance_Lave_Vaisselle', 1, 0.0, 0.0)
+count: 618
+info: Parent situation: [('Presence_Salon(-1)', 1), ('Presence_Salon(-2)', 0), ('Puissance_Plaques(-1)', 0), ('Luminosite_Salon(-1)', 0), ('Puissance_Four(-1)', 0), ('Puissance_Frigo(-1)', 0), ('Puissance_Lave_Vaisselle(-2)', 0)]
+                                [Model similarity] common parents = ['Luminosite_Salon(-1)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Puissance_Four(-1)', 'Puissance_Frigo(-1)', 'Puissance_Lave_Vaisselle(-2)', 'Puissance_Plaques(-1)']
+                                [Model difference] causal - ground = []
+                                [Model difference] ground - causal = []
+
+haw-fn-info: [('Puissance_Four', 0)]
+markov-fn-info: ['Luminosite_Lit0', 'Presence_Salon1']
+Significant true negative detected: ('Puissance_Lave_Vaisselle', 0, 0.002140910860256917, 0.002140910860256917)
+count: 608
+info: Parent situation: [('Presence_Salon(-1)', 1), ('Presence_Salon(-2)', 1), ('Puissance_Plaques(-1)', 0), ('Luminosite_Salon(-1)', 0), ('Puissance_Four(-1)', 0), ('Puissance_Frigo(-1)', 0), ('Puissance_Lave_Vaisselle(-2)', 0)]
+                                [Model similarity] common parents = ['Luminosite_Salon(-1)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Puissance_Four(-1)', 'Puissance_Frigo(-1)', 'Puissance_Lave_Vaisselle(-2)', 'Puissance_Plaques(-1)']
+                                [Model difference] causal - ground = []
+                                [Model difference] ground - causal = []
+
+haw-fn-info: [('C3', 1), ('Puissance_Four', 1), ('Presence_Table', 1)]
+markov-fn-info: ['L161', 'Puissance_Lave_Vaisselle1']
+Significant true negative detected: ('Presence_Table', 1, 0.7975797579757976, 0.7959518599562363)
+count: 115
+info: Parent situation: [('Presence_Table(-1)', 0), ('Presence_Table(-2)', 0), ('Presence_Cuisine(-1)', 0), ('Presence_Lit(-1)', 0), ('Presence_Lit(-2)', 0), ('Presence_Salon(-1)', 1), ('Presence_Salon(-2)', 1), ('Presence_SDB(-1)', 0), ('Presence_SDB(-2)', 0), ('Puissance_Frigo(-2)', 0), ('Puissance_Frigo(-1)', 0), ('L15(-2)', 0), ('L15(-1)', 0), ('Puissance_Plaques(-2)', 0), ('Puissance_Plaques(-1)', 0)]
+                                [Model similarity] common parents = ['L15(-1)', 'L15(-2)', 'Presence_Cuisine(-1)', 'Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_SDB(-1)', 'Presence_SDB(-2)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Presence_Table(-1)', 'Presence_Table(-2)', 'Puissance_Frigo(-1)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Luminosite_Salon(-2)']
+                                [Model difference] ground - causal = ['Puissance_Frigo(-2)']
+
+haw-fn-info: [('Luminosite_Salon', 1), ('Luminosite_Salon', 1), ('Luminosite_Salon', 1), ('Luminosite_Salon', 1), ('Luminosite_Salon', 1)]
+markov-fn-info: ('Puissance_Lave_Vaisselle0', 'Puissance_Lave_Vaisselle1')
+Significant true negative detected: ('Luminosite_Salon', 1, 0.1021897810218978, 0.09225092250922506)
+count: 276
+info: Parent situation: [('Luminosite_Salon(-2)', 0), ('Luminosite_Salon(-1)', 0), ('Presence_Table(-2)', 0), ('Puissance_Four(-1)', 0), ('Puissance_Four(-2)', 0), ('Presence_Lit(-1)', 0), ('Presence_Lit(-2)', 0), ('Presence_Salon(-1)', 1), ('Presence_Salon(-2)', 1), ('Puissance_Lave_Vaisselle(-1)', 0), ('Puissance_Plaques(-1)', 0), ('Puissance_Plaques(-2)', 0), ('Puissance_Lave_Vaisselle(-2)', 0), ('Puissance_Frigo(-2)', 0), ('Luminosite_Cuisine(-2)', 0)]
+                                [Model similarity] common parents = ['Luminosite_Salon(-1)', 'Luminosite_Salon(-2)', 'Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Presence_Table(-2)', 'Puissance_Four(-1)', 'Puissance_Four(-2)', 'Puissance_Frigo(-2)', 'Puissance_Lave_Vaisselle(-1)', 'Puissance_Lave_Vaisselle(-2)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Puissance_Frigo(-1)']
+                                [Model difference] ground - causal = ['Luminosite_Cuisine(-2)']
+
+markov-fn-info: ['I11_Droite_Haut0', 'Presence_Table1']
+Significant true negative detected: ('Presence_Cuisine', 1, 0.898465171192444, 0.8974978050921861)
+count: 145
+info: Parent situation: [('Presence_Cuisine(-1)', 0), ('Presence_Cuisine(-2)', 0), ('Presence_Table(-1)', 1), ('Presence_Table(-2)', 1), ('Presence_Lit(-1)', 0), ('Presence_Lit(-2)', 0), ('C3(-2)', 0), ('C3(-1)', 0), ('L15(-2)', 0), ('L15(-1)', 0), ('Presence_SDB(-1)', 0), ('Presence_SDB(-2)', 0), ('C15(-1)', 0), ('C15(-2)', 0), ('Puissance_Frigo(-2)', 0)]
+                                [Model similarity] common parents = ['C15(-1)', 'C3(-1)', 'C3(-2)', 'L15(-1)', 'L15(-2)', 'Presence_Cuisine(-1)', 'Presence_Cuisine(-2)', 'Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Table(-1)', 'Presence_Table(-2)']
+                                [Model difference] causal - ground = ['Eau_Froide_Evier_Instantanee(-1)', 'Eau_Froide_Evier_Instantanee(-2)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] ground - causal = ['C15(-2)', 'Presence_SDB(-1)', 'Presence_SDB(-2)', 'Puissance_Frigo(-2)']
+
+markov-fn-info: ('Luminosite_Salon0', 'Puissance_Plaques1')
+haw-fn-info: [('Eau_Froide_Evier_Instantanee', 0)]
+Significant true negative detected: ('Luminosite_Salon', 1, 0.640020540910647, 0.6012096012096012)
+count: 362
+info: Parent situation: [('Luminosite_Salon(-2)', 0), ('Luminosite_Salon(-1)', 0), ('Presence_Table(-2)', 0), ('Puissance_Four(-1)', 0), ('Puissance_Four(-2)', 0), ('Presence_Lit(-1)', 0), ('Presence_Lit(-2)', 0), ('Presence_Salon(-1)', 0), ('Presence_Salon(-2)', 0), ('Puissance_Lave_Vaisselle(-1)', 0), ('Puissance_Plaques(-1)', 0), ('Puissance_Plaques(-2)', 0), ('Puissance_Lave_Vaisselle(-2)', 0), ('Puissance_Frigo(-2)', 0), ('Luminosite_Cuisine(-2)', 0)]
+                                [Model similarity] common parents = ['Luminosite_Salon(-1)', 'Luminosite_Salon(-2)', 'Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Presence_Table(-2)', 'Puissance_Four(-1)', 'Puissance_Four(-2)', 'Puissance_Frigo(-2)', 'Puissance_Lave_Vaisselle(-1)', 'Puissance_Lave_Vaisselle(-2)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Puissance_Frigo(-1)']
+                                [Model difference] ground - causal = ['Luminosite_Cuisine(-2)']
+
+markov-fn-info: ('I10_Droite_Haut0', 'Puissance_Chauffe_Eau0')
+Significant true negative detected: ('Luminosite_Salon', 0, 0.002474022761009387, 0.002962962962962945)
+count: 344
+info: Parent situation: [('Luminosite_Salon(-2)', 0), ('Luminosite_Salon(-1)', 1), ('Presence_Table(-2)', 1), ('Puissance_Four(-1)', 0), ('Puissance_Four(-2)', 0), ('Presence_Lit(-1)', 0), ('Presence_Lit(-2)', 0), ('Presence_Salon(-1)', 0), ('Presence_Salon(-2)', 0), ('Puissance_Lave_Vaisselle(-1)', 0), ('Puissance_Plaques(-1)', 0), ('Puissance_Plaques(-2)', 0), ('Puissance_Lave_Vaisselle(-2)', 0), ('Puissance_Frigo(-2)', 0), ('Luminosite_Cuisine(-2)', 0)]
+                                [Model similarity] common parents = ['Luminosite_Salon(-1)', 'Luminosite_Salon(-2)', 'Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Presence_Table(-2)', 'Puissance_Four(-1)', 'Puissance_Four(-2)', 'Puissance_Frigo(-2)', 'Puissance_Lave_Vaisselle(-1)', 'Puissance_Lave_Vaisselle(-2)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Puissance_Frigo(-1)']
+                                [Model difference] ground - causal = ['Luminosite_Cuisine(-2)']
+
+haw-fn-info: [('Presence_Salon', 1)]
+Significant true negative detected: ('Presence_Salon', 1, 0.9154955621301775, 0.8292682926829268)
+count: 114
+info: Parent situation: [('Presence_Salon(-1)', 0), ('Presence_Salon(-2)', 0), ('Presence_Table(-1)', 1), ('Presence_Table(-2)', 1), ('Presence_Lit(-1)', 0), ('Presence_Lit(-2)', 0), ('Puissance_Lave_Vaisselle(-1)', 0), ('Puissance_Plaques(-2)', 0), ('Puissance_Plaques(-1)', 0), ('Puissance_Four(-1)', 0), ('Puissance_Four(-2)', 0), ('Puissance_Frigo(-1)', 0), ('Luminosite_Cuisine(-1)', 0), ('Luminosite_Cuisine(-2)', 0), ('Puissance_Frigo(-2)', 0)]
+                                [Model similarity] common parents = ['Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Presence_Table(-1)', 'Presence_Table(-2)', 'Puissance_Four(-1)', 'Puissance_Four(-2)', 'Puissance_Frigo(-1)', 'Puissance_Lave_Vaisselle(-1)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Luminosite_Salon(-1)', 'Presence_Cuisine(-2)', 'Puissance_Lave_Vaisselle(-2)']
+                                [Model difference] ground - causal = ['Luminosite_Cuisine(-1)', 'Luminosite_Cuisine(-2)', 'Puissance_Frigo(-2)']
+
+haw-fn-info: [('Puissance_Lave_Vaisselle', 1), ('Puissance_Lave_Vaisselle', 1)]
+markov-fn-info: ['Luminosite_Table1', 'Presence_Cuisine1']
+Significant true negative detected: ('Puissance_Frigo', 0, 0.0, 0.0)
+count: 785
+info: Parent situation: [('Presence_Lit(-1)', 0), ('Presence_Table(-1)', 0), ('Presence_Table(-2)', 0), ('Puissance_Plaques(-1)', 0), ('Presence_Salon(-1)', 0), ('Puissance_Four(-1)', 0), ('Puissance_Frigo(-2)', 0), ('Luminosite_Salon(-1)', 0), ('Puissance_Frigo(-1)', 1), ('Puissance_Lave_Vaisselle(-1)', 0), ('Presence_Lit(-2)', 0), ('C3(-2)', 0)]
+                                [Model similarity] common parents = ['C3(-2)', 'Luminosite_Salon(-1)', 'Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Salon(-1)', 'Presence_Table(-1)', 'Presence_Table(-2)', 'Puissance_Four(-1)', 'Puissance_Frigo(-1)', 'Puissance_Frigo(-2)', 'Puissance_Lave_Vaisselle(-1)', 'Puissance_Plaques(-1)']
+                                [Model difference] causal - ground = []
+                                [Model difference] ground - causal = []
+
+haw-fn-info: [('C3', 1), ('Puissance_Four', 1)]
+markov-fn-info: ['C31', 'Puissance_Frigo1']
+Significant true negative detected: ('Presence_Salon', 1, 0.9154955621301775, 0.902753108348135)
+count: 106
+info: Parent situation: [('Presence_Salon(-1)', 0), ('Presence_Salon(-2)', 0), ('Presence_Table(-1)', 1), ('Presence_Table(-2)', 1), ('Presence_Lit(-1)', 0), ('Presence_Lit(-2)', 0), ('Puissance_Lave_Vaisselle(-1)', 0), ('Puissance_Plaques(-2)', 0), ('Puissance_Plaques(-1)', 0), ('Puissance_Four(-1)', 0), ('Puissance_Four(-2)', 0), ('Puissance_Frigo(-1)', 0), ('Luminosite_Cuisine(-1)', 0), ('Luminosite_Cuisine(-2)', 0), ('Puissance_Frigo(-2)', 0)]
+                                [Model similarity] common parents = ['Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Presence_Table(-1)', 'Presence_Table(-2)', 'Puissance_Four(-1)', 'Puissance_Four(-2)', 'Puissance_Frigo(-1)', 'Puissance_Lave_Vaisselle(-1)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Luminosite_Salon(-1)', 'Presence_Cuisine(-2)', 'Puissance_Lave_Vaisselle(-2)']
+                                [Model difference] ground - causal = ['Luminosite_Cuisine(-1)', 'Luminosite_Cuisine(-2)', 'Puissance_Frigo(-2)']
+
+haw-fn-info: [('Puissance_Lave_Vaisselle', 1), ('Puissance_Lave_Vaisselle', 1)]
+markov-fn-info: ['Luminosite_Cuisine0', 'Luminosite_Salon0']
+Significant true negative detected: ('Presence_Cuisine', 0, 0.9477832512315271, 0.9307984790874525)
+count: 123
+info: Parent situation: [('Presence_Cuisine(-1)', 1), ('Presence_Cuisine(-2)', 1), ('Presence_Table(-1)', 1), ('Presence_Table(-2)', 1), ('Presence_Lit(-1)', 0), ('Presence_Lit(-2)', 0), ('C3(-2)', 0), ('C3(-1)', 0), ('L15(-2)', 0), ('L15(-1)', 0), ('Presence_SDB(-1)', 0), ('Presence_SDB(-2)', 0), ('C15(-1)', 0), ('C15(-2)', 0), ('Puissance_Frigo(-2)', 0)]
+                                [Model similarity] common parents = ['C15(-1)', 'C3(-1)', 'C3(-2)', 'L15(-1)', 'L15(-2)', 'Presence_Cuisine(-1)', 'Presence_Cuisine(-2)', 'Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Table(-1)', 'Presence_Table(-2)']
+                                [Model difference] causal - ground = ['Eau_Froide_Evier_Instantanee(-1)', 'Eau_Froide_Evier_Instantanee(-2)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] ground - causal = ['C15(-2)', 'Presence_SDB(-1)', 'Presence_SDB(-2)', 'Puissance_Frigo(-2)']
+
+markov-fn-info: ['Presence_Cuisine1', 'Luminosite_Lit0']
+Significant true negative detected: ('Presence_Table', 0, 0.7431693989071038, 0.39644970414201186)
+count: 137
+info: Parent situation: [('Presence_Table(-1)', 1), ('Presence_Table(-2)', 1), ('Presence_Cuisine(-1)', 0), ('Presence_Lit(-1)', 0), ('Presence_Lit(-2)', 0), ('Presence_Salon(-1)', 1), ('Presence_Salon(-2)', 1), ('Presence_SDB(-1)', 0), ('Presence_SDB(-2)', 0), ('Puissance_Frigo(-2)', 0), ('Puissance_Frigo(-1)', 0), ('L15(-2)', 0), ('L15(-1)', 0), ('Puissance_Plaques(-2)', 0), ('Puissance_Plaques(-1)', 0)]
+                                [Model similarity] common parents = ['L15(-1)', 'L15(-2)', 'Presence_Cuisine(-1)', 'Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_SDB(-1)', 'Presence_SDB(-2)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Presence_Table(-1)', 'Presence_Table(-2)', 'Puissance_Frigo(-1)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Luminosite_Salon(-2)']
+                                [Model difference] ground - causal = ['Puissance_Frigo(-2)']
+
+markov-fn-info: ('Luminosite_Salon0', 'Puissance_Plaques1')
+haw-fn-info: [('Luminosite_Salon', 0)]
+Significant true negative detected: ('Presence_Salon', 1, 0.3086053412462908, 0.2835130970724191)
+count: 148
+info: Parent situation: [('Presence_Salon(-1)', 0), ('Presence_Salon(-2)', 1), ('Presence_Table(-1)', 0), ('Presence_Table(-2)', 0), ('Presence_Lit(-1)', 0), ('Presence_Lit(-2)', 0), ('Puissance_Lave_Vaisselle(-1)', 0), ('Puissance_Plaques(-2)', 0), ('Puissance_Plaques(-1)', 0), ('Puissance_Four(-1)', 0), ('Puissance_Four(-2)', 0), ('Puissance_Frigo(-1)', 0), ('Luminosite_Cuisine(-1)', 0), ('Luminosite_Cuisine(-2)', 0), ('Puissance_Frigo(-2)', 0)]
+                                [Model similarity] common parents = ['Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Presence_Table(-1)', 'Presence_Table(-2)', 'Puissance_Four(-1)', 'Puissance_Four(-2)', 'Puissance_Frigo(-1)', 'Puissance_Lave_Vaisselle(-1)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Luminosite_Salon(-1)', 'Presence_Cuisine(-2)', 'Puissance_Lave_Vaisselle(-2)']
+                                [Model difference] ground - causal = ['Luminosite_Cuisine(-1)', 'Luminosite_Cuisine(-2)', 'Puissance_Frigo(-2)']
+
+haw-fn-info: [('Puissance_Lave_Vaisselle', 1), ('Puissance_Lave_Vaisselle', 1)]
+markov-fn-info: ('Presence_Salon0', 'Puissance_Volets_Roulants1')
+Significant true negative detected: ('Presence_Cuisine', 0, 0.6124469589816124, 0.6135401974612129)
+count: 116
+info: Parent situation: [('Presence_Cuisine(-1)', 1), ('Presence_Cuisine(-2)', 0), ('Presence_Table(-1)', 1), ('Presence_Table(-2)', 1), ('Presence_Lit(-1)', 0), ('Presence_Lit(-2)', 0), ('C3(-2)', 0), ('C3(-1)', 0), ('L15(-2)', 0), ('L15(-1)', 0), ('Presence_SDB(-1)', 0), ('Presence_SDB(-2)', 0), ('C15(-1)', 0), ('C15(-2)', 0), ('Puissance_Frigo(-2)', 0)]
+                                [Model similarity] common parents = ['C15(-1)', 'C3(-1)', 'C3(-2)', 'L15(-1)', 'L15(-2)', 'Presence_Cuisine(-1)', 'Presence_Cuisine(-2)', 'Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Table(-1)', 'Presence_Table(-2)']
+                                [Model difference] causal - ground = ['Eau_Froide_Evier_Instantanee(-1)', 'Eau_Froide_Evier_Instantanee(-2)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] ground - causal = ['C15(-2)', 'Presence_SDB(-1)', 'Presence_SDB(-2)', 'Puissance_Frigo(-2)']
+
+markov-fn-info: ('Presence_Cuisine1', 'Eau_Froide_Evier_Instantanee1')
+Significant true negative detected: ('Luminosite_Cuisine', 1, 0.0, 0.0)
+count: 226
+info: Parent situation: [('Puissance_Four(-1)', 1), ('Luminosite_Cuisine(-1)', 0), ('Puissance_Four(-2)', 0), ('L15(-1)', 0), ('Luminosite_Cuisine(-2)', 0), ('Puissance_Plaques(-1)', 0), ('Puissance_Plaques(-2)', 0), ('C3(-1)', 0), ('C3(-2)', 0)]
+                                [Model similarity] common parents = ['C3(-1)', 'C3(-2)', 'L15(-1)', 'Luminosite_Cuisine(-1)', 'Luminosite_Cuisine(-2)', 'Puissance_Four(-1)', 'Puissance_Four(-2)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Luminosite_Salon(-1)', 'Luminosite_Table(-1)', 'Luminosite_Table(-2)']
+                                [Model difference] ground - causal = []
+
+haw-fn-info: [('Presence_Cuisine', 1)]
+markov-fn-info: ['Luminosite_Lit0', 'Puissance_Four1']
+Significant true negative detected: ('L15', 1, 0.0, 0.0)
+count: 256
+info: Parent situation: [('L15(-1)', 0), ('L15(-2)', 0), ('Presence_SDB(-1)', 0), ('Presence_SDB(-2)', 0), ('Puissance_Four(-1)', 0), ('Puissance_Four(-2)', 0), ('Luminosite_Cuisine(-1)', 1), ('Presence_Cuisine(-1)', 0), ('Puissance_Chauffe_Eau(-1)', 0), ('Puissance_Chauffe_Eau(-2)', 0), ('I11_Droite_Haut(-2)', 0), ('Presence_Lit(-1)', 0), ('Luminosite_Cuisine(-2)', 0)]
+                                [Model similarity] common parents = ['I11_Droite_Haut(-2)', 'L15(-1)', 'L15(-2)', 'Luminosite_Cuisine(-1)', 'Luminosite_Cuisine(-2)', 'Presence_Cuisine(-1)', 'Presence_Lit(-1)', 'Presence_SDB(-1)', 'Presence_SDB(-2)', 'Puissance_Chauffe_Eau(-1)', 'Puissance_Chauffe_Eau(-2)', 'Puissance_Four(-1)', 'Puissance_Four(-2)']
+                                [Model difference] causal - ground = []
+                                [Model difference] ground - causal = []
+
+markov-fn-info: ['Luminosite_Lit1', 'Luminosite_Cuisine1']
+Significant true negative detected: ('Luminosite_Cuisine', 0, 0.0, 0.0)
+count: 227
+info: Parent situation: [('Puissance_Four(-1)', 1), ('Luminosite_Cuisine(-1)', 1), ('Puissance_Four(-2)', 1), ('L15(-1)', 0), ('Luminosite_Cuisine(-2)', 1), ('Puissance_Plaques(-1)', 0), ('Puissance_Plaques(-2)', 0), ('C3(-1)', 0), ('C3(-2)', 0)]
+                                [Model similarity] common parents = ['C3(-1)', 'C3(-2)', 'L15(-1)', 'Luminosite_Cuisine(-1)', 'Luminosite_Cuisine(-2)', 'Puissance_Four(-1)', 'Puissance_Four(-2)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Luminosite_Salon(-1)', 'Luminosite_Table(-1)', 'Luminosite_Table(-2)']
+                                [Model difference] ground - causal = []
+
+haw-fn-info: [('Presence_Salon', 1)]
+markov-fn-info: ['Presence_Table0', 'Luminosite_Salon0']
+Significant true negative detected: ('Presence_Salon', 0, 0.8069112931955824, 0.48611111111111116)
+count: 133
+info: Parent situation: [('Presence_Salon(-1)', 1), ('Presence_Salon(-2)', 1), ('Presence_Table(-1)', 1), ('Presence_Table(-2)', 1), ('Presence_Lit(-1)', 0), ('Presence_Lit(-2)', 0), ('Puissance_Lave_Vaisselle(-1)', 0), ('Puissance_Plaques(-2)', 0), ('Puissance_Plaques(-1)', 0), ('Puissance_Four(-1)', 0), ('Puissance_Four(-2)', 0), ('Puissance_Frigo(-1)', 0), ('Luminosite_Cuisine(-1)', 0), ('Luminosite_Cuisine(-2)', 0), ('Puissance_Frigo(-2)', 0)]
+                                [Model similarity] common parents = ['Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Presence_Table(-1)', 'Presence_Table(-2)', 'Puissance_Four(-1)', 'Puissance_Four(-2)', 'Puissance_Frigo(-1)', 'Puissance_Lave_Vaisselle(-1)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Luminosite_Salon(-1)', 'Presence_Cuisine(-2)', 'Puissance_Lave_Vaisselle(-2)']
+                                [Model difference] ground - causal = ['Luminosite_Cuisine(-1)', 'Luminosite_Cuisine(-2)', 'Puissance_Frigo(-2)']
+
+markov-fn-info: ('Puissance_Lave_Vaisselle0', 'Puissance_Lave_Vaisselle1')
+Significant true negative detected: ('Presence_Lit', 0, 0.37443854634544715, 0.40191938579654507)
+count: 471
+info: Parent situation: [('Presence_Lit(-1)', 1), ('Presence_Lit(-2)', 1), ('Presence_Cuisine(-1)', 0), ('Presence_Cuisine(-2)', 0), ('Presence_Table(-1)', 0), ('Presence_Table(-2)', 0), ('Puissance_Frigo(-1)', 0), ('Presence_Salon(-1)', 0), ('Presence_Salon(-2)', 0), ('Puissance_Plaques(-1)', 0), ('Puissance_Plaques(-2)', 0), ('Luminosite_Salon(-2)', 0), ('Luminosite_Salon(-1)', 0), ('Puissance_Four(-2)', 0), ('Puissance_Chauffe_Eau(-1)', 0)]
+                                [Model similarity] common parents = ['Presence_Cuisine(-1)', 'Presence_Cuisine(-2)', 'Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Presence_Table(-1)', 'Presence_Table(-2)', 'Puissance_Chauffe_Eau(-1)', 'Puissance_Frigo(-1)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['L15(-1)', 'L15(-2)', 'Puissance_Chauffe_Eau(-2)']
+                                [Model difference] ground - causal = ['Luminosite_Salon(-1)', 'Luminosite_Salon(-2)', 'Puissance_Four(-2)']
+
+haw-fn-info: [('Presence_SDB', 1)]
+markov-fn-info: ('Puissance_Frigo0', 'I10_Droite_Haut1')
+Significant true negative detected: ('Presence_Lit', 1, 0.18765586034912718, 0.1814744801512287)
+count: 434
+info: Parent situation: [('Presence_Lit(-1)', 0), ('Presence_Lit(-2)', 1), ('Presence_Cuisine(-1)', 0), ('Presence_Cuisine(-2)', 0), ('Presence_Table(-1)', 0), ('Presence_Table(-2)', 0), ('Puissance_Frigo(-1)', 0), ('Presence_Salon(-1)', 0), ('Presence_Salon(-2)', 0), ('Puissance_Plaques(-1)', 0), ('Puissance_Plaques(-2)', 0), ('Luminosite_Salon(-2)', 0), ('Luminosite_Salon(-1)', 0), ('Puissance_Four(-2)', 0), ('Puissance_Chauffe_Eau(-1)', 0)]
+                                [Model similarity] common parents = ['Presence_Cuisine(-1)', 'Presence_Cuisine(-2)', 'Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Presence_Table(-1)', 'Presence_Table(-2)', 'Puissance_Chauffe_Eau(-1)', 'Puissance_Frigo(-1)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['L15(-1)', 'L15(-2)', 'Puissance_Chauffe_Eau(-2)']
+                                [Model difference] ground - causal = ['Luminosite_Salon(-1)', 'Luminosite_Salon(-2)', 'Puissance_Four(-2)']
+
+haw-fn-info: [('I11_Droite_Haut', 0)]
+Significant true negative detected: ('Puissance_Four', 0, 0.0, 0.0)
+count: 219
+info: Parent situation: [('Puissance_Four(-1)', 1), ('Luminosite_Cuisine(-1)', 0), ('Puissance_Four(-2)', 1), ('Luminosite_Cuisine(-2)', 1), ('L15(-1)', 0), ('L15(-2)', 0), ('Puissance_Plaques(-1)', 0), ('Puissance_Plaques(-2)', 0), ('Presence_Salon(-2)', 0), ('Presence_Salon(-1)', 0), ('Luminosite_Salon(-1)', 0), ('Luminosite_Salon(-2)', 0), ('Puissance_Frigo(-1)', 0), ('Presence_Cuisine(-2)', 1), ('Presence_Cuisine(-1)', 1)]
+                                [Model similarity] common parents = ['L15(-1)', 'L15(-2)', 'Luminosite_Cuisine(-1)', 'Luminosite_Salon(-1)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Puissance_Four(-1)', 'Puissance_Four(-2)', 'Puissance_Frigo(-1)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Presence_SDB(-1)', 'Presence_SDB(-2)', 'Puissance_Frigo(-2)', 'Puissance_Lave_Vaisselle(-1)']
+                                [Model difference] ground - causal = ['Luminosite_Cuisine(-2)', 'Luminosite_Salon(-2)', 'Presence_Cuisine(-1)', 'Presence_Cuisine(-2)']
+
+haw-fn-info: [('Presence_Cuisine', 1), ('Presence_Salon', 1)]
+markov-fn-info: ('Luminosite_Cuisine0', 'Puissance_Plaques1')
+Significant true negative detected: ('Puissance_Frigo', 1, 0.5192012288786483, 0.5192012288786483)
+count: 124
+info: Parent situation: [('Presence_Lit(-1)', 0), ('Presence_Table(-1)', 0), ('Presence_Table(-2)', 0), ('Puissance_Plaques(-1)', 0), ('Presence_Salon(-1)', 0), ('Puissance_Four(-1)', 0), ('Puissance_Frigo(-2)', 1), ('Luminosite_Salon(-1)', 0), ('Puissance_Frigo(-1)', 0), ('Puissance_Lave_Vaisselle(-1)', 0), ('Presence_Lit(-2)', 0), ('C3(-2)', 0)]
+                                [Model similarity] common parents = ['C3(-2)', 'Luminosite_Salon(-1)', 'Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Salon(-1)', 'Presence_Table(-1)', 'Presence_Table(-2)', 'Puissance_Four(-1)', 'Puissance_Frigo(-1)', 'Puissance_Frigo(-2)', 'Puissance_Lave_Vaisselle(-1)', 'Puissance_Plaques(-1)']
+                                [Model difference] causal - ground = []
+                                [Model difference] ground - causal = []
+
+markov-fn-info: ('Puissance_Frigo0', 'I10_Droite_Haut1')
+Significant true negative detected: ('Presence_Cuisine', 1, 0.7573221757322176, 0.7566063977746871)
+count: 108
+info: Parent situation: [('Presence_Cuisine(-1)', 0), ('Presence_Cuisine(-2)', 1), ('Presence_Table(-1)', 1), ('Presence_Table(-2)', 1), ('Presence_Lit(-1)', 0), ('Presence_Lit(-2)', 0), ('C3(-2)', 0), ('C3(-1)', 0), ('L15(-2)', 0), ('L15(-1)', 0), ('Presence_SDB(-1)', 0), ('Presence_SDB(-2)', 0), ('C15(-1)', 0), ('C15(-2)', 0), ('Puissance_Frigo(-2)', 0)]
+                                [Model similarity] common parents = ['C15(-1)', 'C3(-1)', 'C3(-2)', 'L15(-1)', 'L15(-2)', 'Presence_Cuisine(-1)', 'Presence_Cuisine(-2)', 'Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Table(-1)', 'Presence_Table(-2)']
+                                [Model difference] causal - ground = ['Eau_Froide_Evier_Instantanee(-1)', 'Eau_Froide_Evier_Instantanee(-2)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] ground - causal = ['C15(-2)', 'Presence_SDB(-1)', 'Presence_SDB(-2)', 'Puissance_Frigo(-2)']
+
+markov-fn-info: ['Luminosite_Lit0', 'Presence_Cuisine0']
+haw-fn-info: [('Eau_Froide_Evier_Instantanee', 0)]
+Significant true negative detected: ('Puissance_Plaques', 0, 0.5, 0.0)
+count: 144
+info: Parent situation: [('Puissance_Plaques(-2)', 0), ('Puissance_Plaques(-1)', 1), ('Presence_Salon(-1)', 0), ('Puissance_Four(-1)', 0), ('Presence_Lit(-1)', 0), ('Presence_Salon(-2)', 0), ('Puissance_Four(-2)', 0), ('Presence_Lit(-2)', 0), ('Luminosite_Salon(-2)', 1), ('Luminosite_Cuisine(-1)', 1), ('Presence_Cuisine(-2)', 1), ('Puissance_Frigo(-1)', 0), ('Presence_Cuisine(-1)', 1), ('Luminosite_Cuisine(-2)', 1), ('Puissance_Lave_Vaisselle(-1)', 0)]
+                                [Model similarity] common parents = ['Luminosite_Salon(-2)', 'Presence_Cuisine(-1)', 'Presence_Cuisine(-2)', 'Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Salon(-1)', 'Puissance_Four(-1)', 'Puissance_Frigo(-1)', 'Puissance_Lave_Vaisselle(-1)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['L15(-1)', 'L15(-2)', 'Luminosite_Salon(-1)', 'Presence_Table(-1)']
+                                [Model difference] ground - causal = ['Luminosite_Cuisine(-1)', 'Luminosite_Cuisine(-2)', 'Presence_Salon(-2)', 'Puissance_Four(-2)']
+
+haw-fn-info: [('C3', 1), ('Presence_Salon', 1), ('Presence_Table', 1)]
+markov-fn-info: ['L150', 'Puissance_Plaques1']
+[Bayesian Fitting] ALERT! The variable Luminosite_Salon owns the maximum in-degree 15 (larger than 10). This variable may slow down the fitting process!
+[CASE=3] Calculated score threshold Causal v.s. Ground = 0.9929639401934917 v.s. 0.9920300751879699
+Anomaly case 3: FP, FN, Pre, Recall = 362 23 0.8452330055579308 0.9885
+Significant true positive detected: ('C3', 1, 1.0, 1.0)
+count: 233
+info: Parent situation: [('C3(-1)', 0), ('C3(-2)', 0), ('Presence_Cuisine(-1)', 0), ('Presence_Cuisine(-2)', 0), ('Luminosite_Cuisine(-1)', 0), ('Luminosite_Cuisine(-2)', 0), ('Presence_Salon(-1)', 0), ('Puissance_Frigo(-1)', 0)]
+                                [Model similarity] common parents = ['C3(-1)', 'C3(-2)', 'Luminosite_Cuisine(-1)', 'Luminosite_Cuisine(-2)', 'Presence_Cuisine(-1)', 'Presence_Cuisine(-2)', 'Presence_Salon(-1)', 'Puissance_Frigo(-1)']
+                                [Model difference] causal - ground = []
+                                [Model difference] ground - causal = []
+
+Significant true positive detected: ('I10_Droite_Haut', 1, 0.9995507468833065, 0.9995521636095613)
+count: 503
+info: Parent situation: [('Puissance_Chauffe_Eau(-1)', 0), ('Puissance_Volets_Roulants(-2)', 0), ('Puissance_Chauffe_Eau(-2)', 0)]
+                                [Model similarity] common parents = ['Puissance_Chauffe_Eau(-1)', 'Puissance_Volets_Roulants(-2)']
+                                [Model difference] causal - ground = []
+                                [Model difference] ground - causal = ['Puissance_Chauffe_Eau(-2)']
+
+Significant true positive detected: ('Eau_Froide_Evier_Instantanee', 1, 0.9999433780646623, 0.9999552432529204)
+count: 356
+info: Parent situation: [('Eau_Froide_Evier_Instantanee(-2)', 0), ('Presence_Cuisine(-1)', 0), ('Presence_Cuisine(-2)', 0), ('Puissance_Plaques(-1)', 0), ('Presence_Table(-1)', 0), ('Puissance_Frigo(-1)', 0), ('Puissance_Frigo(-2)', 0), ('C3(-1)', 0), ('C3(-2)', 0)]
+                                [Model similarity] common parents = ['Eau_Froide_Evier_Instantanee(-2)', 'Presence_Cuisine(-1)', 'Presence_Cuisine(-2)', 'Presence_Table(-1)', 'Puissance_Plaques(-1)']
+                                [Model difference] causal - ground = []
+                                [Model difference] ground - causal = ['C3(-1)', 'C3(-2)', 'Puissance_Frigo(-1)', 'Puissance_Frigo(-2)']
+
+Significant true positive detected: ('Puissance_Frigo', 1, 1.0, 1.0)
+count: 314
+info: Parent situation: [('Presence_Lit(-1)', 0), ('Presence_Table(-1)', 1), ('Presence_Table(-2)', 1), ('Puissance_Plaques(-1)', 0), ('Presence_Salon(-1)', 0), ('Puissance_Four(-1)', 1), ('Puissance_Frigo(-2)', 0), ('Luminosite_Salon(-1)', 0), ('Puissance_Frigo(-1)', 0), ('Puissance_Lave_Vaisselle(-1)', 0), ('Presence_Lit(-2)', 0), ('C3(-2)', 0)]
+                                [Model similarity] common parents = ['C3(-2)', 'Luminosite_Salon(-1)', 'Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Salon(-1)', 'Presence_Table(-1)', 'Presence_Table(-2)', 'Puissance_Four(-1)', 'Puissance_Frigo(-1)', 'Puissance_Frigo(-2)', 'Puissance_Lave_Vaisselle(-1)', 'Puissance_Plaques(-1)']
+                                [Model difference] causal - ground = []
+                                [Model difference] ground - causal = []
+
+Significant false positive detected: ('Puissance_Plaques', 1, 0.9938271604938271, 0.9938563327032136)
+count: 52
+info: Parent situation: [('Puissance_Plaques(-2)', 0), ('Puissance_Plaques(-1)', 0), ('Presence_Salon(-1)', 1), ('Puissance_Four(-1)', 0), ('Presence_Lit(-1)', 0), ('Presence_Salon(-2)', 1), ('Puissance_Four(-2)', 0), ('Presence_Lit(-2)', 0), ('Luminosite_Salon(-2)', 0), ('Luminosite_Cuisine(-1)', 0), ('Presence_Cuisine(-2)', 0), ('Puissance_Frigo(-1)', 0), ('Presence_Cuisine(-1)', 0), ('Luminosite_Cuisine(-2)', 0), ('Puissance_Lave_Vaisselle(-1)', 0)]
+                                [Model similarity] common parents = ['Luminosite_Salon(-2)', 'Presence_Cuisine(-1)', 'Presence_Cuisine(-2)', 'Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Salon(-1)', 'Puissance_Four(-1)', 'Puissance_Frigo(-1)', 'Puissance_Lave_Vaisselle(-1)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['L15(-1)', 'L15(-2)', 'Luminosite_Salon(-1)', 'Presence_Table(-1)']
+                                [Model difference] ground - causal = ['Luminosite_Cuisine(-1)', 'Luminosite_Cuisine(-2)', 'Presence_Salon(-2)', 'Puissance_Four(-2)']
+[Model shift] A model shift is detected. Training v.s. Testing probability: 0.006172839506172867 v.s. 0.05596330275229355
+
+Significant false positive detected: ('C3', 1, 0.99428488750633, 0.99428488750633)
+count: 11
+info: Parent situation: [('C3(-1)', 0), ('C3(-2)', 0), ('Presence_Cuisine(-1)', 1), ('Presence_Cuisine(-2)', 1), ('Luminosite_Cuisine(-1)', 0), ('Luminosite_Cuisine(-2)', 0), ('Presence_Salon(-1)', 0), ('Puissance_Frigo(-1)', 0)]
+                                [Model similarity] common parents = ['C3(-1)', 'C3(-2)', 'Luminosite_Cuisine(-1)', 'Luminosite_Cuisine(-2)', 'Presence_Cuisine(-1)', 'Presence_Cuisine(-2)', 'Presence_Salon(-1)', 'Puissance_Frigo(-1)']
+                                [Model difference] causal - ground = []
+                                [Model difference] ground - causal = []
+[Model shift] A model shift is detected. Training v.s. Testing probability: 0.0057151124936699604 v.s. 0.005235602094240788
+
+Significant false positive detected: ('Eau_Froide_Evier_Instantanee', 1, 0.997311199438859, 0.997378355704698)
+count: 16
+info: Parent situation: [('Eau_Froide_Evier_Instantanee(-2)', 0), ('Presence_Cuisine(-1)', 1), ('Presence_Cuisine(-2)', 1), ('Puissance_Plaques(-1)', 0), ('Presence_Table(-1)', 1), ('Puissance_Frigo(-1)', 0), ('Puissance_Frigo(-2)', 0), ('C3(-1)', 0), ('C3(-2)', 0)]
+                                [Model similarity] common parents = ['Eau_Froide_Evier_Instantanee(-2)', 'Presence_Cuisine(-1)', 'Presence_Cuisine(-2)', 'Presence_Table(-1)', 'Puissance_Plaques(-1)']
+                                [Model difference] causal - ground = []
+                                [Model difference] ground - causal = ['C3(-1)', 'C3(-2)', 'Puissance_Frigo(-1)', 'Puissance_Frigo(-2)']
+[Model shift] A model shift is detected. Training v.s. Testing probability: 0.0026888005611409582 v.s. 0.005410889414947606
+
+Significant false positive detected: ('Puissance_Chauffe_Eau', 1, 0.9974659486854609, 0.9977206121784435)
+count: 10
+info: Parent situation: [('Puissance_Chauffe_Eau(-1)', 0), ('Puissance_Chauffe_Eau(-2)', 0), ('Presence_SDB(-1)', 0), ('Presence_SDB(-2)', 0), ('I10_Droite_Haut(-1)', 0), ('Presence_Table(-1)', 0), ('Puissance_Plaques(-1)', 0), ('Puissance_Plaques(-2)', 0), ('Presence_Lit(-2)', 0), ('Puissance_Four(-1)', 0)]
+                                [Model similarity] common parents = ['I10_Droite_Haut(-1)', 'Presence_Lit(-2)', 'Presence_SDB(-1)', 'Presence_SDB(-2)', 'Presence_Table(-1)', 'Puissance_Chauffe_Eau(-1)', 'Puissance_Chauffe_Eau(-2)', 'Puissance_Four(-1)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['L15(-1)']
+                                [Model difference] ground - causal = []
+[Model shift] A model shift is detected. Training v.s. Testing probability: 0.0025340513145390986 v.s. 0.003098591549295815
+
+Significant false positive detected: ('Puissance_Four', 1, 1.0, 1.0)
+count: 94
+info: Parent situation: [('Puissance_Four(-1)', 0), ('Luminosite_Cuisine(-1)', 0), ('Puissance_Four(-2)', 0), ('Luminosite_Cuisine(-2)', 0), ('L15(-1)', 0), ('L15(-2)', 0), ('Puissance_Plaques(-1)', 0), ('Puissance_Plaques(-2)', 1), ('Presence_Salon(-2)', 1), ('Presence_Salon(-1)', 1), ('Luminosite_Salon(-1)', 0), ('Luminosite_Salon(-2)', 0), ('Puissance_Frigo(-1)', 0), ('Presence_Cuisine(-2)', 0), ('Presence_Cuisine(-1)', 0)]
+                                [Model similarity] common parents = ['L15(-1)', 'L15(-2)', 'Luminosite_Cuisine(-1)', 'Luminosite_Salon(-1)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Puissance_Four(-1)', 'Puissance_Four(-2)', 'Puissance_Frigo(-1)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Presence_SDB(-1)', 'Presence_SDB(-2)', 'Puissance_Frigo(-2)', 'Puissance_Lave_Vaisselle(-1)']
+                                [Model difference] ground - causal = ['Luminosite_Cuisine(-2)', 'Luminosite_Salon(-2)', 'Presence_Cuisine(-1)', 'Presence_Cuisine(-2)']
+[Model shift] A model shift is detected. Training v.s. Testing probability: 0.0 v.s. 0.08673469387755106
+
+Significant false positive detected: ('Puissance_Four', 1, 0.9889737065309584, 0.9942320491015307)
+count: 12
+info: Parent situation: [('Puissance_Four(-1)', 0), ('Luminosite_Cuisine(-1)', 0), ('Puissance_Four(-2)', 0), ('Luminosite_Cuisine(-2)', 0), ('L15(-1)', 0), ('L15(-2)', 0), ('Puissance_Plaques(-1)', 0), ('Puissance_Plaques(-2)', 0), ('Presence_Salon(-2)', 0), ('Presence_Salon(-1)', 0), ('Luminosite_Salon(-1)', 0), ('Luminosite_Salon(-2)', 1), ('Puissance_Frigo(-1)', 0), ('Presence_Cuisine(-2)', 1), ('Presence_Cuisine(-1)', 1)]
+                                [Model similarity] common parents = ['L15(-1)', 'L15(-2)', 'Luminosite_Cuisine(-1)', 'Luminosite_Salon(-1)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Puissance_Four(-1)', 'Puissance_Four(-2)', 'Puissance_Frigo(-1)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Presence_SDB(-1)', 'Presence_SDB(-2)', 'Puissance_Frigo(-2)', 'Puissance_Lave_Vaisselle(-1)']
+                                [Model difference] ground - causal = ['Luminosite_Cuisine(-2)', 'Luminosite_Salon(-2)', 'Presence_Cuisine(-1)', 'Presence_Cuisine(-2)']
+
+Significant false positive detected: ('Puissance_Four', 1, 0.9914741474147415, 0.9942320491015307)
+count: 11
+info: Parent situation: [('Puissance_Four(-1)', 0), ('Luminosite_Cuisine(-1)', 0), ('Puissance_Four(-2)', 0), ('Luminosite_Cuisine(-2)', 0), ('L15(-1)', 0), ('L15(-2)', 0), ('Puissance_Plaques(-1)', 0), ('Puissance_Plaques(-2)', 0), ('Presence_Salon(-2)', 0), ('Presence_Salon(-1)', 0), ('Luminosite_Salon(-1)', 0), ('Luminosite_Salon(-2)', 0), ('Puissance_Frigo(-1)', 0), ('Presence_Cuisine(-2)', 1), ('Presence_Cuisine(-1)', 1)]
+                                [Model similarity] common parents = ['L15(-1)', 'L15(-2)', 'Luminosite_Cuisine(-1)', 'Luminosite_Salon(-1)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Puissance_Four(-1)', 'Puissance_Four(-2)', 'Puissance_Frigo(-1)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Presence_SDB(-1)', 'Presence_SDB(-2)', 'Puissance_Frigo(-2)', 'Puissance_Lave_Vaisselle(-1)']
+                                [Model difference] ground - causal = ['Luminosite_Cuisine(-2)', 'Luminosite_Salon(-2)', 'Presence_Cuisine(-1)', 'Presence_Cuisine(-2)']
+
+Significant false positive detected: ('Puissance_Lave_Vaisselle', 1, 0.9963530269876003, 0.9963530269876003)
+count: 10
+info: Parent situation: [('Presence_Salon(-1)', 1), ('Presence_Salon(-2)', 1), ('Puissance_Plaques(-1)', 0), ('Luminosite_Salon(-1)', 0), ('Puissance_Four(-1)', 0), ('Puissance_Frigo(-1)', 0), ('Puissance_Lave_Vaisselle(-2)', 1)]
+                                [Model similarity] common parents = ['Luminosite_Salon(-1)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Puissance_Four(-1)', 'Puissance_Frigo(-1)', 'Puissance_Lave_Vaisselle(-2)', 'Puissance_Plaques(-1)']
+                                [Model difference] causal - ground = []
+                                [Model difference] ground - causal = []
+[Model shift] A model shift is detected. Training v.s. Testing probability: 0.00364697301239969 v.s. 0.016447368421052655
+
+Significant false negative detected: ('Puissance_Plaques', 1, 1.0, 0.06711409395973156)
+count: 21
+info: Parent situation: [('Puissance_Plaques(-2)', 0), ('Puissance_Plaques(-1)', 0), ('Presence_Salon(-1)', 0), ('Puissance_Four(-1)', 0), ('Presence_Lit(-1)', 0), ('Presence_Salon(-2)', 0), ('Puissance_Four(-2)', 0), ('Presence_Lit(-2)', 0), ('Luminosite_Salon(-2)', 1), ('Luminosite_Cuisine(-1)', 1), ('Presence_Cuisine(-2)', 1), ('Puissance_Frigo(-1)', 0), ('Presence_Cuisine(-1)', 0), ('Luminosite_Cuisine(-2)', 1), ('Puissance_Lave_Vaisselle(-1)', 0)]
+                                [Model similarity] common parents = ['Luminosite_Salon(-2)', 'Presence_Cuisine(-1)', 'Presence_Cuisine(-2)', 'Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Salon(-1)', 'Puissance_Four(-1)', 'Puissance_Frigo(-1)', 'Puissance_Lave_Vaisselle(-1)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['L15(-1)', 'L15(-2)', 'Luminosite_Salon(-1)', 'Presence_Table(-1)']
+                                [Model difference] ground - causal = ['Luminosite_Cuisine(-1)', 'Luminosite_Cuisine(-2)', 'Presence_Salon(-2)', 'Puissance_Four(-2)']
+
+Significant true negative detected: ('Puissance_Plaques', 0, 0.0, 0.0)
+count: 802
+info: Parent situation: [('Puissance_Plaques(-2)', 0), ('Puissance_Plaques(-1)', 1), ('Presence_Salon(-1)', 0), ('Puissance_Four(-1)', 0), ('Presence_Lit(-1)', 0), ('Presence_Salon(-2)', 0), ('Puissance_Four(-2)', 0), ('Presence_Lit(-2)', 0), ('Luminosite_Salon(-2)', 0), ('Luminosite_Cuisine(-1)', 0), ('Presence_Cuisine(-2)', 0), ('Puissance_Frigo(-1)', 0), ('Presence_Cuisine(-1)', 0), ('Luminosite_Cuisine(-2)', 0), ('Puissance_Lave_Vaisselle(-1)', 0)]
+                                [Model similarity] common parents = ['Luminosite_Salon(-2)', 'Presence_Cuisine(-1)', 'Presence_Cuisine(-2)', 'Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Salon(-1)', 'Puissance_Four(-1)', 'Puissance_Frigo(-1)', 'Puissance_Lave_Vaisselle(-1)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['L15(-1)', 'L15(-2)', 'Luminosite_Salon(-1)', 'Presence_Table(-1)']
+                                [Model difference] ground - causal = ['Luminosite_Cuisine(-1)', 'Luminosite_Cuisine(-2)', 'Presence_Salon(-2)', 'Puissance_Four(-2)']
+
+haw-fn-info: [('C3', 1)]
+markov-fn-info: ['Luminosite_Lit0', 'Puissance_Plaques1']
+Significant true negative detected: ('Puissance_Lave_Vaisselle', 1, 0.0, 0.0)
+count: 618
+info: Parent situation: [('Presence_Salon(-1)', 1), ('Presence_Salon(-2)', 0), ('Puissance_Plaques(-1)', 0), ('Luminosite_Salon(-1)', 0), ('Puissance_Four(-1)', 0), ('Puissance_Frigo(-1)', 0), ('Puissance_Lave_Vaisselle(-2)', 0)]
+                                [Model similarity] common parents = ['Luminosite_Salon(-1)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Puissance_Four(-1)', 'Puissance_Frigo(-1)', 'Puissance_Lave_Vaisselle(-2)', 'Puissance_Plaques(-1)']
+                                [Model difference] causal - ground = []
+                                [Model difference] ground - causal = []
+
+markov-fn-info: ['Luminosite_Lit0', 'Presence_Salon1']
+Significant true negative detected: ('Puissance_Lave_Vaisselle', 0, 0.002140910860256917, 0.002140910860256917)
+count: 608
+info: Parent situation: [('Presence_Salon(-1)', 1), ('Presence_Salon(-2)', 1), ('Puissance_Plaques(-1)', 0), ('Luminosite_Salon(-1)', 0), ('Puissance_Four(-1)', 0), ('Puissance_Frigo(-1)', 0), ('Puissance_Lave_Vaisselle(-2)', 0)]
+                                [Model similarity] common parents = ['Luminosite_Salon(-1)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Puissance_Four(-1)', 'Puissance_Frigo(-1)', 'Puissance_Lave_Vaisselle(-2)', 'Puissance_Plaques(-1)']
+                                [Model difference] causal - ground = []
+                                [Model difference] ground - causal = []
+
+haw-fn-info: [('C3', 1), ('Puissance_Four', 1), ('Presence_Table', 1)]
+markov-fn-info: ['L161', 'Puissance_Lave_Vaisselle1']
+Significant true negative detected: ('Presence_Table', 1, 0.7975797579757976, 0.7959518599562363)
+count: 115
+info: Parent situation: [('Presence_Table(-1)', 0), ('Presence_Table(-2)', 0), ('Presence_Cuisine(-1)', 0), ('Presence_Lit(-1)', 0), ('Presence_Lit(-2)', 0), ('Presence_Salon(-1)', 1), ('Presence_Salon(-2)', 1), ('Presence_SDB(-1)', 0), ('Presence_SDB(-2)', 0), ('Puissance_Frigo(-2)', 0), ('Puissance_Frigo(-1)', 0), ('L15(-2)', 0), ('L15(-1)', 0), ('Puissance_Plaques(-2)', 0), ('Puissance_Plaques(-1)', 0)]
+                                [Model similarity] common parents = ['L15(-1)', 'L15(-2)', 'Presence_Cuisine(-1)', 'Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_SDB(-1)', 'Presence_SDB(-2)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Presence_Table(-1)', 'Presence_Table(-2)', 'Puissance_Frigo(-1)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Luminosite_Salon(-2)']
+                                [Model difference] ground - causal = ['Puissance_Frigo(-2)']
+
+haw-fn-info: [('Luminosite_Salon', 1), ('Luminosite_Salon', 1), ('Luminosite_Salon', 1), ('Luminosite_Salon', 1), ('Luminosite_Salon', 1)]
+markov-fn-info: ('Puissance_Volets_Roulants0', 'Luminosite_Salon1')
+Significant true negative detected: ('Luminosite_Salon', 1, 0.1021897810218978, 0.09225092250922506)
+count: 276
+info: Parent situation: [('Luminosite_Salon(-2)', 0), ('Luminosite_Salon(-1)', 0), ('Presence_Table(-2)', 0), ('Puissance_Four(-1)', 0), ('Puissance_Four(-2)', 0), ('Presence_Lit(-1)', 0), ('Presence_Lit(-2)', 0), ('Presence_Salon(-1)', 1), ('Presence_Salon(-2)', 1), ('Puissance_Lave_Vaisselle(-1)', 0), ('Puissance_Plaques(-1)', 0), ('Puissance_Plaques(-2)', 0), ('Puissance_Lave_Vaisselle(-2)', 0), ('Puissance_Frigo(-2)', 0), ('Luminosite_Cuisine(-2)', 0)]
+                                [Model similarity] common parents = ['Luminosite_Salon(-1)', 'Luminosite_Salon(-2)', 'Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Presence_Table(-2)', 'Puissance_Four(-1)', 'Puissance_Four(-2)', 'Puissance_Frigo(-2)', 'Puissance_Lave_Vaisselle(-1)', 'Puissance_Lave_Vaisselle(-2)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Puissance_Frigo(-1)']
+                                [Model difference] ground - causal = ['Luminosite_Cuisine(-2)']
+
+markov-fn-info: ['I11_Droite_Haut0', 'Presence_Table1']
+Significant true negative detected: ('Presence_Cuisine', 1, 0.898465171192444, 0.8974978050921861)
+count: 145
+info: Parent situation: [('Presence_Cuisine(-1)', 0), ('Presence_Cuisine(-2)', 0), ('Presence_Table(-1)', 1), ('Presence_Table(-2)', 1), ('Presence_Lit(-1)', 0), ('Presence_Lit(-2)', 0), ('C3(-2)', 0), ('C3(-1)', 0), ('L15(-2)', 0), ('L15(-1)', 0), ('Presence_SDB(-1)', 0), ('Presence_SDB(-2)', 0), ('C15(-1)', 0), ('C15(-2)', 0), ('Puissance_Frigo(-2)', 0)]
+                                [Model similarity] common parents = ['C15(-1)', 'C3(-1)', 'C3(-2)', 'L15(-1)', 'L15(-2)', 'Presence_Cuisine(-1)', 'Presence_Cuisine(-2)', 'Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Table(-1)', 'Presence_Table(-2)']
+                                [Model difference] causal - ground = ['Eau_Froide_Evier_Instantanee(-1)', 'Eau_Froide_Evier_Instantanee(-2)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] ground - causal = ['C15(-2)', 'Presence_SDB(-1)', 'Presence_SDB(-2)', 'Puissance_Frigo(-2)']
+
+markov-fn-info: ['Presence_Cuisine0', 'Luminosite_Lit1']
+haw-fn-info: [('Eau_Froide_Evier_Instantanee', 0)]
+Significant true negative detected: ('Luminosite_Salon', 1, 0.640020540910647, 0.6012096012096012)
+count: 362
+info: Parent situation: [('Luminosite_Salon(-2)', 0), ('Luminosite_Salon(-1)', 0), ('Presence_Table(-2)', 0), ('Puissance_Four(-1)', 0), ('Puissance_Four(-2)', 0), ('Presence_Lit(-1)', 0), ('Presence_Lit(-2)', 0), ('Presence_Salon(-1)', 0), ('Presence_Salon(-2)', 0), ('Puissance_Lave_Vaisselle(-1)', 0), ('Puissance_Plaques(-1)', 0), ('Puissance_Plaques(-2)', 0), ('Puissance_Lave_Vaisselle(-2)', 0), ('Puissance_Frigo(-2)', 0), ('Luminosite_Cuisine(-2)', 0)]
+                                [Model similarity] common parents = ['Luminosite_Salon(-1)', 'Luminosite_Salon(-2)', 'Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Presence_Table(-2)', 'Puissance_Four(-1)', 'Puissance_Four(-2)', 'Puissance_Frigo(-2)', 'Puissance_Lave_Vaisselle(-1)', 'Puissance_Lave_Vaisselle(-2)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Puissance_Frigo(-1)']
+                                [Model difference] ground - causal = ['Luminosite_Cuisine(-2)']
+
+markov-fn-info: ('I10_Droite_Haut0', 'Puissance_Chauffe_Eau0')
+Significant true negative detected: ('Luminosite_Salon', 0, 0.002474022761009387, 0.002962962962962945)
+count: 344
+info: Parent situation: [('Luminosite_Salon(-2)', 0), ('Luminosite_Salon(-1)', 1), ('Presence_Table(-2)', 1), ('Puissance_Four(-1)', 0), ('Puissance_Four(-2)', 0), ('Presence_Lit(-1)', 0), ('Presence_Lit(-2)', 0), ('Presence_Salon(-1)', 0), ('Presence_Salon(-2)', 0), ('Puissance_Lave_Vaisselle(-1)', 0), ('Puissance_Plaques(-1)', 0), ('Puissance_Plaques(-2)', 0), ('Puissance_Lave_Vaisselle(-2)', 0), ('Puissance_Frigo(-2)', 0), ('Luminosite_Cuisine(-2)', 0)]
+                                [Model similarity] common parents = ['Luminosite_Salon(-1)', 'Luminosite_Salon(-2)', 'Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Presence_Table(-2)', 'Puissance_Four(-1)', 'Puissance_Four(-2)', 'Puissance_Frigo(-2)', 'Puissance_Lave_Vaisselle(-1)', 'Puissance_Lave_Vaisselle(-2)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Puissance_Frigo(-1)']
+                                [Model difference] ground - causal = ['Luminosite_Cuisine(-2)']
+
+haw-fn-info: [('Presence_Salon', 1)]
+Significant true negative detected: ('Presence_Salon', 1, 0.9154955621301775, 0.8292682926829268)
+count: 114
+info: Parent situation: [('Presence_Salon(-1)', 0), ('Presence_Salon(-2)', 0), ('Presence_Table(-1)', 1), ('Presence_Table(-2)', 1), ('Presence_Lit(-1)', 0), ('Presence_Lit(-2)', 0), ('Puissance_Lave_Vaisselle(-1)', 0), ('Puissance_Plaques(-2)', 0), ('Puissance_Plaques(-1)', 0), ('Puissance_Four(-1)', 0), ('Puissance_Four(-2)', 0), ('Puissance_Frigo(-1)', 0), ('Luminosite_Cuisine(-1)', 0), ('Luminosite_Cuisine(-2)', 0), ('Puissance_Frigo(-2)', 0)]
+                                [Model similarity] common parents = ['Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Presence_Table(-1)', 'Presence_Table(-2)', 'Puissance_Four(-1)', 'Puissance_Four(-2)', 'Puissance_Frigo(-1)', 'Puissance_Lave_Vaisselle(-1)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Luminosite_Salon(-1)', 'Presence_Cuisine(-2)', 'Puissance_Lave_Vaisselle(-2)']
+                                [Model difference] ground - causal = ['Luminosite_Cuisine(-1)', 'Luminosite_Cuisine(-2)', 'Puissance_Frigo(-2)']
+
+haw-fn-info: [('Puissance_Lave_Vaisselle', 1), ('Puissance_Lave_Vaisselle', 1)]
+markov-fn-info: ['Luminosite_Table1', 'Presence_Cuisine1']
+Significant true negative detected: ('Puissance_Frigo', 0, 0.0, 0.0)
+count: 785
+info: Parent situation: [('Presence_Lit(-1)', 0), ('Presence_Table(-1)', 0), ('Presence_Table(-2)', 0), ('Puissance_Plaques(-1)', 0), ('Presence_Salon(-1)', 0), ('Puissance_Four(-1)', 0), ('Puissance_Frigo(-2)', 0), ('Luminosite_Salon(-1)', 0), ('Puissance_Frigo(-1)', 1), ('Puissance_Lave_Vaisselle(-1)', 0), ('Presence_Lit(-2)', 0), ('C3(-2)', 0)]
+                                [Model similarity] common parents = ['C3(-2)', 'Luminosite_Salon(-1)', 'Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Salon(-1)', 'Presence_Table(-1)', 'Presence_Table(-2)', 'Puissance_Four(-1)', 'Puissance_Frigo(-1)', 'Puissance_Frigo(-2)', 'Puissance_Lave_Vaisselle(-1)', 'Puissance_Plaques(-1)']
+                                [Model difference] causal - ground = []
+                                [Model difference] ground - causal = []
+
+haw-fn-info: [('C3', 1), ('Puissance_Four', 1)]
+markov-fn-info: ['C31', 'Puissance_Frigo1']
+Significant true negative detected: ('Presence_Salon', 1, 0.9154955621301775, 0.902753108348135)
+count: 106
+info: Parent situation: [('Presence_Salon(-1)', 0), ('Presence_Salon(-2)', 0), ('Presence_Table(-1)', 1), ('Presence_Table(-2)', 1), ('Presence_Lit(-1)', 0), ('Presence_Lit(-2)', 0), ('Puissance_Lave_Vaisselle(-1)', 0), ('Puissance_Plaques(-2)', 0), ('Puissance_Plaques(-1)', 0), ('Puissance_Four(-1)', 0), ('Puissance_Four(-2)', 0), ('Puissance_Frigo(-1)', 0), ('Luminosite_Cuisine(-1)', 0), ('Luminosite_Cuisine(-2)', 0), ('Puissance_Frigo(-2)', 0)]
+                                [Model similarity] common parents = ['Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Presence_Table(-1)', 'Presence_Table(-2)', 'Puissance_Four(-1)', 'Puissance_Four(-2)', 'Puissance_Frigo(-1)', 'Puissance_Lave_Vaisselle(-1)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Luminosite_Salon(-1)', 'Presence_Cuisine(-2)', 'Puissance_Lave_Vaisselle(-2)']
+                                [Model difference] ground - causal = ['Luminosite_Cuisine(-1)', 'Luminosite_Cuisine(-2)', 'Puissance_Frigo(-2)']
+
+haw-fn-info: [('Puissance_Lave_Vaisselle', 1), ('Puissance_Lave_Vaisselle', 1)]
+markov-fn-info: ['Luminosite_Cuisine0', 'Luminosite_Salon0']
+Significant true negative detected: ('Presence_Cuisine', 0, 0.9477832512315271, 0.9307984790874525)
+count: 123
+info: Parent situation: [('Presence_Cuisine(-1)', 1), ('Presence_Cuisine(-2)', 1), ('Presence_Table(-1)', 1), ('Presence_Table(-2)', 1), ('Presence_Lit(-1)', 0), ('Presence_Lit(-2)', 0), ('C3(-2)', 0), ('C3(-1)', 0), ('L15(-2)', 0), ('L15(-1)', 0), ('Presence_SDB(-1)', 0), ('Presence_SDB(-2)', 0), ('C15(-1)', 0), ('C15(-2)', 0), ('Puissance_Frigo(-2)', 0)]
+                                [Model similarity] common parents = ['C15(-1)', 'C3(-1)', 'C3(-2)', 'L15(-1)', 'L15(-2)', 'Presence_Cuisine(-1)', 'Presence_Cuisine(-2)', 'Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Table(-1)', 'Presence_Table(-2)']
+                                [Model difference] causal - ground = ['Eau_Froide_Evier_Instantanee(-1)', 'Eau_Froide_Evier_Instantanee(-2)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] ground - causal = ['C15(-2)', 'Presence_SDB(-1)', 'Presence_SDB(-2)', 'Puissance_Frigo(-2)']
+
+markov-fn-info: ('Presence_Salon0', 'C31')
+Significant true negative detected: ('Presence_Table', 0, 0.7431693989071038, 0.39644970414201186)
+count: 137
+info: Parent situation: [('Presence_Table(-1)', 1), ('Presence_Table(-2)', 1), ('Presence_Cuisine(-1)', 0), ('Presence_Lit(-1)', 0), ('Presence_Lit(-2)', 0), ('Presence_Salon(-1)', 1), ('Presence_Salon(-2)', 1), ('Presence_SDB(-1)', 0), ('Presence_SDB(-2)', 0), ('Puissance_Frigo(-2)', 0), ('Puissance_Frigo(-1)', 0), ('L15(-2)', 0), ('L15(-1)', 0), ('Puissance_Plaques(-2)', 0), ('Puissance_Plaques(-1)', 0)]
+                                [Model similarity] common parents = ['L15(-1)', 'L15(-2)', 'Presence_Cuisine(-1)', 'Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_SDB(-1)', 'Presence_SDB(-2)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Presence_Table(-1)', 'Presence_Table(-2)', 'Puissance_Frigo(-1)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Luminosite_Salon(-2)']
+                                [Model difference] ground - causal = ['Puissance_Frigo(-2)']
+
+haw-fn-info: [('Luminosite_Salon', 0)]
+Significant true negative detected: ('Presence_Salon', 1, 0.3086053412462908, 0.2835130970724191)
+count: 148
+info: Parent situation: [('Presence_Salon(-1)', 0), ('Presence_Salon(-2)', 1), ('Presence_Table(-1)', 0), ('Presence_Table(-2)', 0), ('Presence_Lit(-1)', 0), ('Presence_Lit(-2)', 0), ('Puissance_Lave_Vaisselle(-1)', 0), ('Puissance_Plaques(-2)', 0), ('Puissance_Plaques(-1)', 0), ('Puissance_Four(-1)', 0), ('Puissance_Four(-2)', 0), ('Puissance_Frigo(-1)', 0), ('Luminosite_Cuisine(-1)', 0), ('Luminosite_Cuisine(-2)', 0), ('Puissance_Frigo(-2)', 0)]
+                                [Model similarity] common parents = ['Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Presence_Table(-1)', 'Presence_Table(-2)', 'Puissance_Four(-1)', 'Puissance_Four(-2)', 'Puissance_Frigo(-1)', 'Puissance_Lave_Vaisselle(-1)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Luminosite_Salon(-1)', 'Presence_Cuisine(-2)', 'Puissance_Lave_Vaisselle(-2)']
+                                [Model difference] ground - causal = ['Luminosite_Cuisine(-1)', 'Luminosite_Cuisine(-2)', 'Puissance_Frigo(-2)']
+
+markov-fn-info: ('Presence_Salon0', 'C31')
+haw-fn-info: [('Puissance_Lave_Vaisselle', 1), ('Puissance_Lave_Vaisselle', 1)]
+Significant true negative detected: ('Presence_Cuisine', 0, 0.6124469589816124, 0.6135401974612129)
+count: 116
+info: Parent situation: [('Presence_Cuisine(-1)', 1), ('Presence_Cuisine(-2)', 0), ('Presence_Table(-1)', 1), ('Presence_Table(-2)', 1), ('Presence_Lit(-1)', 0), ('Presence_Lit(-2)', 0), ('C3(-2)', 0), ('C3(-1)', 0), ('L15(-2)', 0), ('L15(-1)', 0), ('Presence_SDB(-1)', 0), ('Presence_SDB(-2)', 0), ('C15(-1)', 0), ('C15(-2)', 0), ('Puissance_Frigo(-2)', 0)]
+                                [Model similarity] common parents = ['C15(-1)', 'C3(-1)', 'C3(-2)', 'L15(-1)', 'L15(-2)', 'Presence_Cuisine(-1)', 'Presence_Cuisine(-2)', 'Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Table(-1)', 'Presence_Table(-2)']
+                                [Model difference] causal - ground = ['Eau_Froide_Evier_Instantanee(-1)', 'Eau_Froide_Evier_Instantanee(-2)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] ground - causal = ['C15(-2)', 'Presence_SDB(-1)', 'Presence_SDB(-2)', 'Puissance_Frigo(-2)']
+
+markov-fn-info: ['Luminosite_Table1', 'Presence_Cuisine1']
+Significant true negative detected: ('Luminosite_Cuisine', 1, 0.0, 0.0)
+count: 226
+info: Parent situation: [('Puissance_Four(-1)', 1), ('Luminosite_Cuisine(-1)', 0), ('Puissance_Four(-2)', 0), ('L15(-1)', 0), ('Luminosite_Cuisine(-2)', 0), ('Puissance_Plaques(-1)', 0), ('Puissance_Plaques(-2)', 0), ('C3(-1)', 0), ('C3(-2)', 0)]
+                                [Model similarity] common parents = ['C3(-1)', 'C3(-2)', 'L15(-1)', 'Luminosite_Cuisine(-1)', 'Luminosite_Cuisine(-2)', 'Puissance_Four(-1)', 'Puissance_Four(-2)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Luminosite_Salon(-1)', 'Luminosite_Table(-1)', 'Luminosite_Table(-2)']
+                                [Model difference] ground - causal = []
+
+haw-fn-info: [('Presence_Cuisine', 1)]
+markov-fn-info: ['Luminosite_Lit0', 'Puissance_Four1']
+Significant true negative detected: ('L15', 1, 0.0, 0.0)
+count: 256
+info: Parent situation: [('L15(-1)', 0), ('L15(-2)', 0), ('Presence_SDB(-1)', 0), ('Presence_SDB(-2)', 0), ('Puissance_Four(-1)', 0), ('Puissance_Four(-2)', 0), ('Luminosite_Cuisine(-1)', 1), ('Presence_Cuisine(-1)', 0), ('Puissance_Chauffe_Eau(-1)', 0), ('Puissance_Chauffe_Eau(-2)', 0), ('I11_Droite_Haut(-2)', 0), ('Presence_Lit(-1)', 0), ('Luminosite_Cuisine(-2)', 0)]
+                                [Model similarity] common parents = ['I11_Droite_Haut(-2)', 'L15(-1)', 'L15(-2)', 'Luminosite_Cuisine(-1)', 'Luminosite_Cuisine(-2)', 'Presence_Cuisine(-1)', 'Presence_Lit(-1)', 'Presence_SDB(-1)', 'Presence_SDB(-2)', 'Puissance_Chauffe_Eau(-1)', 'Puissance_Chauffe_Eau(-2)', 'Puissance_Four(-1)', 'Puissance_Four(-2)']
+                                [Model difference] causal - ground = []
+                                [Model difference] ground - causal = []
+
+markov-fn-info: ['Luminosite_Lit1', 'Luminosite_Cuisine1']
+Significant true negative detected: ('Luminosite_Cuisine', 0, 0.0, 0.0)
+count: 227
+info: Parent situation: [('Puissance_Four(-1)', 1), ('Luminosite_Cuisine(-1)', 1), ('Puissance_Four(-2)', 1), ('L15(-1)', 0), ('Luminosite_Cuisine(-2)', 1), ('Puissance_Plaques(-1)', 0), ('Puissance_Plaques(-2)', 0), ('C3(-1)', 0), ('C3(-2)', 0)]
+                                [Model similarity] common parents = ['C3(-1)', 'C3(-2)', 'L15(-1)', 'Luminosite_Cuisine(-1)', 'Luminosite_Cuisine(-2)', 'Puissance_Four(-1)', 'Puissance_Four(-2)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Luminosite_Salon(-1)', 'Luminosite_Table(-1)', 'Luminosite_Table(-2)']
+                                [Model difference] ground - causal = []
+
+haw-fn-info: [('Presence_Salon', 1)]
+markov-fn-info: ('L150', 'Puissance_Frigo1')
+Significant true negative detected: ('Presence_Lit', 0, 0.37443854634544715, 0.40191938579654507)
+count: 471
+info: Parent situation: [('Presence_Lit(-1)', 1), ('Presence_Lit(-2)', 1), ('Presence_Cuisine(-1)', 0), ('Presence_Cuisine(-2)', 0), ('Presence_Table(-1)', 0), ('Presence_Table(-2)', 0), ('Puissance_Frigo(-1)', 0), ('Presence_Salon(-1)', 0), ('Presence_Salon(-2)', 0), ('Puissance_Plaques(-1)', 0), ('Puissance_Plaques(-2)', 0), ('Luminosite_Salon(-2)', 0), ('Luminosite_Salon(-1)', 0), ('Puissance_Four(-2)', 0), ('Puissance_Chauffe_Eau(-1)', 0)]
+                                [Model similarity] common parents = ['Presence_Cuisine(-1)', 'Presence_Cuisine(-2)', 'Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Presence_Table(-1)', 'Presence_Table(-2)', 'Puissance_Chauffe_Eau(-1)', 'Puissance_Frigo(-1)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['L15(-1)', 'L15(-2)', 'Puissance_Chauffe_Eau(-2)']
+                                [Model difference] ground - causal = ['Luminosite_Salon(-1)', 'Luminosite_Salon(-2)', 'Puissance_Four(-2)']
+
+haw-fn-info: [('Presence_SDB', 1)]
+Significant true negative detected: ('Puissance_Four', 0, 0.0, 0.0)
+count: 219
+info: Parent situation: [('Puissance_Four(-1)', 1), ('Luminosite_Cuisine(-1)', 0), ('Puissance_Four(-2)', 1), ('Luminosite_Cuisine(-2)', 1), ('L15(-1)', 0), ('L15(-2)', 0), ('Puissance_Plaques(-1)', 0), ('Puissance_Plaques(-2)', 0), ('Presence_Salon(-2)', 0), ('Presence_Salon(-1)', 0), ('Luminosite_Salon(-1)', 0), ('Luminosite_Salon(-2)', 0), ('Puissance_Frigo(-1)', 0), ('Presence_Cuisine(-2)', 1), ('Presence_Cuisine(-1)', 1)]
+                                [Model similarity] common parents = ['L15(-1)', 'L15(-2)', 'Luminosite_Cuisine(-1)', 'Luminosite_Salon(-1)', 'Presence_Salon(-1)', 'Presence_Salon(-2)', 'Puissance_Four(-1)', 'Puissance_Four(-2)', 'Puissance_Frigo(-1)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['Presence_SDB(-1)', 'Presence_SDB(-2)', 'Puissance_Frigo(-2)', 'Puissance_Lave_Vaisselle(-1)']
+                                [Model difference] ground - causal = ['Luminosite_Cuisine(-2)', 'Luminosite_Salon(-2)', 'Presence_Cuisine(-1)', 'Presence_Cuisine(-2)']
+
+haw-fn-info: [('Presence_Cuisine', 1), ('Presence_Salon', 1)]
+Significant true negative detected: ('Presence_Cuisine', 1, 0.7573221757322176, 0.7566063977746871)
+count: 108
+info: Parent situation: [('Presence_Cuisine(-1)', 0), ('Presence_Cuisine(-2)', 1), ('Presence_Table(-1)', 1), ('Presence_Table(-2)', 1), ('Presence_Lit(-1)', 0), ('Presence_Lit(-2)', 0), ('C3(-2)', 0), ('C3(-1)', 0), ('L15(-2)', 0), ('L15(-1)', 0), ('Presence_SDB(-1)', 0), ('Presence_SDB(-2)', 0), ('C15(-1)', 0), ('C15(-2)', 0), ('Puissance_Frigo(-2)', 0)]
+                                [Model similarity] common parents = ['C15(-1)', 'C3(-1)', 'C3(-2)', 'L15(-1)', 'L15(-2)', 'Presence_Cuisine(-1)', 'Presence_Cuisine(-2)', 'Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Table(-1)', 'Presence_Table(-2)']
+                                [Model difference] causal - ground = ['Eau_Froide_Evier_Instantanee(-1)', 'Eau_Froide_Evier_Instantanee(-2)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] ground - causal = ['C15(-2)', 'Presence_SDB(-1)', 'Presence_SDB(-2)', 'Puissance_Frigo(-2)']
+
+markov-fn-info: ['Luminosite_Lit0', 'Presence_Cuisine0']
+Significant true negative detected: ('Puissance_Plaques', 0, 0.5, 0.0)
+count: 144
+info: Parent situation: [('Puissance_Plaques(-2)', 0), ('Puissance_Plaques(-1)', 1), ('Presence_Salon(-1)', 0), ('Puissance_Four(-1)', 0), ('Presence_Lit(-1)', 0), ('Presence_Salon(-2)', 0), ('Puissance_Four(-2)', 0), ('Presence_Lit(-2)', 0), ('Luminosite_Salon(-2)', 1), ('Luminosite_Cuisine(-1)', 1), ('Presence_Cuisine(-2)', 1), ('Puissance_Frigo(-1)', 0), ('Presence_Cuisine(-1)', 1), ('Luminosite_Cuisine(-2)', 1), ('Puissance_Lave_Vaisselle(-1)', 0)]
+                                [Model similarity] common parents = ['Luminosite_Salon(-2)', 'Presence_Cuisine(-1)', 'Presence_Cuisine(-2)', 'Presence_Lit(-1)', 'Presence_Lit(-2)', 'Presence_Salon(-1)', 'Puissance_Four(-1)', 'Puissance_Frigo(-1)', 'Puissance_Lave_Vaisselle(-1)', 'Puissance_Plaques(-1)', 'Puissance_Plaques(-2)']
+                                [Model difference] causal - ground = ['L15(-1)', 'L15(-2)', 'Luminosite_Salon(-1)', 'Presence_Table(-1)']
+                                [Model difference] ground - causal = ['Luminosite_Cuisine(-1)', 'Luminosite_Cuisine(-2)', 'Presence_Salon(-2)', 'Puissance_Four(-2)']
+
+haw-fn-info: [('C3', 1), ('Presence_Salon', 1), ('Presence_Table', 1)]
+markov-fn-info: ['L150', 'Puissance_Plaques1']

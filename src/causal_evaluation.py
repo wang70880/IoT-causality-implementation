@@ -1,5 +1,6 @@
 import collections
 import itertools
+import json
 import numpy as np
 import random
 import pandas as pd
@@ -21,13 +22,14 @@ from src.tigramite.tigramite.independence_tests.chi2 import ChiSquare
 
 class Evaluator():
 
-    def __init__(self, event_preprocessor, frame, tau_max, pc_alpha, golden_edges=None, golden_array=None, nor_golden_array=None):
+    def __init__(self, event_preprocessor, frame, tau_max, pc_alpha, golden_edges=None, golden_array=None, nor_golden_array=None, causal_edges=None):
         self.event_preprocessor:'GeneralProcessor' = event_preprocessor
         self.frame:'DataFrame' = frame
         self.tau_max = tau_max
         self.pc_alpha = pc_alpha
+        self.causal_edges = causal_edges
         if golden_edges is None:
-            self.golden_edges, self.golden_array, self.nor_golden_array = self._construct_golden_standard()
+            self.golden_edges, self.golden_rules, self.rule_chains, self.golden_array, self.nor_golden_array = self._construct_golden_standard()
         else:
             self.golden_edges = golden_edges
             self.golden_array = golden_array
@@ -75,12 +77,40 @@ class Evaluator():
         """
         For all known interactions between two devices (in the ground truth file), we further determine the golden time lag
         """
+        # Read the ground user interactions and ground physical interactions from the file
         ground_truth_array = None
         try:
             golden_df = pd.read_csv(self.event_preprocessor.ground_truth, encoding="utf-8", delim_whitespace=True, header=0, dtype=int)
             ground_truth_array = golden_df.values
+            var_names = list(golden_df.columns)
         except:
             raise FileNotFoundError("Cannot construct the ground truth! (Maybe the ground truth file is missing?)")
+        
+        # Read the ground automation interactions from the file
+        ground_automation_dict = None
+        chained_automation_rules = []
+        try:
+            f = open(self.event_preprocessor.automation_path, 'r')
+            ground_automation_dict = json.loads(f.read())
+            ground_automation_dict = {(k.split(',')[0], int(k.split(',')[1])):(v.split(',')[0], int(v.split(',')[1])) for k, v in ground_automation_dict.items()}
+            f.close()
+            for trigger, action in ground_automation_dict.items():
+                chain = []
+                cur_trigger = trigger; cur_action = action
+                chain.append(cur_trigger); chain.append(cur_action)
+                while True:
+                    if cur_action in ground_automation_dict.keys():
+                        cur_trigger = cur_action; cur_action = ground_automation_dict[cur_trigger]
+                        chain.append(cur_action)
+                        if len(chain)>=5:
+                            break
+                    else:
+                        break
+                chained_automation_rules.append(chain)
+            #print("# automation rules: {}".format(len(ground_automation_dict)))
+            #pprint(chained_automation_rules)
+        except:
+            raise FileNotFoundError("Cannot construct the ground automations! (Maybe the ground truth file is missing?)")
         
         # Generate the interaction set, given the ground truth array
         # Currently we don't know the time lag yet, so we add edges with all lags
@@ -88,33 +118,56 @@ class Evaluator():
         for (cause, outcome), x in np.ndenumerate(ground_truth_array):
             if x == 0:
                 continue
+            if self.causal_edges is None: # We use the discovered causal edge lag to calibrate the time lag of the ground truth
+                for lag in range(1, self.tau_max+1):
+                    selected_links[outcome].append((cause, -lag))
+            else:
+                candidate_causes = [] if outcome not in self.causal_edges.keys() else [tup for tup in self.causal_edges[outcome] if tup[0]==cause]
+                if len(candidate_causes) > 0:
+                    selected_links[outcome] += candidate_causes
+                else:
+                    for lag in range(1, self.tau_max+1):
+                        selected_links[outcome].append((cause, -lag))
+        # Insert the automation logic to the ground truth
+        for k, v in ground_automation_dict.items():
+            trigger_dev = k[0]; action_dev = v[0]
+            trigger_index = var_names.index(trigger_dev); action_index = var_names.index(action_dev)
             for lag in range(1, self.tau_max+1):
-                selected_links[outcome].append((cause, -lag))
+                if (trigger_index, -lag) not in selected_links[action_index]:
+                    selected_links[action_index].append((trigger_index, -lag))
+                else:
+                    pass
         # For all candidate time lags, we filter them according to the statistical test, and get the ranked edge sets
         asso_miner = AssociationMiner(self.event_preprocessor, self.frame, self.tau_max, 0.6)
         golden_edges, golden_array, nor_golden_array = asso_miner.interaction_mining(selected_links)
-        return golden_edges, golden_array, nor_golden_array
+        return golden_edges, ground_automation_dict, chained_automation_rules, golden_array, nor_golden_array
 
-    def categorize_interaction(self, p_attr:'str', c_attr:'str'):
+    def categorize_interaction(self, p_dev:'DevAttribute', c_dev:'DevAttribute'):
+        p_attr = p_dev.attr; c_attr = c_dev.attr
         attr_list = [p_attr, c_attr]
         int_type = 'unknown'
         if self.event_preprocessor.dataset=='contextact':
-            actuators = ['Dimmer', 'Switch', 'Water-Meter', 'Contact-Sensor', 'Power-Sensor']
+            actuators = ['Dimmer', 'Switch', 'Water-Meter', 'Power-Sensor']
             movement_detectors = ['Infrared-Movement-Sensor', 'Contact-Sensor']
-            power_channels = ['Power-Sensor']
             brightness_channels = ['Brightness-Sensor']
-            if all([x in actuators for x in attr_list]):
+            for k, v in self.golden_rules.items():
+                if p_dev.name == k[0] and c_dev.name == v[0]:
+                    return 'automation'
+            if p_dev.name == c_dev.name:
+                int_type = 'autocorrelation'
+            elif p_attr in actuators+brightness_channels and c_attr in actuators:
                 int_type = 'uau'
-            if all([x in movement_detectors for x in attr_list]):
-                int_type = 'mam'
-            if p_attr in movement_detectors and c_attr in actuators:
-                int_type = 'uam'
-            if p_attr in  actuators and c_attr in movement_detectors:
+            elif p_attr in  actuators+brightness_channels and c_attr in movement_detectors:
                 int_type = 'mau'
-            if any([x in power_channels for x in attr_list]):
-                int_type = 'power'
-            if any([x in brightness_channels for x in attr_list]):
+            elif all([x in movement_detectors for x in attr_list]):
+                int_type = 'mam'
+            elif p_attr in movement_detectors and c_attr in actuators:
+                int_type = 'uam'
+            elif c_attr in brightness_channels:
                 int_type = 'brightness'
+            else:
+                print("Unknown categorization for pair {}".format(attr_list))
+                int_type = 'unknown'
             
         return int_type
 
@@ -135,7 +188,7 @@ class Evaluator():
         for index, x in np.ndenumerate(evaluated_array):
             if evaluated_array[index] == golden_array[index] == 1:
                 p_dev = index_device_dict[index[0]]; c_dev = index_device_dict[index[1]]
-                tp_info_dict[self.categorize_interaction(p_dev.attr, c_dev.attr)].append((p_dev.name, c_dev.name))
+                tp_info_dict[self.categorize_interaction(p_dev, c_dev)].append((p_dev.name, c_dev.name))
 
         # 3. Save debugging information for each edge (if applied)
         tp_dict = None; tn_dict = None; fp_dict = None; fn_dict = None
@@ -146,7 +199,8 @@ class Evaluator():
                     'adev-pair': '{}->{}'.format(index_device_dict[index[0]].name, index_device_dict[index[1]].name),
                     'attr-pair': (index_device_dict[index[0]].attr, index_device_dict[index[1]].attr),
                     'spatial': (index_device_dict[index[0]].location, index_device_dict[index[1]].location),
-                    'frequency': max(list(frequency_array[index[0], index[1], :]))
+                    'frequency': max(list(frequency_array[index[0], index[1], :])),
+                    'int-type': self.categorize_interaction(index_device_dict[index[0]], index_device_dict[index[1]])
                 }
                 if evaluated_array[index] == 1 and golden_array[index] == 1:
                     edge_infos = [edge_info for edge_info in identified_edge_infos[index[1]] if edge_info[0][1][0]==index[0]]
@@ -155,7 +209,7 @@ class Evaluator():
                         cpt, ate = frame.get_cpt_and_ate(prior_vars=[edge_info[0][1]], latter_vars=[(edge_info[0][0], 0)], cond_vars=[], tau_max=self.tau_max)
                         if abs(ate) > max_ate:
                             pair_info['pval'] = round(edge_info[2], 3)
-                            #pair_info['cpt'] = cpt
+                            pair_info['cpt'] = cpt
                             pair_info['cate'] = round(ate, 3)
                     tp_dict[pair_info['adev-pair']] = pair_info
                 elif evaluated_array[index] == 1 and golden_array[index] == 0:
@@ -165,29 +219,37 @@ class Evaluator():
                         cpt, ate = frame.get_cpt_and_ate(prior_vars=[edge_info[0][1]], latter_vars=[(edge_info[0][0], 0)], cond_vars=[], tau_max=self.tau_max)
                         if abs(ate) > max_ate:
                             pair_info['pval'] = round(edge_info[2], 3)
-                            #pair_info['cpt'] = edge_info[2]
+                            pair_info['cpt'] = cpt
                             pair_info['cate'] = round(ate, 3)
                     fp_dict[pair_info['adev-pair']] = pair_info
                 elif evaluated_array[index] == 0 and golden_array[index] == 1:
                     edge_infos = [edge_info for edge_info in filtered_edge_infos[index[1]] if edge_info[0][1][0]==index[0]]
-                    filter_infos = []; max_ate = 0.
+                    filter_infos = []
+                    max_ate = 0.; selected_cpt = {}
                     for edge_info in edge_infos:
                         cpt, ate = frame.get_cpt_and_ate(prior_vars=[edge_info[0][1]], latter_vars=[(edge_info[0][0], 0)], cond_vars=[], tau_max=self.tau_max)
-                        max_ate = ate if abs(ate) > max_ate else max_ate
+                        if abs(ate) > max_ate:
+                            max_ate = ate
+                            selected_cpt = cpt
                         filter_infos.append((edge_info[0][1][1], [(index_device_dict[cond[0]].name, cond[1]) for cond in edge_info[1]], round(edge_info[3],3), round(ate,3))) # lag, conds, pval, ate
                     sorted(filter_infos, key=lambda x: x[-1], reverse=True)
                     pair_info['filter-info'] = filter_infos
+                    pair_info['cpt'] = selected_cpt
                     pair_info['cate'] = round(max_ate, 3)
                     fn_dict[pair_info['adev-pair']] = pair_info
                 else:
                     edge_infos = [edge_info for edge_info in filtered_edge_infos[index[1]] if edge_info[0][1][0]==index[0]]
-                    filter_infos = []; max_ate = 0.
+                    filter_infos = []
+                    max_ate = 0.; selected_cpt = {}
                     for edge_info in edge_infos:
                         cpt, ate = frame.get_cpt_and_ate(prior_vars=[edge_info[0][1]], latter_vars=[(edge_info[0][0], 0)], cond_vars=[], tau_max=self.tau_max)
-                        max_ate = ate if abs(ate) > max_ate else max_ate
+                        if abs(ate) > max_ate:
+                            max_ate = ate
+                            selected_cpt = cpt
                         filter_infos.append((edge_info[0][1][1], [(index_device_dict[cond[0]].name, cond[1]) for cond in edge_info[1]], round(edge_info[3],3), round(ate,3))) # lag, conds, pval, ate
                     sorted(filter_infos, key=lambda x: x[-1], reverse=True)
                     pair_info['filter-info'] = filter_infos
+                    pair_info['cpt'] = selected_cpt
                     pair_info['cate'] = round(max_ate, 3)
                     tn_dict[pair_info['adev-pair']] = pair_info
             tp_dict = dict(sorted(tp_dict.items(), key=lambda item: abs(item[1]['cate']), reverse=True))
@@ -361,9 +423,9 @@ class Evaluator():
         int_anomaly_dict = None
         if self.event_preprocessor.dataset == 'contextact':
             int_anomaly_dict = {
-                0: ['Brightness-Sensor', 'Power-Sensor', 'Water-Meter'],
+                0: ['Brightness-Sensor'],
                 1: ['Infrared-Movement-Sensor', 'Contact-Sensor'],
-                2: ['Power-Sensor', 'Water-Meter', 'Contact-Sensor', 'Dimmer', 'Switch'],
+                2: ['Power-Sensor', 'Water-Meter', 'Dimmer', 'Switch'],
                 3: ['Power-Sensor', 'Water-Meter', 'Contact-Sensor', 'Dimmer', 'Switch']
             }
         return int_anomaly_dict
@@ -373,16 +435,13 @@ class Evaluator():
         The case_id represents the injected anomaly type.
             0: Burglar wandering at homes.
             1: Unauthorized access of a set of actuators
-            2: Chained automation executions
-            3: Automation interactiosn through the physical channel
         """
         int_anomaly_dict = None
         if self.event_preprocessor.dataset == 'contextact':
             int_anomaly_dict = {i:[] for i in range(2)}
             for k in range(kmax):
                 int_anomaly_dict[0].append(['Infrared-Movement-Sensor', 'Contact-Sensor'])
-                int_anomaly_dict[1].append(['Power-Sensor', 'Water-Meter', 'Contact-Sensor', 'Dimmer', 'Switch'])
-                #int_anomaly_dict[2].append(['Brightness-Sensor', 'Power-Sensor', 'Water-Meter', 'Infrared-Movement-Sensor', 'Contact-Sensor', 'Dimmer', 'Switch'])
+                int_anomaly_dict[1].append(['Power-Sensor', 'Water-Meter', 'Dimmer', 'Switch'])
         return int_anomaly_dict
     
     def randomly_generate_automations(self, n_auto):
@@ -508,7 +567,6 @@ class Evaluator():
         var_names = frame.var_names
         benign_event_states:'list[tuple(AttrEvent,ndarray)]' = frame.testing_events_states
         security_guard = SecurityGuard(frame, ground_truth_fitter, sig_level)
-        int_attrs_list = self.get_int_collective_anomaly_dict(kmax)[case_id]
 
         # 0. Before injecting anomalies, get the lagged system states of the normal testing events
         security_guard.initialize_phantom_machine()
@@ -544,9 +602,11 @@ class Evaluator():
             return candidate_events
 
         # 1. Generate the anomaly chains
-        candidate_position_chains = {}
-        security_guard.initialize_phantom_machine()
-        for evt_id, (event, states) in enumerate(benign_event_states):
+        candidate_position_chains = {}; debugging_position_chains = {}
+        if case_id in [0, 1]:
+            int_attrs_list = self.get_int_collective_anomaly_dict(kmax)[case_id]
+            security_guard.initialize_phantom_machine()
+            for evt_id, (event, states) in enumerate(benign_event_states):
                 security_guard.phantom_state_machine.set_latest_states(states)
                 candidate_anomaly_chains = []
                 # 1. Generate candidate anomaly chains at each potential position
@@ -582,6 +642,50 @@ class Evaluator():
                 selected_anomaly_chain = random.choice(candidate_anomaly_chains)
                 candidate_position_chains[evt_id] = [(tup[0], tup[1]) for tup in selected_anomaly_chain] # We do not need the recorded state machine, we only need the anomalous event and the states
 
+        elif case_id == 2:
+            security_guard.initialize_phantom_machine()
+            # For each position, we first identify a set of candidate anomalies (candidate_anomaly_chains). Then we randomly select one as the selected anomaly chain.
+            for evt_id, (event, states) in enumerate(benign_event_states):
+                security_guard.phantom_state_machine.set_latest_states(states)
+                candidate_anomaly_chains = []
+                for k in range(kmax):
+                    if k==0: # Determine the first candidate contextual anomaly, which should trigger some anomaly chains
+                        for var_name in var_names:
+                            last_state = security_guard.phantom_state_machine.phantom_states[var_names.index(var_name)] # Generate the flipped state
+                            anomalous_state = 1 - last_state # We prepare to inejct a contextual anomaly (var_name, anomalous_state)
+                            suitable_rule_chains = [chain for chain in self.rule_chains if chain[0]==(var_name,anomalous_state)]
+                            if len(suitable_rule_chains)==0: # If there is no chains which can be triggered, we do not consider the anomaly
+                                continue
+                            selected_anomaly_chain = random.choice(suitable_rule_chains)
+                            var_attr = device_description_dict[var_name]['attr']
+                            candidate_event = AttrEvent('', '', var_name, var_attr, anomalous_state)
+                            if security_guard._compute_event_anomaly_score(candidate_event, security_guard.phantom_state_machine) >= security_guard.score_threshold:
+                                anomalous_states = states.copy(); anomalous_states[var_names.index(var_name)] = candidate_event.value
+                                temp_state_machine = deepcopy(security_guard.phantom_state_machine); temp_state_machine.set_latest_states(anomalous_states)
+                                candidate_anomaly_chains.append([(candidate_event, anomalous_states, temp_state_machine, selected_anomaly_chain, True)])
+                    else:
+                        for cur_chain in candidate_anomaly_chains:
+                            rule_chain = cur_chain[-1][3]
+                            if (cur_chain[-1][-1] is False) or (len(cur_chain)>=len(rule_chain)) or (len(cur_chain)==kmax): # If the current chain is a borken chain which cannot propagate anymore at some timestamp, do not consider it again
+                                continue
+                            last_event, last_states, state_machine = cur_chain[-1][0:3]
+                            collective_dev, collective_state = rule_chain[k]
+                            collective_event = AttrEvent(last_event.date, last_event.time, collective_dev, device_description_dict[collective_dev]['attr'], collective_state)
+                            if (state_machine.phantom_states[var_names.index(collective_dev)] != collective_state) and security_guard._compute_event_anomaly_score(collective_event, state_machine) < security_guard.score_threshold:
+                                anomalous_states = last_states.copy(); anomalous_states[var_names.index(collective_event.dev)] = collective_event.value
+                                state_machine.set_latest_states(anomalous_states)
+                                cur_chain.append((collective_event, anomalous_states, state_machine, rule_chain, True))
+                            else:
+                                # Stop tracking the chain
+                                cur_chain[-1] = (cur_chain[-1][0], cur_chain[-1][1], cur_chain[-1][2], cur_chain[-1][3], False)
+                # We want to identify chained automation executions with length at least 2
+                candidate_anomaly_chains = [chain for chain in candidate_anomaly_chains if len(chain)==kmax]
+                if len(candidate_anomaly_chains) == 0:
+                    continue
+                selected_anomaly_chain = random.choice(candidate_anomaly_chains)
+                candidate_position_chains[evt_id] = [(tup[0], tup[1]) for tup in selected_anomaly_chain] # We do not need the recorded state machine, we only need the anomalous event and the states
+                debugging_position_chains[evt_id] = [(tup[0].dev, tup[0].value) for tup in selected_anomaly_chain]
+
         # 2. Insert the selected anomaly chain to the testing sequence
         new_testing_event_states:'list[tuple(AttrEvent,ndarray)]' = []; anomaly_positions = []; testing_benign_dict:'dict[int]' = {}
         # 2.1 Randomly select n_anomaly positions as the injectted anomaly
@@ -598,8 +702,8 @@ class Evaluator():
             testing_benign_dict[new_event_id] = (evt_id, benign_lagged_states[evt_id], benign_lagged_events[evt_id])
             new_event_id += 1
             if evt_id in selected_anomaly_positions:
-                #print("     Position {} with phantom states: {}".format(new_event_id, security_guard.phantom_state_machine.get_lagged_states()))
                 anomaly_positions.append(new_event_id)
+                #print("     Position {} with phantom states: {}".format(new_event_id, security_guard.phantom_state_machine.get_lagged_states()))
                 anomaly_chain = candidate_position_chains[evt_id]
                 for id, anomaly_event_state in enumerate(anomaly_chain):
                     if id == 0:
@@ -625,37 +729,42 @@ class Evaluator():
         #print("[{}-Model Contextual Anomaly Detection for Case-{}] Precision, recall, f1 = {:.3f}, {:.3f}, {:.3f}".format(model_name, case_id, precision, recall, f1))
         return precision, recall, f1
     
-    def evaluate_collective_detection_accuracy(self, alarm_position_chains, anomaly_positions, kmax, case_id, model_name='unknown'):
-        anomaly_cases = self.get_int_collective_anomaly_dict(kmax)[case_id]
-        alarm_positions = []
-        chain_length_dict = defaultdict(int)
-        for alarm in alarm_position_chains:
-            alarm_events = alarm[1]
-            chain_length_dict[len(alarm_events)] += 1
-            if len(alarm_events) < kmax: # For those anomaly chains which are partially identified: Removed them.
-                continue
-            alarm_attrs = [event.attr for event in alarm_events]
-            #print("Detected anomaly chain at position {} with attributes: {}".format(alarm[0], alarm_attrs))
-            if all([alarm_attrs[i] in anomaly_cases[i] for i in range(len(alarm_attrs))]): # If the reported chain satisfies the case
-                alarm_positions.append(alarm[0])
-        pprint(chain_length_dict)
-        tp, fp, fn, precision, recall, f1 = self.calculate_accuracy(alarm_positions, anomaly_positions)
-        print("[{}-Model Collective Anomaly Detection for Case-{}] Precision, recall, f1 = {:.3f}, {:.3f}, {:.3f}".format(model_name, case_id, precision, recall, f1))
-        return precision, recall, f1
+    def evaluate_collective_detection_accuracy(self, alarm_position_events, anomaly_positions, kmax, case_id, model_name='unknown'):
+        alarm_positions = [tup[0] for tup in alarm_position_events]
+        detected_len_dict = {}
+        for anomaly_start_pos in anomaly_positions:
+            detect_start = anomaly_start_pos in alarm_positions
+            n_detected_anomalies = 0
+            for i in range(kmax):
+                if anomaly_start_pos + i in alarm_positions:
+                    n_detected_anomalies += 1
+            if detect_start and n_detected_anomalies > 0:
+                detected_len_dict[n_detected_anomalies] = 1 if n_detected_anomalies not in detected_len_dict.keys() else detected_len_dict[n_detected_anomalies]+1
+        for k, v in detected_len_dict.items():
+            detected_len_dict[k] = round(1.*v/len(anomaly_positions), 4)
+        #print("[{}-Model Collective Anomaly Detection for Case-{}] {}".format(model_name, case_id, detected_len_dict))
+        return detected_len_dict
 
-    def analyze_false_contextual_results(self, causal_bayesian_fitter:'BayesianFitter', ground_truth_fitter:'BayesianFitter', sig_level, case_id):
-        test_ground_fitter = BayesianFitter(causal_bayesian_fitter.frame, self.tau_max, self.golden_edges, causal_bayesian_fitter.n_max_edges, model_name='Test-golden', use_training=False)
-        test_ground_fitter.bayesian_parameter_estimation()
-        # Generate testing anomalies
-        testing_event_states, anomaly_positions, testing_benign_dict = self.inject_contextual_anomalies(ground_truth_fitter, sig_level, 4000, case_id)
+    def analyze_false_contextual_results(self, causal_bayesian_fitter:'BayesianFitter', ground_truth_fitter:'BayesianFitter', sig_level, case_id,\
+                                            testing_event_states, anomaly_positions, testing_benign_dict,
+                                            markov_miner, ocsvmer, hawatcher):
+
         anomaly_cases = self.get_int_anomaly_dict()[case_id]
 
         causal_guard = SecurityGuard(self.frame, causal_bayesian_fitter, sig_level); causal_guard.initialize_phantom_machine()
         ground_guard = SecurityGuard(self.frame, ground_truth_fitter, sig_level); ground_guard.initialize_phantom_machine()
+        test_ground_fitter = BayesianFitter(causal_bayesian_fitter.frame, self.tau_max, self.golden_edges, causal_bayesian_fitter.n_max_edges, model_name='Test-golden', use_training=False)
+        test_ground_fitter.bayesian_parameter_estimation()
         test_ground_guard = SecurityGuard(self.frame, test_ground_fitter, sig_level); test_ground_guard.initialize_phantom_machine()
         assert(causal_guard.phantom_state_machine.equal(ground_guard.phantom_state_machine.phantom_states))
-        print("Calculated score threshold Causal v.s. Ground = {} v.s. {}".format(causal_guard.score_threshold, ground_guard.score_threshold))
-        fp = 0; fn = 0
+        print("[CASE={}] Calculated score threshold Causal v.s. Ground = {} v.s. {}".format(case_id, causal_guard.score_threshold, ground_guard.score_threshold))
+
+        markov_alarm_position_events = markov_miner.anomaly_detection(testing_event_states, testing_benign_dict, verbosity=1)
+        ocsvm_alarm_position_events = ocsvmer.anomaly_detection(testing_event_states, verbosity=0)
+        hawatcher_alarm_position_events = hawatcher.anomaly_detection(testing_event_states, testing_benign_dict, verbosity=1)
+
+        tp=0; fp = 0; fn = 0; tn = 0
+        tp_dev_dict = defaultdict(dict); fp_dev_dict = defaultdict(dict); fn_dev_dict = defaultdict(dict); tn_dev_dict = defaultdict(dict)
         for evt_id, (event, states)  in enumerate(testing_event_states):
             parents = ground_guard.bayesian_fitter.model.get_parents(event.dev)
             indices = [ground_guard.bayesian_fitter.expanded_var_names.index(parent)-ground_guard.bayesian_fitter.n_vars for parent in parents]
@@ -668,38 +777,81 @@ class Evaluator():
 
             causal_parents = set(causal_guard.bayesian_fitter.model.get_parents(event.dev))
             ground_parents = set(ground_guard.bayesian_fitter.model.get_parents(event.dev))
+            common_parents = sorted(causal_parents.intersection(ground_parents))
+            causal_exc_parents = sorted(causal_parents.difference(ground_parents))
+            ground_exc_parents = sorted(ground_parents.difference(causal_parents))
 
-            fp_dev_dict = defaultdict(int); fn_dev_dict = defaultdict(int)
+            event_info = (event.dev, event.value, ground_score, causal_score)
+
             if evt_id in anomaly_positions:
                 assert(ground_score >= ground_guard.score_threshold) 
                 if (causal_score < causal_guard.score_threshold) and (event.attr in anomaly_cases):
                     # A false negative is detected.
-                    fn_dev_dict[event.dev]+=1; fn+=1
-                    print("False negative anomaly event at Line {}: {}".format(evt_id, event))
-                    print("     [Parent situation] {}".format(parent_states))
-                    print("     [Score comparison] Ground score v.s. Causal score: {} v.s. {}".format(ground_score, causal_score))
-                    if (len(causal_parents.difference(ground_parents)) > 0 or len(ground_parents.difference(causal_parents)) > 0):
-                        print("     [Model similarity] common parents = {}".format(sorted(causal_parents.intersection(ground_parents))))
-                        print("     [Model difference] causal - ground = {}".format(sorted(causal_parents.difference(ground_parents))))
-                        print("     [Model difference] ground - causal = {}".format(sorted(ground_parents.difference(causal_parents))))
+                    fn_dev_dict[event_info]['count'] = 1 if 'count' not in fn_dev_dict[event_info].keys() else fn_dev_dict[event_info]['count']+1
+                    fn+=1
+                    info_str = 'Parent situation: {}\n\
+                                [Model similarity] common parents = {}\n\
+                                [Model difference] causal - ground = {}\n\
+                                [Model difference] ground - causal = {}\n'.format(parent_states, common_parents, causal_exc_parents, ground_exc_parents)
+                    fn_dev_dict[event_info]['info'] = info_str
+                else:
+                    tp_dev_dict[event_info]['count'] = 1 if 'count' not in tp_dev_dict[event_info].keys() else tp_dev_dict[event_info]['count']+1
+                    tp+=1
+                    info_str = 'Parent situation: {}\n\
+                                [Model similarity] common parents = {}\n\
+                                [Model difference] causal - ground = {}\n\
+                                [Model difference] ground - causal = {}\n'.format(parent_states, common_parents, causal_exc_parents, ground_exc_parents)
+                    tp_dev_dict[event_info]['info'] = info_str
+                    if evt_id not in [alarm[0] for alarm in markov_alarm_position_events] and 'markov-fn-info' not in tp_dev_dict[event_info].keys():
+                        # JC TODO: A markov false negative detected, what is the helpful info?
+                        pass
             else:
-                #assert(ground_score < ground_guard.score_threshold)
                 if (causal_score >= causal_guard.score_threshold) and (event.attr in anomaly_cases): # A false negative is detected
-                    fp_dev_dict[event.dev]+=1; fp+=1
-                    print("False positive anomaly event at Line {}: {} \n Parent situation: {}".format(evt_id, event, parent_states))
-                    print("     [Parent situation] {}".format(parent_states))
-                    print("     Ground score v.s. Causal score: {} v.s. {}".format(ground_score, causal_score))
+                    fp_dev_dict[event_info]['count'] = 1 if 'count' not in fp_dev_dict[event_info].keys() else fp_dev_dict[event_info]['count']+1
+                    fp+=1
+                    info_str = 'Parent situation: {}\n\
+                                [Model similarity] common parents = {}\n\
+                                [Model difference] causal - ground = {}\n\
+                                [Model difference] ground - causal = {}\n'.format(parent_states, common_parents, causal_exc_parents, ground_exc_parents)
                     if ground_score >= ground_guard.score_threshold:
                         # Some rare behaviors in the training data happen in the testing data
-                        print("     [Model shift] A model shift is detected. Training v.s. Testing probability: {} v.s. {}".format(1-ground_score, 1-test_ground_score))
-                    else:
-                        if (len(causal_parents.difference(ground_parents)) > 0 or len(ground_parents.difference(causal_parents)) > 0):
-                            print("     [Model similarity] common parents = {}".format(sorted(causal_parents.intersection(ground_parents))))
-                            print("     [Model difference] causal - ground = {}".format(sorted(causal_parents.difference(ground_parents))))
-                            print("     [Model difference] ground - causal = {}".format(sorted(ground_parents.difference(causal_parents))))
+                        info_str += "[Model shift] A model shift is detected. Training v.s. Testing probability: {} v.s. {}\n".format(1-ground_score, 1-test_ground_score)
+                    fp_dev_dict[event_info]['info'] = info_str
+                else:
+                    tn_dev_dict[event_info]['count'] = 1 if 'count' not in tn_dev_dict[event_info].keys() else tn_dev_dict[event_info]['count']+1
+                    tn+=1
+                    info_str = 'Parent situation: {}\n\
+                                [Model similarity] common parents = {}\n\
+                                [Model difference] causal - ground = {}\n\
+                                [Model difference] ground - causal = {}\n'.format(parent_states, common_parents, causal_exc_parents, ground_exc_parents)
+                    tn_dev_dict[event_info]['info'] = info_str
+                    if evt_id in [alarm[0] for alarm in markov_alarm_position_events] and 'markov-fn-info' not in tn_dev_dict[event_info].keys():
+                        markov_false_alarm = [alarm for alarm in markov_alarm_position_events if alarm[0] == evt_id][0]
+                        tn_dev_dict[event_info]['markov-fn-info'] = markov_false_alarm[2]
+                    if evt_id in [alarm[0] for alarm in hawatcher_alarm_position_events] and 'haw-fn-info' not in tn_dev_dict[event_info].keys():
+                        haw_false_alarm = [alarm for alarm in hawatcher_alarm_position_events if alarm[0] == evt_id][0]
+                        tn_dev_dict[event_info]['haw-fn-info'] = haw_false_alarm[2]
             causal_guard.phantom_state_machine.flush(testing_benign_dict[evt_id][1])
             ground_guard.phantom_state_machine.flush(testing_benign_dict[evt_id][1])
             test_ground_guard.phantom_state_machine.flush(testing_benign_dict[evt_id][1])
-        print("Anomaly case {}: FP, FN = {} {}".format(case_id, fp, fn))
-        pprint(fp_dev_dict)
-        pprint(fn_dev_dict)
+        print("Anomaly case {}: FP, FN, Pre, Recall = {} {} {} {}".format(case_id, fp, fn, 1.*tp/(tp+fp), 1.*tp/(tp+fn)))
+        for k, info_dict in tp_dev_dict.items():
+            if info_dict['count'] >= 200:
+                print("Significant true positive detected: {}".format(k))
+                for index, info in info_dict.items():
+                    print("{}: {}".format(index, info))
+        for k, info_dict in fp_dev_dict.items():
+            if info_dict['count'] >= 10:
+                print("Significant false positive detected: {}".format(k))
+                for index, info in info_dict.items():
+                    print("{}: {}".format(index, info))
+        for k, info_dict in fn_dev_dict.items():
+            if info_dict['count'] >= 10:
+                print("Significant false negative detected: {}".format(k))
+                for index, info in info_dict.items():
+                    print("{}: {}".format(index, info))
+        for k, info_dict in tn_dev_dict.items():
+            if info_dict['count'] >= 100 and len(list(info_dict.keys()))>2:
+                print("Significant true negative detected: {}".format(k))
+                for index, info in info_dict.items():
+                    print("{}: {}".format(index, info))

@@ -197,9 +197,9 @@ class SecurityGuard():
             #elif evt_id-cur_tracking_contextual_id < kmax:
             #    print("     Collective anomaly at position {}, the calculated score: {}, the detection result: {}".format(evt_id, anomaly_score, anomaly_score<self.score_threshold))
             if 0<len(anomaly_chain)<kmax and anomaly_score < self.score_threshold:
-                anomaly_chain.append(event)
+                anomaly_chain.append((evt_id, event))
             elif 0<len(anomaly_chain)<kmax and anomaly_score >= self.score_threshold:
-                print("     Chain breaks with length: {}".format(len(anomaly_chain)))
+                #print("     Chain breaks with length: {}".format(len(anomaly_chain)))
                 alarm_chains.append(anomaly_chain.copy())
                 anomaly_chain = []
                 latest_stable_lagged_states = testing_benign_dict[evt_id][1]
@@ -209,7 +209,7 @@ class SecurityGuard():
             elif len(anomaly_chain)==0 and anomaly_score >= self.score_threshold:
                 # Record the position of the contextual anomaly, and start maintaining the anomaly chain
                 alarm_start_positions.append(evt_id)
-                anomaly_chain = [event]
+                anomaly_chain = [(evt_id, event)]
 
             self.phantom_state_machine.set_latest_states(states)
 
@@ -221,7 +221,7 @@ class SecurityGuard():
 
         #print("TP, FP = {}, {}".format(tp, fp))
         assert(len(alarm_start_positions) == len(alarm_chains))
-        return list(zip(alarm_start_positions, alarm_chains))
+        return alarm_chains
 
     def analyze_detection_results(self):
         tps = sum([len(tp_list) for tp_list in self.tp_debugging_dict.values()])

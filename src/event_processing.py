@@ -7,6 +7,7 @@ import pandas as pd
 from datetime import datetime
 from collections import defaultdict
 import ruptures as rpt
+import json
 from pprint import pprint
 
 from src.tigramite.tigramite import data_processing as pp
@@ -33,6 +34,7 @@ class GeneralProcessor():
 		self.origin_data = '{}data-origin'.format(self.data_path)
 		self.transition_data = '{}data-transition'.format(self.data_path)
 		self.ground_truth = '{}ground-truth'.format(self.data_path)
+		self.automation_path = '{}automations'.format(self.data_path)
 		self.result_path = './results/{}/'.format(self.dataset)
 
 		self.partition_days = partition_days
@@ -206,7 +208,7 @@ class Cprocessor(GeneralProcessor):
 		except:
 			return None
 		date = inp[0].split(' ')[0]; time = inp[0].split(' ')[1].replace(",", ".")
-		dev = inp[1]; dev_val = inp[2]
+		dev = inp[1].replace(' ', '-'); dev_val = inp[2]
 		return AttrEvent(date, time, dev,\
 								self.device_description_dict[dev]['attr'], dev_val)
 
@@ -273,6 +275,9 @@ class Cprocessor(GeneralProcessor):
 			attr_occurrence_dict[parsed_event.attr][parsed_event.dev] = 1 if parsed_event.dev not in attr_occurrence_dict[parsed_event.attr].keys()\
 					else attr_occurrence_dict[parsed_event.attr][parsed_event.dev] + 1
 			device_state_dict[parsed_event.dev] = parsed_event.value
+			self.attr_dev_dict[parsed_event.attr].append(parsed_event.dev)
+			for k, v in self.attr_dev_dict.items():
+				self.attr_dev_dict[k] = list(set(v))
 			qualified_events.append(parsed_event)
 		if self.verbosity:
 			#print("[Data Sanitization] Missed attr dict during data preprocessing:")
@@ -280,31 +285,66 @@ class Cprocessor(GeneralProcessor):
 			attrs = list(attr_occurrence_dict.keys())
 			attr_n_devs = [len(attr_occurrence_dict[attr].keys()) for attr in attrs]
 			attr_n_events = [sum(list(attr_occurrence_dict[attr].values())) for attr in attrs]
-			print("[Data Sanitization] Candidate attrs, n_devices, and n_events: {}".format(list(zip(attrs, attr_n_devs, attr_n_events))))
+			#print("[Data Sanitization] Candidate attrs, n_devices, and n_events: {}".format(list(zip(attrs, attr_n_devs, attr_n_events))))
 		return qualified_events
 
-	def randomly_generate_automations(self, n_auto):
-		conditions = ['Brightness-Sensor', 'Infrared-Movement-Sensor', 'Contact-Sensor', 'Power-Sensor', 'Water-Meter', 'Contact-Sensor', 'Dimmer', 'Switch']
-		outcomes = ['Power-Sensor', 'Water-Meter', 'Contact-Sensor', 'Dimmer', 'Switch']
-		candidate_condition_devices = []; candidate_outcome_devices = []
-		for condition_attr in conditions:
-			candidate_condition_devices += self.attr_dev_dict[condition_attr]
-		for outcome_attr in outcomes:
-			candidate_outcome_devices += self.attr_dev_dict[outcome_attr]
-		candidate_conditions = [(dev, val) for dev in candidate_condition_devices for val in [0, 1]]
-		candidate_actions = [(dev, val) for dev in candidate_outcome_devices for val in [0, 1]]
-
+	def randomly_generate_automations(self, frequency_df:'pd.DataFrame', n_auto):
 		automations = {}
-		while len(automations.keys())==0:
-			selected_conditions = random.choices(candidate_conditions, k=n_auto)
-			selected_actions = random.choices(candidate_actions, k=n_auto)
-			if any([selected_conditions[i][0]==selected_actions[i][0] for i in range(n_auto)]): # There is self-triggerd rule, i.e., trigger.dev==action.dev
-				continue
-			if all([selected_actions[i] not in selected_conditions for i in range(n_auto)]): # There is no chained rules
-				continue
-			for i in range(n_auto):
-				automations[selected_conditions[i]] = selected_actions[i]
+		predefined_automations = None
+		if not predefined_automations:
+			conditions = ['Brightness-Sensor', 'Infrared-Movement-Sensor', 'Contact-Sensor', 'Power-Sensor', 'Water-Meter', 'Contact-Sensor', 'Dimmer', 'Switch']
+			outcomes = ['Brightness-Sensor', 'Power-Sensor', 'Water-Meter', 'Contact-Sensor', 'Dimmer', 'Switch']
+			candidate_condition_devices = []; candidate_outcome_devices = []
+			for condition_attr in conditions:
+				candidate_condition_devices += self.attr_dev_dict[condition_attr]
+			for outcome_attr in outcomes:
+				candidate_outcome_devices += self.attr_dev_dict[outcome_attr]
 
+			# We first select k conditions with not so few frequencies and not duplicated
+			row_sum = frequency_df.sum(axis=1); total_sum = sum(list(row_sum))
+			candidate_conditions = [(dev, val) for dev in candidate_condition_devices for val in [0, 1]\
+									if row_sum.loc['{}:{}'.format(dev, val)]>0.001*total_sum]
+			#print("# candidate conditions: {}".format(len(set(candidate_conditions))))
+			selected_conditions = random.sample(candidate_conditions, k=n_auto)
+			while True:
+				cond_devs = [cond[0] for cond in selected_conditions]
+				if len(set(cond_devs))==len(cond_devs) and any([self.device_description_dict[var]['attr']=='Brightness-Sensor' for var in cond_devs]): # We dont want any duplicated elements
+					break
+				else:
+					selected_conditions = random.sample(candidate_conditions, k=n_auto)
+
+			# Then for each condition, we want to select actions which have low frequencies with it. For example, everytime when A=1 happens, B=0 happens rare. We would like to select B=0 as the action device
+			for cond in selected_conditions:
+				cond_val_name = ':'.join((cond[0], str(cond[1])))
+				action_frequency_df = frequency_df.loc[[cond_val_name]]
+				action_frequency_df = action_frequency_df.div(action_frequency_df.sum(axis=1), axis=0)
+				candidate_actions = [(dev, val) for dev in candidate_outcome_devices for val in [0, 1]\
+					if dev != cond[0] and action_frequency_df.at[cond_val_name, ':'.join((dev, str(val)))]<0.01]
+				if len(candidate_actions) == 0:
+					continue
+				selected_action = random.choice(candidate_actions)
+				automations[cond] = selected_action
+		
+			# We also want to add chained automation rules. That is, for the generated automation rules, we randomly select 3 of them, use their actions as new triggers and generate rules.
+			chained_triggers = random.sample(list(automations.values()), 3)
+			while True:
+				if any([self.device_description_dict[var]['attr']=='Brightness-Sensor' for var in [trigger[0] for trigger in chained_triggers]]):
+					break
+				else:
+					chained_triggers = random.sample(list(automations.values()), 3)
+			for trigger in chained_triggers:
+				trigger_name = ':'.join((trigger[0], str(trigger[1])))
+				action_frequency_df = frequency_df.loc[[trigger_name]]
+				action_frequency_df = action_frequency_df.div(action_frequency_df.sum(axis=1), axis=0)
+				candidate_actions = [(dev, val) for dev in candidate_outcome_devices for val in [0, 1]\
+					if dev != trigger[0] and action_frequency_df.at[trigger_name, ':'.join((dev, str(val)))]<0.01 and (trigger, (dev, val)) not in automations.items()]
+				if len(candidate_actions) == 0:
+					continue
+				selected_action = random.choice(candidate_actions)
+				automations[trigger] = selected_action
+		else:
+			automations = predefined_automations
+		pprint(automations)
 		return automations
 
 	def unify_value_type(self, parsed_events: "list[AttrEvent]") -> "list[AttrEvent]":
@@ -414,13 +454,11 @@ class Cprocessor(GeneralProcessor):
 		return unified_parsed_events
 
 	def create_preprocessed_data_file(self, unified_parsed_events: "list[AttrEvent]"):
-		automations = self.randomly_generate_automations(n_auto=10)
-		print("Added automation rules in the training phase:")
-		pprint(automations)
 		fout = open(self.transition_data, 'w+')
 		# 1. Identify all devices in the dataset
 		var_names = set()
 		for unified_event in unified_parsed_events:
+			unified_event.dev = unified_event.dev.replace(' ', '-')
 			var_names.add(unified_event.dev)
 		var_names = list(var_names); var_names.sort()
 		# 2. Build the index for each device
@@ -430,28 +468,74 @@ class Cprocessor(GeneralProcessor):
 								location=self.device_description_dict[var_names[i]]['location'])
 			name_device_dict[var_names[i]] = device; index_device_dict[i] = device
 		assert(len(name_device_dict.keys()) == len(index_device_dict.keys())) # The violation indicates that there exists devices with the same name
-		# 3. Filter redundant events which do not imply state changes, and get summary of qualified events
+
+		# 3. Filter redundant events which do not imply state changes
+		qualified_events: "list[AttrEvent]" = []
 		last_states = [0] * len(var_names)
-		n_events = 0
 		attr_occurrence_dict = defaultdict(dict)
+		dev_val_names = ['{}:{}'.format(dev, val) for dev in var_names for val in [0, 1]]
+		# For each runtime event (A=0), store the frequency of the state snapshot (e.g., B:=1)
+		frequency_array = np.zeros((len(dev_val_names), len(dev_val_names)))
+		frequency_df = pd.DataFrame(frequency_array, index=dev_val_names, columns=dev_val_names)
 		for unified_event in unified_parsed_events:
+			unified_event.dev = unified_event.dev.replace(' ', '-') # Remove the space in original records
+			unified_event.attr = unified_event.attr.replace(' ', '-')
 			cur_states = last_states.copy()
 			if cur_states[name_device_dict[unified_event.dev].index] == unified_event.value:
 				continue
-			# Update the dataset summary
-			n_events += 1
+			qualified_events.append(unified_event)
 			attr_occurrence_dict[unified_event.attr][unified_event.dev] = 1 if unified_event.dev not in attr_occurrence_dict[unified_event.attr].keys()\
 					else attr_occurrence_dict[unified_event.attr][unified_event.dev] + 1
-			# Write the event to file
-			unified_event.dev = unified_event.dev.replace(' ', '-') # Remove the space in original records
-			unified_event.attr = unified_event.attr.replace(' ', '-')
+			cur_dev_val = '{}:{}'.format(unified_event.dev, unified_event.value)
+			for id, dev_state in enumerate(cur_states):
+				if index_device_dict[id].name == unified_event.dev:
+					continue
+				hist_dev_val = '{}:{}'.format(index_device_dict[id].name, dev_state)
+				frequency_df.at[cur_dev_val, hist_dev_val] += 1
+			cur_states[name_device_dict[unified_event.dev].index] = unified_event.value
+			last_states = cur_states
+		#frequency_df.div(frequency_df.sum(axis=1), axis=0)
+		#print(frequency_df)
+		#print(frequency_df.sum(axis=1))
+		
+		# 4. Generate automations and insert the event (as well as the automation events) to the dataset
+		automations = self.randomly_generate_automations(frequency_df, n_auto=10)
+		with open(self.automation_path, 'w') as automation_file:
+			str_automation = {','.join(map(str, k)): ','.join(map(str, v)) for k,v in automations.items()}
+			automation_file.write(json.dumps(str_automation))
+
+		cur_states = [0] * len(var_names)
+		n_events = 0; n_auto_events = 0
+		for unified_event in qualified_events:
+			n_events += 1
 			fout.write(unified_event.__str__() + '\n')
 			# Update the current state vector
 			cur_states[name_device_dict[unified_event.dev].index] = unified_event.value
-			last_states = cur_states
+			# Insert automation-related events
 			trigger = (unified_event.dev, unified_event.value)
-			if trigger in automations.keys():
-				action_dev, action_value = automations[trigger]
+			max_prop = 3; i = 0
+			automation_events = []
+			temp_states = cur_states.copy()
+			while (trigger in automations.keys()) and i < max_prop:
+				action = automations[trigger]
+				if temp_states[name_device_dict[action[0]].index] != action[1]:
+					temp_states[name_device_dict[action[0]].index] = action[1]
+					action_attr = [k for k in self.attr_dev_dict.keys() if action[0] in self.attr_dev_dict[k]][0]
+					auto_event = AttrEvent(unified_event.date, unified_event.time, action[0], action_attr, action[1])
+					fout.write(auto_event.__str__() + '\n')
+					automation_events.append(auto_event)
+					i += 1; n_events += 1; n_auto_events += 1
+					trigger = action
+				else:
+					break
+			# Recover the automation-related events: Note that the recovery is executed in the reversed order. For example, DoorUnLocked->LightOn should be recovered as LighOff, DoorLock
+			for auto_event in reversed(automation_events):
+				recovery_event = AttrEvent(auto_event.date, auto_event.time, auto_event.dev, auto_event.attr, 1-auto_event.value)
+				fout.write(recovery_event.__str__() + '\n')
+				n_events += 1
+
+		print("[Event Preprocessing] {} rules are generated with {} automation events".format(len(automations), n_auto_events))
+		
 		if self.verbosity:
 			attrs = list(attr_occurrence_dict.keys())
 			attr_n_devs = [len(attr_occurrence_dict[attr].keys()) for attr in attrs]
@@ -459,6 +543,7 @@ class Cprocessor(GeneralProcessor):
 			print("[Preprocessing Ending] # qualified events, devices = {}, {}".format(n_events, len(var_names)))
 			print(var_names)
 			print("[Preprocessing Ending] Candidate attrs, n_devices, and n_events: {}".format(list(zip(attrs, attr_n_devs, attr_n_events))))
+			print("[Preprocessing Ending] # Auto events: {}".format(n_auto_events))
 		fout.close()
 
 	def initiate_data_preprocessing(self):

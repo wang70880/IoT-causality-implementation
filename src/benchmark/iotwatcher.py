@@ -270,26 +270,37 @@ class HAWatcher():
 
     """Function classes for anomaly detection"""
 
-    def anomaly_detection(self, testing_event_states, testing_benign_dict):
+    def event_validation(self, testing_event_state, last_system_states):
+        """
+        Check the event and returns (anomaly_flag, violated_rules)
+        """
+        event, states = testing_event_state
+        c_index = self.var_names.index(event.dev)
+        c_situ = (c_index, event.value)
+        anomaly_info = (False, [])
+        if c_situ not in self.rule_dict.keys():
+            # If no rule is found about the current device, it is assumed to be normal.
+            pass
+        else:
+            p_indices = [rule for rule in self.rule_dict[c_situ]]
+            violated_rules = [rule for rule in p_indices if rule[1]!=last_system_states[rule[0]]]
+            if len(violated_rules)>0:
+                # If any rule is violated, raise an alarm here
+                anomaly_info = (True, [(self.var_names[rule[0]], rule[1]) for rule in violated_rules])
+        return anomaly_info
+
+    def anomaly_detection(self, testing_event_states, testing_benign_dict, verbosity=0):
         alarm_position_events = []
         last_system_states = testing_benign_dict[0][1][:self.n_vars]
         for evt_id, (event, states) in enumerate(testing_event_states):
-            c_index = self.var_names.index(event.dev)
-            c_situ = (c_index, event.value)
-            if c_situ not in self.rule_dict.keys():
-                # If no rule is found about the current device, it is assumed to be normal.
+            anomaly_info = self.event_validation((event, states), last_system_states)
+            if not anomaly_info[0]: # There is no related rule with current evet: Continue
                 last_system_states = states.copy()
                 continue
-            # Otherwise, we find a list of rules self.rule_dict[c_index], which set the current device as the consecutive device
-            p_indices = [p_index[0] for p_index in self.rule_dict[c_situ]]
-            p_hypo_values = [p_index[1] for p_index in self.rule_dict[c_situ]]
-            p_observed_values = [last_system_states[index] for index in p_indices]
-            assert(len(p_hypo_values)==len(p_observed_values))
-            if len([i for i in range(len(p_hypo_values)) if p_hypo_values[i]!=p_observed_values[i]])>0:
-                # If any rule is violated, raise an alarm here
-                alarm_position_events.append((evt_id, event))
+            else: # An anomaly is detected
+                if verbosity > 0:
+                    alarm_position_events.append((evt_id, event, anomaly_info[1]))
+                else:
+                    alarm_position_events.append((evt_id, event))
                 last_system_states = testing_benign_dict[evt_id][1][:self.n_vars]
-            else:
-                # If all rule testings are passed, it is a normal event, update the lagged system states according to the event
-                last_system_states = states.copy()
         return alarm_position_events

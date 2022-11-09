@@ -1,0 +1,17 @@
+
+********************** Parameter Settings **********************
+    pc-alpha=0.001, partition_days=8, n_training_events=54748, n_testing_events=13687, max(dim)=9, max(comb)=10
+
+*** Dataset Overview ***
+     Number of training records, devices, and attributes = 54748, 22, 7
+     device list=['C15', 'C3', 'Eau_Froide_Evier_Instantanee', 'I10_Droite_Haut', 'I11_Droite_Haut', 'L15', 'L16', 'Luminosite_Cuisine', 'Luminosite_Lit', 'Luminosite_Salon', 'Luminosite_Table', 'Presence_Cuisine', 'Presence_Lit', 'Presence_SDB', 'Presence_Salon', 'Presence_Table', 'Puissance_Chauffe_Eau', 'Puissance_Four', 'Puissance_Frigo', 'Puissance_Lave_Vaisselle', 'Puissance_Plaques', 'Puissance_Volets_Roulants']
+     attribute list=['Brightness-Sensor', 'Contact-Sensor', 'Dimmer', 'Infrared-Movement-Sensor', 'Power-Sensor', 'Switch', 'Water-Meter']
+Interaction Mining evalutation for model causal
+     [FP, FN, Precision, Recall, F1] = 8, 6, 0.9595959595959596, 0.9693877551020408, 0.964467005076142
+[Bayesian Fitting] ALERT! The variable L15 owns the maximum in-degree 12 (larger than 10). This variable may slow down the fitting process!
+[Bayesian Fitting] ALERT! The variable L15 owns the maximum in-degree 12 (larger than 10). This variable may slow down the fitting process!
+[Training Efficiency] 5.608295913537344 v.s. 0.21437172492345175 v.s. 5.454228250185649 v.s. 0.02488150993982951
+[Case 0, KMAX 2] Chain reconstruction accuracy for Causal, Markov, OCSVM, HAW
+[KMAX=2, CASE=0] # reported anomaly chains: 3488, 19686.0, 7544.0, 4609.0
+{2: 0.7317, 1: 0.1503} {2: 1.0} {2: 0.8003, 1: 0.001} {2: 0.2267, 1: 0.224}
+[Case 1, KMAX 2] Chain reconstruction accuracy for Causal, Markov, OCSVM, HAW

@@ -5,7 +5,6 @@ data_preprocessing() { # Data preprocessing
 }
 
 evaluate_discovery_process() {
-    rm -rf discovery_evaluation.txt; touch discovery_evaluation.txt
     for partition_day in ${partition_days[@]}; do
             for pc_alpha in ${pc_alphas[@]}; do
                 for max_conds_dim in ${max_conds_dims[@]}; do
@@ -31,7 +30,8 @@ declare -a max_conds_dims=(9)
 max_comb=10
 
 # 0. Cleanup process and parameter settings
+rm -rf discovery_evaluation.txt; touch discovery_evaluation.txt
 # 1. Initiate data preprocessing to generate the sanitized data file
-data_preprocessing
+#data_preprocessing
 # 2. Initiate causal discovery process
 evaluate_discovery_process
