@@ -146,28 +146,28 @@ class Evaluator():
         p_attr = p_dev.attr; c_attr = c_dev.attr
         attr_list = [p_attr, c_attr]
         int_type = 'unknown'
-        if self.event_preprocessor.dataset=='contextact':
-            actuators = ['Dimmer', 'Switch', 'Water-Meter', 'Power-Sensor']
-            movement_detectors = ['Infrared-Movement-Sensor', 'Contact-Sensor']
-            brightness_channels = ['Brightness-Sensor']
-            for k, v in self.golden_rules.items():
-                if p_dev.name == k[0] and c_dev.name == v[0]:
-                    return 'automation'
-            if p_dev.name == c_dev.name:
-                int_type = 'autocorrelation'
-            elif p_attr in actuators+brightness_channels and c_attr in actuators:
-                int_type = 'uau'
-            elif p_attr in  actuators+brightness_channels and c_attr in movement_detectors:
-                int_type = 'mau'
-            elif all([x in movement_detectors for x in attr_list]):
-                int_type = 'mam'
-            elif p_attr in movement_detectors and c_attr in actuators:
-                int_type = 'uam'
-            elif c_attr in brightness_channels:
-                int_type = 'brightness'
-            else:
-                print("Unknown categorization for pair {}".format(attr_list))
-                int_type = 'unknown'
+
+        actuators = ['Dimmer', 'Switch', 'Water-Meter', 'Power-Sensor']
+        movement_detectors = ['Infrared-Movement-Sensor', 'Contact-Sensor']
+        brightness_channels = ['Brightness-Sensor']
+        for k, v in self.golden_rules.items():
+            if p_dev.name == k[0] and c_dev.name == v[0]:
+                return 'automation'
+        if p_dev.name == c_dev.name:
+            int_type = 'autocorrelation'
+        elif p_attr in actuators+brightness_channels and c_attr in actuators:
+            int_type = 'uau'
+        elif p_attr in  actuators+brightness_channels and c_attr in movement_detectors:
+            int_type = 'mau'
+        elif all([x in movement_detectors for x in attr_list]):
+            int_type = 'mam'
+        elif p_attr in movement_detectors and c_attr in actuators:
+            int_type = 'uam'
+        elif c_attr in brightness_channels:
+            int_type = 'brightness'
+        else:
+            print("Unknown categorization for pair {}".format(attr_list))
+            int_type = 'unknown'
             
         return int_type
 
@@ -421,13 +421,12 @@ class Evaluator():
             3: Malicious Automation Rule (How to simulate it?)
         """
         int_anomaly_dict = None
-        if self.event_preprocessor.dataset == 'contextact':
-            int_anomaly_dict = {
-                0: ['Brightness-Sensor'],
-                1: ['Infrared-Movement-Sensor', 'Contact-Sensor'],
-                2: ['Power-Sensor', 'Water-Meter', 'Dimmer', 'Switch'],
-                3: ['Power-Sensor', 'Water-Meter', 'Contact-Sensor', 'Dimmer', 'Switch']
-            }
+        int_anomaly_dict = {
+            0: ['Brightness-Sensor'],
+            1: ['Infrared-Movement-Sensor', 'Contact-Sensor'],
+            2: ['Power-Sensor', 'Water-Meter', 'Dimmer', 'Switch'],
+            3: ['Power-Sensor', 'Water-Meter', 'Contact-Sensor', 'Dimmer', 'Switch']
+        }
         return int_anomaly_dict
     
     def get_int_collective_anomaly_dict(self, kmax):
@@ -437,11 +436,10 @@ class Evaluator():
             1: Unauthorized access of a set of actuators
         """
         int_anomaly_dict = None
-        if self.event_preprocessor.dataset == 'contextact':
-            int_anomaly_dict = {i:[] for i in range(2)}
-            for k in range(kmax):
-                int_anomaly_dict[0].append(['Infrared-Movement-Sensor', 'Contact-Sensor'])
-                int_anomaly_dict[1].append(['Power-Sensor', 'Water-Meter', 'Dimmer', 'Switch'])
+        int_anomaly_dict = {i:[] for i in range(2)}
+        for k in range(kmax):
+            int_anomaly_dict[0].append(['Infrared-Movement-Sensor', 'Contact-Sensor'])
+            int_anomaly_dict[1].append(['Power-Sensor', 'Water-Meter', 'Dimmer', 'Switch'])
         return int_anomaly_dict
     
     def randomly_generate_automations(self, n_auto):
@@ -506,11 +504,14 @@ class Evaluator():
                     var_attr = device_description_dict[var_name]['attr']
                     last_state = security_guard.phantom_state_machine.phantom_states[var_names.index(var_name)]
                     candidate_event = AttrEvent('', '', var_name, var_attr, 1-last_state)
-                    if var_attr in int_anomaly_dict[case_id] and security_guard._compute_event_anomaly_score(candidate_event, security_guard.phantom_state_machine) >= security_guard.score_threshold:
+                    anomaly_score = security_guard._compute_event_anomaly_score(candidate_event, security_guard.phantom_state_machine)
+                    if var_attr in int_anomaly_dict[case_id] and anomaly_score >= security_guard.score_threshold:
                             anomalous_states = states.copy(); anomalous_states[var_names.index(var_name)] = candidate_event.value
-                            candidate_anomalies.append((candidate_event, anomalous_states))
+                            candidate_anomalies.append((candidate_event, anomalous_states, anomaly_score))
                 if len(candidate_anomalies)>0:
-                    candidate_position_anomalies[evt_id] = random.choice(candidate_anomalies)
+                    candidate_anomalies = sorted(candidate_anomalies, key=lambda x:x[2], reverse=True)
+                    candidate_anomalies = [(tup[0], tup[1]) for tup in candidate_anomalies]
+                    candidate_position_anomalies[evt_id] = random.choice(candidate_anomalies[:3])
         elif case_id==3:
             # We hope to guarantee a minimum number of injected anomalies.
             # Each time the malicious automation rules are generated and the anomaly positions are determined, the number of anomalies should be larger than 1000
@@ -533,7 +534,8 @@ class Evaluator():
                         # If the injection of an event here can be regarded as a normal device event (by the ground truth), this is not a suitable position.
                         if security_guard._compute_event_anomaly_score(anomalous_event, security_guard.phantom_state_machine) >= security_guard.score_threshold:
                             candidate_position_anomalies[evt_id] = (anomalous_event, anomalous_states)
-            #pprint(malicious_automations)
+            print("Inserted malicious automations:")
+            pprint(malicious_automations)
 
         # 2. Insert the selected anomalies to the testing sequence
         n_candidate_anomalies = len(list(candidate_position_anomalies.keys()))
@@ -559,7 +561,8 @@ class Evaluator():
 
         return new_testing_event_states, anomaly_positions, testing_benign_dict
 
-    def inject_collective_anomalies(self, ground_truth_fitter:'BayesianFitter', sig_level, n_anomaly, case_id, kmax):
+    def inject_collective_anomalies(self, ground_truth_fitter:'BayesianFitter', sig_level, n_anomaly, case_id, kmax_threshold, step=0):
+        assert(kmax_threshold>1)
         # Auxillary variables
         device_description_dict = self.event_preprocessor.device_description_dict
         nor_golden_array = self.nor_golden_array
@@ -597,19 +600,23 @@ class Evaluator():
                     continue
                 last_state = state_machine.phantom_states[var_names.index(var_name)]
                 candidate_event = AttrEvent('', '', var_name, var_attr, 1-last_state)
-                if security_guard._compute_event_anomaly_score(candidate_event, state_machine) < security_guard.score_threshold:
-                    candidate_events.append(candidate_event)
+                anomaly_score = security_guard._compute_event_anomaly_score(candidate_event, state_machine)
+                if  anomaly_score < security_guard.score_threshold:
+                    candidate_events.append((candidate_event, anomaly_score))
+            candidate_events = sorted(candidate_events, key=lambda x:x[1])
+            candidate_events = [tup[0] for tup in candidate_events]
             return candidate_events
 
         # 1. Generate the anomaly chains
         candidate_position_chains = {}; debugging_position_chains = {}
         if case_id in [0, 1]:
-            int_attrs_list = self.get_int_collective_anomaly_dict(kmax)[case_id]
+            int_attrs_list = self.get_int_collective_anomaly_dict(kmax_threshold)[case_id]
             security_guard.initialize_phantom_machine()
             for evt_id, (event, states) in enumerate(benign_event_states):
                 security_guard.phantom_state_machine.set_latest_states(states)
                 candidate_anomaly_chains = []
                 # 1. Generate candidate anomaly chains at each potential position
+                kmax = random.choice(list(range(2,kmax_threshold+1,1)))
                 for k in range(kmax):
                     int_attrs = int_attrs_list[k]
                     if k==0: # Determine the first candidate contextual anomaly
@@ -619,10 +626,16 @@ class Evaluator():
                                 continue
                             last_state = security_guard.phantom_state_machine.phantom_states[var_names.index(var_name)] # Generate the flipped state
                             candidate_event = AttrEvent('', '', var_name, var_attr, 1-last_state)
-                            if security_guard._compute_event_anomaly_score(candidate_event, security_guard.phantom_state_machine) >= security_guard.score_threshold:
+                            anomaly_score = security_guard._compute_event_anomaly_score(candidate_event, security_guard.phantom_state_machine)
+                            if anomaly_score >= security_guard.score_threshold:
                                 anomalous_states = states.copy(); anomalous_states[var_names.index(var_name)] = candidate_event.value
-                                temp_state_machine = deepcopy(security_guard.phantom_state_machine); temp_state_machine.set_latest_states(anomalous_states)
-                                candidate_anomaly_chains.append([(candidate_event, anomalous_states, temp_state_machine)])
+                                temp_state_machine = deepcopy(security_guard.phantom_state_machine)
+                                temp_state_machine.set_latest_states(anomalous_states)
+                                candidate_anomaly_chains.append([(candidate_event, anomalous_states, temp_state_machine, anomaly_score)])
+                        # Sort all candidate contextual anomalies according to the anomalous level.
+                        candidate_anomaly_chains = sorted(candidate_anomaly_chains, key=lambda x:x[0][3], reverse=True) 
+                        candidate_anomaly_chains = [[(tup[0], tup[1], tup[2])] for chain in candidate_anomaly_chains for tup in chain]
+                        #candidate_anomaly_chains = [(tup[0], tup[1], tup[2]) for chain in candidate_anomaly_chains for tup in chain]
                     else:
                         for cur_chain in candidate_anomaly_chains:
                             if len(cur_chain) != k: # If the current chain is a borken chain which cannot propagate anymore at some timestamp, do not consider it again
@@ -631,7 +644,9 @@ class Evaluator():
                             candidate_collective_events = identify_candidate_collective_events(last_event, state_machine, int_attrs)
                             if len(candidate_collective_events) == 0: # The current chain cannot be propgated again
                                 continue
-                            collective_event = random.choice(candidate_collective_events)
+                            # JC NOTE: Ad-hoc codes here
+                            collective_event = candidate_collective_events[0]
+                            #collective_event = random.choice(candidate_collective_events)
                             anomalous_states = last_states.copy(); anomalous_states[var_names.index(collective_event.dev)] = collective_event.value
                             state_machine.set_latest_states(anomalous_states)
                             cur_chain.append((collective_event, anomalous_states, state_machine))
@@ -639,8 +654,11 @@ class Evaluator():
                 candidate_anomaly_chains = [chain for chain in candidate_anomaly_chains if len(chain)==kmax]
                 if len(candidate_anomaly_chains) == 0:
                     continue
-                selected_anomaly_chain = random.choice(candidate_anomaly_chains)
+                #  JC NOTE: ad-hoc code here. We randomly select top-3 most anoamlous contextual anomaly chain as candidates
+                selected_anomaly_chain = random.choice(candidate_anomaly_chains[:3])
+                # selected_anomaly_chain = random.choice(candidate_anomaly_chains)
                 candidate_position_chains[evt_id] = [(tup[0], tup[1]) for tup in selected_anomaly_chain] # We do not need the recorded state machine, we only need the anomalous event and the states
+                debugging_position_chains[evt_id] = [(tup[0].dev, tup[0].value) for tup in selected_anomaly_chain]
 
         elif case_id == 2:
             security_guard.initialize_phantom_machine()
@@ -648,6 +666,7 @@ class Evaluator():
             for evt_id, (event, states) in enumerate(benign_event_states):
                 security_guard.phantom_state_machine.set_latest_states(states)
                 candidate_anomaly_chains = []
+                kmax = random.choice(list(range(2,kmax_threshold+1,1)))
                 for k in range(kmax):
                     if k==0: # Determine the first candidate contextual anomaly, which should trigger some anomaly chains
                         for var_name in var_names:
@@ -656,13 +675,18 @@ class Evaluator():
                             suitable_rule_chains = [chain for chain in self.rule_chains if chain[0]==(var_name,anomalous_state)]
                             if len(suitable_rule_chains)==0: # If there is no chains which can be triggered, we do not consider the anomaly
                                 continue
-                            selected_anomaly_chain = random.choice(suitable_rule_chains)
+                            chain_lens = [len(chain) for chain in suitable_rule_chains]; nor_chain_lens = [1.*l/sum(chain_lens) for l in chain_lens]
+                            # Select an anomaly chain based on its lengths: The larger the length is, the larger the sampling probabilitiy
+                            selected_anomaly_chain = random.choices(suitable_rule_chains, weights=chain_lens, k=1)[0]
                             var_attr = device_description_dict[var_name]['attr']
                             candidate_event = AttrEvent('', '', var_name, var_attr, anomalous_state)
-                            if security_guard._compute_event_anomaly_score(candidate_event, security_guard.phantom_state_machine) >= security_guard.score_threshold:
+                            anomaly_score = security_guard._compute_event_anomaly_score(candidate_event, security_guard.phantom_state_machine)
+                            if anomaly_score >= security_guard.score_threshold:
                                 anomalous_states = states.copy(); anomalous_states[var_names.index(var_name)] = candidate_event.value
                                 temp_state_machine = deepcopy(security_guard.phantom_state_machine); temp_state_machine.set_latest_states(anomalous_states)
-                                candidate_anomaly_chains.append([(candidate_event, anomalous_states, temp_state_machine, selected_anomaly_chain, True)])
+                                candidate_anomaly_chains.append([(candidate_event, anomalous_states, temp_state_machine, selected_anomaly_chain, True, anomaly_score)])
+                        candidate_anomaly_chains = sorted(candidate_anomaly_chains, key=lambda x:x[0][5], reverse=True)
+                        candidate_anomaly_chains = [[(tup[0], tup[1], tup[2], tup[3], tup[4])] for chain in candidate_anomaly_chains for tup in chain]
                     else:
                         for cur_chain in candidate_anomaly_chains:
                             rule_chain = cur_chain[-1][3]
@@ -682,29 +706,38 @@ class Evaluator():
                 candidate_anomaly_chains = [chain for chain in candidate_anomaly_chains if len(chain)==kmax]
                 if len(candidate_anomaly_chains) == 0:
                     continue
-                selected_anomaly_chain = random.choice(candidate_anomaly_chains)
+                # JC NOTE: Ad-hoc codes here. We randomly select top-3 most anoamlous contextual anomaly chain as candidates
+                selected_anomaly_chain = random.choice(candidate_anomaly_chains[:3])
+                #selected_anomaly_chain = random.choice(candidate_anomaly_chains)
                 candidate_position_chains[evt_id] = [(tup[0], tup[1]) for tup in selected_anomaly_chain] # We do not need the recorded state machine, we only need the anomalous event and the states
                 debugging_position_chains[evt_id] = [(tup[0].dev, tup[0].value) for tup in selected_anomaly_chain]
 
         # 2. Insert the selected anomaly chain to the testing sequence
-        new_testing_event_states:'list[tuple(AttrEvent,ndarray)]' = []; anomaly_positions = []; testing_benign_dict:'dict[int]' = {}
+        new_testing_event_states:'list[tuple(AttrEvent,ndarray)]' = []; position_len_dict = {}; testing_benign_dict:'dict[int]' = {}
         # 2.1 Randomly select n_anomaly positions as the injectted anomaly
-        n_candidate_anomalies = len(list(candidate_position_chains.keys()))
-        selected_anomaly_positions = sorted(random.sample(list(candidate_position_chains.keys()),\
-                    min(n_anomaly, n_candidate_anomalies)))
+        candidate_positions = list(candidate_position_chains.keys())
+        n_candidate_anomalies = len(candidate_positions)
+        # JC NOTE: Ad-hoc position selection here
+        selected_position_indices = list(range(1, n_candidate_anomalies, step))
+        selected_anomaly_positions = [candidate_positions[index] for index in selected_position_indices]
+        selected_anomaly_positions = selected_anomaly_positions[:n_anomaly]
+        #selected_anomaly_positions = sorted(random.sample(list(candidate_position_chains.keys()),\
+        #            min(n_anomaly, n_candidate_anomalies)))
         new_event_id = 0
         security_guard.initialize_phantom_machine()
         # 2.2 Traverse the benign event sequence. If it is normal: Add it to the testing seqeuence; Otherwise start injecting the anomaly chain
         #print("[KMAX={}] Collective anomaly injection.".format(kmax))
+        instance_dict = {}
         for evt_id, (event, states) in enumerate(benign_event_states):
             security_guard.phantom_state_machine.set_latest_states(states)
             new_testing_event_states.append((event, states))
             testing_benign_dict[new_event_id] = (evt_id, benign_lagged_states[evt_id], benign_lagged_events[evt_id])
             new_event_id += 1
             if evt_id in selected_anomaly_positions:
-                anomaly_positions.append(new_event_id)
                 #print("     Position {} with phantom states: {}".format(new_event_id, security_guard.phantom_state_machine.get_lagged_states()))
                 anomaly_chain = candidate_position_chains[evt_id]
+                position_len_dict[new_event_id] = len(anomaly_chain)
+                instance = ''
                 for id, anomaly_event_state in enumerate(anomaly_chain):
                     if id == 0:
                         assert(security_guard._compute_event_anomaly_score(anomaly_event_state[0], security_guard.phantom_state_machine) >= security_guard.score_threshold)
@@ -714,11 +747,18 @@ class Evaluator():
                             temp_state_machine.set_latest_states(anomaly_chain[i][1])
                         assert(security_guard._compute_event_anomaly_score(anomaly_event_state[0], temp_state_machine) < security_guard.score_threshold)
                     #print("             {} with state {}".format(anomaly_event_state[0], anomaly_event_state[1]))
+                    instance += '{}:{},'.format(anomaly_event_state[0].dev, anomaly_event_state[0].value)
                     new_testing_event_states.append(anomaly_event_state)
                     testing_benign_dict[new_event_id] = (evt_id, benign_lagged_states[evt_id], benign_lagged_events[evt_id]) # For rolling back
                     new_event_id += 1
+                instance_dict[instance]=1 if instance not in instance_dict.keys() else instance_dict[instance]+1
+        print("Injected collective anoamly sequences:")
+        for evt_id in selected_anomaly_positions:
+            printing_anomaly_chain = debugging_position_chains[evt_id]
+            print("     {}".format(printing_anomaly_chain))
+        print("# anomaly instances: {}".format(len(list(instance_dict.keys()))))
         #print("# anomaly cases and testing events: {} {}".format(len(anomaly_positions), len(new_testing_event_states)))
-        return new_testing_event_states, anomaly_positions, testing_benign_dict
+        return new_testing_event_states, position_len_dict, testing_benign_dict
 
     """Function classes for anomaly detection evaluation."""
 
@@ -729,21 +769,35 @@ class Evaluator():
         #print("[{}-Model Contextual Anomaly Detection for Case-{}] Precision, recall, f1 = {:.3f}, {:.3f}, {:.3f}".format(model_name, case_id, precision, recall, f1))
         return precision, recall, f1
     
-    def evaluate_collective_detection_accuracy(self, alarm_position_events, anomaly_positions, kmax, case_id, model_name='unknown'):
-        alarm_positions = [tup[0] for tup in alarm_position_events]
-        detected_len_dict = {}
-        for anomaly_start_pos in anomaly_positions:
-            detect_start = anomaly_start_pos in alarm_positions
-            n_detected_anomalies = 0
-            for i in range(kmax):
-                if anomaly_start_pos + i in alarm_positions:
-                    n_detected_anomalies += 1
-            if detect_start and n_detected_anomalies > 0:
-                detected_len_dict[n_detected_anomalies] = 1 if n_detected_anomalies not in detected_len_dict.keys() else detected_len_dict[n_detected_anomalies]+1
+    def evaluate_collective_detection_accuracy(self, causal_alarm_position_len_dict , position_len_dict, kmax, case_id, model_name='unknown'):
+        n_anomalies = len(list(position_len_dict.keys()))
+        detected_len_dict = {0:0}
+        n_detections = []
+        n_fully_detected_chain = 0; n_detected_chain = 0; n_missing_chain = 0
+        missing_alarm_dict = {}
+        alarm_positions = sorted([k for k in causal_alarm_position_len_dict.keys()])
+        for pos, l in position_len_dict.items():
+            assert(l<=kmax)
+            post_alarm_positions = [x for x in alarm_positions if x>=pos]
+            if len(post_alarm_positions) == 0 or post_alarm_positions[0]-pos>=l-1:
+                n_missing_chain += 1
+                missing_alarm_dict[pos] = l
+            else:
+                nearest_alarm_position = post_alarm_positions[0]; alarm_l = causal_alarm_position_len_dict[nearest_alarm_position]
+                detected_l = min(nearest_alarm_position+alarm_l-1, pos+l-1) - nearest_alarm_position + 1
+                if detected_l > 1:
+                    n_detected_chain += 1
+                    n_detections.append(detected_l)
+                else:
+                    n_missing_chain += 1
+                n_fully_detected_chain = n_fully_detected_chain+1 if detected_l==l else n_fully_detected_chain
+                detected_len_dict[detected_l] = 1 if detected_l not in detected_len_dict.keys() else detected_len_dict[detected_l] + 1
         for k, v in detected_len_dict.items():
-            detected_len_dict[k] = round(1.*v/len(anomaly_positions), 4)
-        #print("[{}-Model Collective Anomaly Detection for Case-{}] {}".format(model_name, case_id, detected_len_dict))
-        return detected_len_dict
+            detected_len_dict[k] = round(1.*v/n_anomalies, 4)
+        avg_chain_len = round(statistics.mean(list(position_len_dict.values())), 3); avg_detection_len = round(statistics.mean(n_detections), 3)
+        print("     # injected anomaly chains, Average length of chains, average detection length: {} {}, {}".format(n_anomalies, avg_chain_len, avg_detection_len))
+        print("     ratio of detected chains (>2), fully reconstructed chains = {}, {}".format(1.*n_detected_chain/n_anomalies, 1.*n_fully_detected_chain/n_anomalies))
+        return detected_len_dict, missing_alarm_dict
 
     def analyze_false_contextual_results(self, causal_bayesian_fitter:'BayesianFitter', ground_truth_fitter:'BayesianFitter', sig_level, case_id,\
                                             testing_event_states, anomaly_positions, testing_benign_dict,

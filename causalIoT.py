@@ -131,7 +131,7 @@ dataset = sys.argv[1]; partition_days = int(sys.argv[2]); training_ratio = float
     # 0.2 Background knowledge parameters
 tau_max = int(sys.argv[4]); tau_min = 1
     # 0.3 PC discovery parameters
-pc_alpha = float(sys.argv[5]); max_conds_dim = int(sys.argv[6]); maximum_comb = int(sys.argv[7]); n_max_edges = 12
+pc_alpha = float(sys.argv[5]); max_conds_dim = int(sys.argv[6]); maximum_comb = int(sys.argv[7]); n_max_edges = 15
     # 0.5 Anomaly generation parameters
 sig_level = 0.99
 
@@ -182,16 +182,23 @@ causal_edges, causal_array, nor_causal_array, causal_edge_infos, causal_filtered
 with open('{}{}'.format(event_preprocessor.result_path, 'identified-edges'), 'w+') as convert_file:
     convert_file.write(json.dumps(causal_edges))
 
-# 0. Prepare the ground truth
-evaluator = Evaluator(event_preprocessor=event_preprocessor, frame=frame, tau_max=tau_max, pc_alpha=pc_alpha, causal_edges=causal_edges)
+degrees = [(k, len(v)) for k, v in causal_edges.items()]
+avg_degree = statistics.mean([tup[1] for tup in degrees])
+max_degree = (0, 0); min_degree = (0, 100000)
+for degree in degrees:
+    if degree[1] > max_degree[1]:
+        max_degree = degree
+    if degree[1] < min_degree[1]:
+        min_degree = degree
+print("Discovery process finished.")
+print("     Average degrees: {}".format(avg_degree))
+print("     Variables with maximum degrees: {} {}".format(var_names[max_degree[0]], max_degree[1]))
+print("     Variables with minimum degrees: {} {}".format(var_names[min_degree[0]], min_degree[1]))
 
 """Initiate the interaction mining evaluation"""
-# Compare the precision, recall, F1, and efficiency of these methods
+evaluator = Evaluator(event_preprocessor=event_preprocessor, frame=frame, tau_max=tau_max, pc_alpha=pc_alpha, causal_edges=causal_edges)
 hawatcher = HAWatcher(event_preprocessor, frame, tau_max, 0.95)
-causal_tp, causal_fp, causal_fn, causal_precision, causal_recall, causal_f1 = evaluator.evaluate_discovery_accuracy(nor_causal_array, evaluator.nor_golden_array, causal_filtered_edge_infos, causal_edge_infos, 'causal', hawatcher.background_generator, 0)
-#bayesian_tp, bayesian_fp, bayesian_fn, bayesian_precision, bayesian_recall, bayesian_f1 = evaluator.evaluate_discovery_accuracy(nor_bayesian_array, evaluator.nor_golden_array, model='bayesian', verbosity=0)
-#arm_tp, arm_fp, arm_fn, arm_precision, arm_recall, arm_f1 = evaluator.evaluate_discovery_accuracy(armer.nor_mining_array, evaluator.nor_golden_array, model='arm', verbosity=0)
-#haw_tp, haw_fp, haw_fn, haw_precision, haw_recall, haw_f1 = evaluator.evaluate_discovery_accuracy(hawatcher.nor_mining_array, evaluator.nor_golden_array, model='haw', verbosity=0)
+causal_tp, causal_fp, causal_fn, causal_precision, causal_recall, causal_f1 = evaluator.evaluate_discovery_accuracy(nor_causal_array, evaluator.nor_golden_array, causal_filtered_edge_infos, causal_edge_infos, 'causal', hawatcher.background_generator, 1)
 
 """Initiate the parameter estimation process"""
 causal_bayesian_fitter = BayesianFitter(frame, tau_max, causal_edges, n_max_edges=n_max_edges, model_name='causal')
@@ -215,62 +222,62 @@ ocsvm_time = _elapsed_minutes(ocsvm_start)
 hawatcher_start = time()
 hawatcher = HAWatcher(event_preprocessor, frame, tau_max, 0.95)
 haw_time = _elapsed_minutes(hawatcher_start)
-print("[Training Efficiency] {} v.s. {} v.s. {} v.s. {}".format(pc_time, markov_time, ocsvm_time, haw_time))
+#print("[Training Efficiency] {} v.s. {} v.s. {} v.s. {}".format(pc_time, markov_time, ocsvm_time, haw_time))
 
 # JC TEST: Check the FP/FN for the contextual anomaly detection
-#n_anomalies_dict = {0:4000, 1:4000, 2:4000, 3:2000}
-#for case_id in range(0, 4):
+#n_anomalies_dict = {1:4000}
+#for case_id in range(1, 2):
 #    testing_event_states, anomaly_positions, testing_benign_dict = evaluator.inject_contextual_anomalies(ground_truth_fitter, sig_level, n_anomalies_dict[case_id], case_id)
 #    evaluator.analyze_false_contextual_results(causal_bayesian_fitter, ground_truth_fitter, sig_level, case_id,
 #                                                testing_event_states, anomaly_positions, testing_benign_dict,
 #                                                markov_miner, ocsvmer, hawatcher)
 
 # Anomaly injection, detection, and evaluation
-#n_anomalies_dict = {0:4000, 1:4000, 2:4000, 3:2000}
-#n_loops = 5
-#for case_id in range(0, 4):
-#    causal_results = []; markov_results = []; ocsvm_results = []; haw_results = []
-#    for i in range(n_loops):
-#        testing_event_states, anomaly_positions, testing_benign_dict = evaluator.inject_contextual_anomalies(ground_truth_fitter, sig_level, n_anomalies_dict[case_id], case_id)
-#        causal_alarm_position_events = causal_security_guard.kmax_anomaly_detection(testing_event_states, testing_benign_dict, kmax=1)
-#        causal_alarm_position_events = [item for chain in causal_alarm_position_events for item in chain]
-#        markov_alarm_position_events = markov_miner.anomaly_detection(testing_event_states, testing_benign_dict, kmax=1)
-#        ocsvm_alarm_position_events = ocsvmer.anomaly_detection(testing_event_states)
-#        hawatcher_alarm_position_events = hawatcher.anomaly_detection(testing_event_states, testing_benign_dict)
-#        #evaluator.analyze_false_contextual_results(causal_bayesian_fitter, ground_truth_fitter, sig_level, case_id, testing_event_states, anomaly_positions, testing_benign_dict)
-#
-#        causal_precision, causal_recall, causal_f1 = evaluator.evaluate_contextual_detection_accuracy(causal_alarm_position_events, anomaly_positions, case_id, 'causal')
-#        markov_precision, markov_recall, markov_f1 = evaluator.evaluate_contextual_detection_accuracy(markov_alarm_position_events, anomaly_positions, case_id, 'markov')
-#        ocsvm_precision, ocsvm_recall, ocsvm_f1 = evaluator.evaluate_contextual_detection_accuracy(ocsvm_alarm_position_events, anomaly_positions, case_id, 'ocsvm')
-#        haw_precision, haw_recall, haw_f1 = evaluator.evaluate_contextual_detection_accuracy(hawatcher_alarm_position_events, anomaly_positions, case_id, 'hawatcher')
-#        causal_results.append((causal_precision, causal_recall, causal_f1))
-#        markov_results.append((markov_precision, markov_recall, markov_f1))
-#        ocsvm_results.append((ocsvm_precision, ocsvm_recall, ocsvm_f1))
-#        haw_results.append((haw_precision, haw_recall, haw_f1))
-#    print("[Case {}] Average detection accuracy for Causal, Markov, OCSVM, HAW".format(case_id))
-#    print("{} {} {}".format(statistics.mean([x[0] for x in causal_results]), statistics.mean([x[1] for x in causal_results]), statistics.mean([x[2] for x in causal_results])))
-#    print("{} {} {}".format(statistics.mean([x[0] for x in markov_results]), statistics.mean([x[1] for x in markov_results]), statistics.mean([x[2] for x in markov_results])))
-#    print("{} {} {}".format(statistics.mean([x[0] for x in ocsvm_results]), statistics.mean([x[1] for x in ocsvm_results]), statistics.mean([x[2] for x in ocsvm_results])))
-#    print("{} {} {}".format(statistics.mean([x[0] for x in haw_results]), statistics.mean([x[1] for x in haw_results]), statistics.mean([x[2] for x in haw_results])))
+n_anomalies_dict = {0:4000, 1:4000, 2:4000, 3:3000}
+n_loops = 10
+for case_id in range(1, 2):
+    causal_results = []; markov_results = []; ocsvm_results = []; haw_results = []
+    for i in range(n_loops):
+        testing_event_states, anomaly_positions, testing_benign_dict = evaluator.inject_contextual_anomalies(ground_truth_fitter, sig_level, n_anomalies_dict[case_id], case_id)
+        causal_alarm_position_events = causal_security_guard.kmax_anomaly_detection(testing_event_states, testing_benign_dict, kmax=1)
+        causal_alarm_position_events = [item for chain in causal_alarm_position_events for item in chain]
+        markov_alarm_position_events = markov_miner.anomaly_detection(testing_event_states, testing_benign_dict, kmax=1)
+        ocsvm_alarm_position_events = ocsvmer.anomaly_detection(testing_event_states)
+        hawatcher_alarm_position_events = hawatcher.anomaly_detection(testing_event_states, testing_benign_dict)
+        #evaluator.analyze_false_contextual_results(causal_bayesian_fitter, ground_truth_fitter, sig_level, case_id, testing_event_states, anomaly_positions, testing_benign_dict)
+
+        causal_precision, causal_recall, causal_f1 = evaluator.evaluate_contextual_detection_accuracy(causal_alarm_position_events, anomaly_positions, case_id, 'causal')
+        markov_precision, markov_recall, markov_f1 = evaluator.evaluate_contextual_detection_accuracy(markov_alarm_position_events, anomaly_positions, case_id, 'markov')
+        ocsvm_precision, ocsvm_recall, ocsvm_f1 = evaluator.evaluate_contextual_detection_accuracy(ocsvm_alarm_position_events, anomaly_positions, case_id, 'ocsvm')
+        haw_precision, haw_recall, haw_f1 = evaluator.evaluate_contextual_detection_accuracy(hawatcher_alarm_position_events, anomaly_positions, case_id, 'hawatcher')
+        causal_results.append((causal_precision, causal_recall, causal_f1))
+        markov_results.append((markov_precision, markov_recall, markov_f1))
+        ocsvm_results.append((ocsvm_precision, ocsvm_recall, ocsvm_f1))
+        haw_results.append((haw_precision, haw_recall, haw_f1))
+    print("[Case {}] Average detection accuracy for Causal, Markov, OCSVM, HAW".format(case_id))
+    print("{} {} {}".format(statistics.mean([x[0] for x in causal_results]), statistics.mean([x[1] for x in causal_results]), statistics.mean([x[2] for x in causal_results])))
+    print("{} {} {}".format(statistics.mean([x[0] for x in markov_results]), statistics.mean([x[1] for x in markov_results]), statistics.mean([x[2] for x in markov_results])))
+    print("{} {} {}".format(statistics.mean([x[0] for x in ocsvm_results]), statistics.mean([x[1] for x in ocsvm_results]), statistics.mean([x[2] for x in ocsvm_results])))
+    print("{} {} {}".format(statistics.mean([x[0] for x in haw_results]), statistics.mean([x[1] for x in haw_results]), statistics.mean([x[2] for x in haw_results])))
 #
 #exit()
 
 # JC TEST: test the collective anomaly chain generation
-n_anomalies_dict = {0:3000, 1:3000, 2:3000, 3:3000}
+n_anomalies_dict = {0:1000, 1:1000, 2:1000, 3:1000}
 for kmax in range(2, 5):
-    for case_id in range(0, 3):
-        print("[Case {}, KMAX {}] Chain reconstruction accuracy for Causal, Markov, OCSVM, HAW".format(case_id, kmax))
-        testing_event_states, anomaly_positions, testing_benign_dict = evaluator.inject_collective_anomalies(ground_truth_fitter, sig_level, n_anomalies_dict[case_id], case_id, kmax)
-        causal_alarm_position_chains = causal_security_guard.kmax_anomaly_detection(testing_event_states, testing_benign_dict, kmax=kmax)
-        causal_alarm_position_events = [item for chain in causal_alarm_position_chains for item in chain]
-        markov_alarm_position_events = markov_miner.anomaly_detection(testing_event_states, testing_benign_dict, kmax=kmax)
-        ocsvm_alarm_position_events = ocsvmer.anomaly_detection(testing_event_states)
-        hawatcher_alarm_position_events = hawatcher.anomaly_detection(testing_event_states, testing_benign_dict)
-        print("[KMAX={}, CASE={}] # reported anomaly chains: {}, {}, {}, {}".format(kmax, case_id, len(causal_alarm_position_chains), len(markov_alarm_position_events)*1./kmax, len(ocsvm_alarm_position_events)*1./kmax, len(hawatcher_alarm_position_events)*1./kmax))
-        causal_len_dict = evaluator.evaluate_collective_detection_accuracy(causal_alarm_position_events, anomaly_positions, kmax, case_id, 'causal')
-        markov_len_dict = evaluator.evaluate_collective_detection_accuracy(markov_alarm_position_events, anomaly_positions, kmax, case_id, 'markov')
-        ocsvm_len_dict = evaluator.evaluate_collective_detection_accuracy(ocsvm_alarm_position_events, anomaly_positions, kmax, case_id, 'ocsvm')
-        haw_len_dict = evaluator.evaluate_collective_detection_accuracy(hawatcher_alarm_position_events, anomaly_positions, kmax, case_id, 'hawatcher')
-        print("{} {} {} {}".format(causal_len_dict, markov_len_dict, ocsvm_len_dict, haw_len_dict))
-# JC TEST END
-exit()
+    for case_id in range(0, 1):
+        print("[Case {}, KMAX {} Step {}] Chain reconstruction accuracy for Causal, Markov, OCSVM, HAW".format(case_id, kmax, 2*tau_max))
+        testing_event_states, position_len_dict, testing_benign_dict = evaluator.inject_collective_anomalies(ground_truth_fitter, sig_level, n_anomalies_dict[case_id], case_id, kmax, step=2*tau_max)
+        causal_alarm_position_chains = causal_security_guard.kmax_anomaly_detection(testing_event_states, testing_benign_dict, kmax=kmax, debugging_dict=position_len_dict)
+        causal_alarm_position_len_dict = {chain_list[0][0]: len(chain_list) for chain_list in causal_alarm_position_chains}
+        causal_len_dict, missing_alarm_dict = evaluator.evaluate_collective_detection_accuracy(causal_alarm_position_len_dict , position_len_dict, kmax, case_id, 'causal')
+        print("Missing alarm analysis")
+        missing_alarm_infos = defaultdict(int)
+        for pos, l in missing_alarm_dict.items():
+            cur_chain = ''
+            for i in range(0, l):
+                cur_event = testing_event_states[pos+i][0]
+                cur_chain += '{}:{},'.format(cur_event.dev, cur_event.value)
+            missing_alarm_infos[cur_chain] += 1
+        pprint(missing_alarm_infos)
+        print("{}".format(causal_len_dict))

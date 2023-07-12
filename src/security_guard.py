@@ -176,7 +176,7 @@ class SecurityGuard():
             self.phantom_state_machine.flush(lagged_system_states)
         return alarm_position_events
 
-    def kmax_anomaly_detection(self, testing_event_states, testing_benign_dict, kmax, debugging_list=None):
+    def kmax_anomaly_detection(self, testing_event_states, testing_benign_dict, kmax, debugging_dict=None):
         """
         This function is responsible for determining the contextual anomaly or collective anomaly.
         Return values:
@@ -186,19 +186,23 @@ class SecurityGuard():
         alarm_chains = []
         self.initialize_phantom_machine()
         anomaly_chain = []
+        print("Initializing kmax anomaly detection.")
+        cur_tracking_contextual_id = 0
         for evt_id, (event, states) in enumerate(testing_event_states):
 
             anomaly_score = self._compute_event_anomaly_score(event, self.phantom_state_machine)
+            contextual_anomaly_flag = anomaly_score >= self.score_threshold
 
-            #if evt_id in debugging_list:
-            #    print("     Contextual anomaly at position {}, the calculated score: {}, the detection result: {}".format(evt_id, anomaly_score, anomaly_score>=self.score_threshold))
-            #    print("     Current phantom state machine: {}".format(self.phantom_state_machine.get_lagged_states()))
+            is_tracking = True if 0<len(anomaly_chain)<kmax else False
+
+            #if evt_id in list(debugging_dict.keys()):
+            #    print("     Contextual anomaly at position {}, anomaly flag: {}, tracking state: {}".format(evt_id, contextual_anomaly_flag, is_tracking))
             #    cur_tracking_contextual_id = evt_id
-            #elif evt_id-cur_tracking_contextual_id < kmax:
-            #    print("     Collective anomaly at position {}, the calculated score: {}, the detection result: {}".format(evt_id, anomaly_score, anomaly_score<self.score_threshold))
-            if 0<len(anomaly_chain)<kmax and anomaly_score < self.score_threshold:
+            #elif evt_id-cur_tracking_contextual_id+1 < debugging_dict[cur_tracking_contextual_id]:
+            #    print("         Collective anomaly at position {}, anomaly flag: {}, tracking state: {}".format(evt_id, contextual_anomaly_flag, is_tracking))
+            if is_tracking and anomaly_score < self.score_threshold:
                 anomaly_chain.append((evt_id, event))
-            elif 0<len(anomaly_chain)<kmax and anomaly_score >= self.score_threshold:
+            elif is_tracking and anomaly_score >= self.score_threshold:
                 #print("     Chain breaks with length: {}".format(len(anomaly_chain)))
                 alarm_chains.append(anomaly_chain.copy())
                 anomaly_chain = []

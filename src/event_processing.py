@@ -173,8 +173,6 @@ class Cprocessor(GeneralProcessor):
 						  'discrete': ['Water-Meter', 'Rollershutter', 'Dimmer', 'Power-Sensor'],\
 						  'continuous': ['Brightness-Sensor']}
 		self.int_locations = ['Bathroom', 'Bedroom', 'Dining Room', 'Kitchen', 'Stove', 'Living Room']
-		#self.int_locations = ['Bathroom', 'Bedroom', 'Dining Room', 'First Floor', 'Hallway', 'Hallway First Floor', 'Hallway Second Floor',\
-		#				'Kitchen', 'Living Room', 'Main Entrance', 'Stairway', 'Stove', 'Study Room']
 
 	def _load_device_attribute_files(self):
 		"""
@@ -555,22 +553,22 @@ class Cprocessor(GeneralProcessor):
 class Hprocessor(GeneralProcessor):
 
 	def __init__(self, dataset, partition_days, training_ratio, verbosity=0):
+		super().__init__(dataset, partition_days, training_ratio, verbosity)
 		self.device_description_dict = {
-			'D002': {'dev':'D002', 'attr':'Control4-Door', 'description':'Door lock activity', 'val-type':'Binary', 'val-unit':'Binary', 'location':'Living'},
-			'M001': {'dev':'M001', 'attr':'Control4-Motion', 'description':'Motion detection', 'val-type':'Binary', 'val-unit':'Binary', 'location':'Living'},
-			'M002': {'dev':'M002', 'attr':'Control4-Motion', 'description':'Motion detection', 'val-type':'Binary', 'val-unit':'Binary', 'location':'Washroom'},
-			'M003': {'dev':'M003', 'attr':'Control4-Motion', 'description':'Motion detection', 'val-type':'Binary', 'val-unit':'Binary', 'location':'Living'},
-			'M004': {'dev':'M004', 'attr':'Control4-Motion', 'description':'Motion detection', 'val-type':'Binary', 'val-unit':'Binary', 'location':'Living'},
-			'M005': {'dev':'M005', 'attr':'Control4-Motion', 'description':'Motion detection', 'val-type':'Binary', 'val-unit':'Binary', 'location':'Living'},
-			'M006': {'dev':'M006', 'attr':'Control4-Motion', 'description':'Motion detection', 'val-type':'Binary', 'val-unit':'Binary', 'location':'Living'},
-			'M011': {'dev':'M011', 'attr':'Control4-Motion', 'description':'Motion detection', 'val-type':'Binary', 'val-unit':'Binary', 'location':'Kitchen'},
+			'D002': {'dev':'D002', 'attr':'Contact-Sensor', 'description':'Door lock activity', 'val-type':'Binary', 'val-unit':'Binary', 'location':'Living'},
+			'M001': {'dev':'M001', 'attr':'Infrared-Movement-Sensor', 'description':'Motion detection', 'val-type':'Binary', 'val-unit':'Binary', 'location':'Living'},
+			'M002': {'dev':'M002', 'attr':'Infrared-Movement-Sensor', 'description':'Motion detection', 'val-type':'Binary', 'val-unit':'Binary', 'location':'Washroom'},
+			'M003': {'dev':'M003', 'attr':'Infrared-Movement-Sensor', 'description':'Motion detection', 'val-type':'Binary', 'val-unit':'Binary', 'location':'Living'},
+			'M004': {'dev':'M004', 'attr':'Infrared-Movement-Sensor', 'description':'Motion detection', 'val-type':'Binary', 'val-unit':'Binary', 'location':'Living'},
+			'M005': {'dev':'M005', 'attr':'Infrared-Movement-Sensor', 'description':'Motion detection', 'val-type':'Binary', 'val-unit':'Binary', 'location':'Living'},
+			'M006': {'dev':'M006', 'attr':'Infrared-Movement-Sensor', 'description':'Motion detection', 'val-type':'Binary', 'val-unit':'Binary', 'location':'Living'},
+			'M011': {'dev':'M011', 'attr':'Infrared-Movement-Sensor', 'description':'Motion detection', 'val-type':'Binary', 'val-unit':'Binary', 'location':'Kitchen'},
 		}
 		self.int_attrs = {
-			'binary': ['Control4-Door', 'Control4-Motion'],\
+			'binary': ['Contact-Sensor', 'Infrared-Movement-Sensor'],\
 			'discrete': [],\
 			'continuous': []}
 		self.int_locations = ['Living', 'Washroom', 'Kitchen']
-		super().__init__(dataset, partition_days, training_ratio, verbosity)
 
 	def _parse_raw_events(self, raw_event: "str"):
 		"""
@@ -589,9 +587,11 @@ class Hprocessor(GeneralProcessor):
 		Returns:
 			qualified_events: list[AttrEvent]: The list of qualified parsed events
 		"""
+		fin = open(self.origin_data, 'r')
+
 		qualified_events: list[AttrEvent] = []
 		device_state_dict = defaultdict(str)
-		fin = open(self.origin_data, 'r')
+		attr_occurrence_dict = defaultdict(dict)
 		missed_attr_dicts = defaultdict(int)
 		for line in fin.readlines():
 			parsed_event:'AttrEvent' = self._parse_raw_events(line) # (date, time, dev_name, dev_attr, value)
@@ -615,6 +615,7 @@ class Hprocessor(GeneralProcessor):
 			if parsed_event.attr not in int_attrs:
 				missed_attr_dicts["{} -- {}".format(parsed_event.dev, parsed_event.attr)] += 1
 				continue
+			parsed_event.attr = self.device_description_dict[parsed_event.dev]['attr']
 			if self.dataset == 'hh130':
 				if parsed_event.attr == 'Control4-LightSensor' and parsed_event.dev not in ['LS007', 'LS008', 'LS009', 'LS010']:
 					continue
@@ -624,6 +625,12 @@ class Hprocessor(GeneralProcessor):
 			if device_state_dict[parsed_event.dev] == parsed_event.value:
 				continue
 			# 3. Collect legitimate events
+			attr_occurrence_dict[parsed_event.attr][parsed_event.dev] = 1 if parsed_event.dev not in attr_occurrence_dict[parsed_event.attr].keys()\
+					else attr_occurrence_dict[parsed_event.attr][parsed_event.dev] + 1
+			device_state_dict[parsed_event.dev] = parsed_event.value
+			self.attr_dev_dict[parsed_event.attr].append(parsed_event.dev)
+			for k, v in self.attr_dev_dict.items():
+				self.attr_dev_dict[k] = list(set(v))
 			device_state_dict[parsed_event.dev] = parsed_event.value
 			qualified_events.append(parsed_event)
 		#if self.verbosity:
@@ -663,28 +670,111 @@ class Hprocessor(GeneralProcessor):
 			parsed_event.value = _enum_unification(parsed_event.value)
 		return parsed_events
 	
+	def generate_automation(self, n_auto=5):
+		automations = {
+			('M002',1):('D002',1),
+			('M004',1):('D002',1),
+			('M011',0):('D002',1),
+			#('M006',1):('D002',1),
+			#('M005',0):('D002',1)
+		}
+		ret_auto_dict = {}
+		i = 0
+		for k, v in automations.items():
+			ret_auto_dict[k] = v
+			i += 1
+			if i == n_auto:
+				break
+		return ret_auto_dict
+
 	def create_preprocessed_data_file(self, unified_parsed_events: "list[AttrEvent]"):
 		fout = open(self.transition_data, 'w+')
 		# 1. Identify all devices in the dataset
 		var_names = set()
 		for unified_event in unified_parsed_events:
+			unified_event.dev = unified_event.dev.replace(' ', '-')
 			var_names.add(unified_event.dev)
 		var_names = list(var_names); var_names.sort()
 		# 2. Build the index for each device
+		name_device_dict:'dict[DevAttribute]' = {}; index_device_dict:'dict[DevAttribute]' = {}
 		for i in range(len(var_names)):
-			device = DevAttribute(name=var_names[i], index=i)
-			self.name_device_dict[var_names[i]] = device; self.index_device_dict[i] = device
-		assert(len(self.name_device_dict.keys()) == len(self.index_device_dict.keys())) # The violation indicates that there exists devices with the same name
+			device = DevAttribute(name=var_names[i], index=i, attr=self.device_description_dict[var_names[i]]['attr'],\
+								location=self.device_description_dict[var_names[i]]['location'])
+			name_device_dict[var_names[i]] = device; index_device_dict[i] = device
+		assert(len(name_device_dict.keys()) == len(index_device_dict.keys())) # The violation indicates that there exists devices with the same name
+
 		# 3. Filter redundant events which do not imply state changes
+		qualified_events: "list[AttrEvent]" = []
 		last_states = [0] * len(var_names)
+		attr_occurrence_dict = defaultdict(dict)
+		dev_val_names = ['{}:{}'.format(dev, val) for dev in var_names for val in [0, 1]]
+		# For each runtime event (A=0), store the frequency of the state snapshot (e.g., B:=1)
+		frequency_array = np.zeros((len(dev_val_names), len(dev_val_names)))
+		frequency_df = pd.DataFrame(frequency_array, index=dev_val_names, columns=dev_val_names)
 		for unified_event in unified_parsed_events:
+			unified_event.dev = unified_event.dev.replace(' ', '-') # Remove the space in original records
+			unified_event.attr = unified_event.attr.replace(' ', '-')
 			cur_states = last_states.copy()
-			if cur_states[self.name_device_dict[unified_event.dev].index] == unified_event.value:
+			if cur_states[name_device_dict[unified_event.dev].index] == unified_event.value:
 				continue
-			fout.write(unified_event.__str__() + '\n')
-			cur_states[self.name_device_dict[unified_event.dev].index] = unified_event.value
+			qualified_events.append(unified_event)
+			attr_occurrence_dict[unified_event.attr][unified_event.dev] = 1 if unified_event.dev not in attr_occurrence_dict[unified_event.attr].keys()\
+					else attr_occurrence_dict[unified_event.attr][unified_event.dev] + 1
+			cur_dev_val = '{}:{}'.format(unified_event.dev, unified_event.value)
+			for id, dev_state in enumerate(cur_states):
+				if index_device_dict[id].name == unified_event.dev:
+					continue
+				hist_dev_val = '{}:{}'.format(index_device_dict[id].name, dev_state)
+				frequency_df.at[cur_dev_val, hist_dev_val] += 1
+			cur_states[name_device_dict[unified_event.dev].index] = unified_event.value
 			last_states = cur_states
-		# 4. Write legitimate events to the data file
+		
+		# 4. Generate automations and insert the event (as well as the automation events) to the dataset
+		automations = self.generate_automation()
+		with open(self.automation_path, 'w') as automation_file:
+			str_automation = {','.join(map(str, k)): ','.join(map(str, v)) for k,v in automations.items()}
+			automation_file.write(json.dumps(str_automation))
+
+		cur_states = [0] * len(var_names)
+		n_events = 0; n_auto_events = 0
+		for unified_event in qualified_events:
+			n_events += 1
+			fout.write(unified_event.__str__() + '\n')
+			# Update the current state vector
+			cur_states[name_device_dict[unified_event.dev].index] = unified_event.value
+			# Insert automation-related events
+			trigger = (unified_event.dev, unified_event.value)
+			max_prop = 3; i = 0
+			automation_events = []
+			temp_states = cur_states.copy()
+			while (trigger in automations.keys()) and i < max_prop:
+				action = automations[trigger]
+				if temp_states[name_device_dict[action[0]].index] != action[1]:
+					temp_states[name_device_dict[action[0]].index] = action[1]
+					action_attr = [k for k in self.attr_dev_dict.keys() if action[0] in self.attr_dev_dict[k]][0]
+					auto_event = AttrEvent(unified_event.date, unified_event.time, action[0], action_attr, action[1])
+					fout.write(auto_event.__str__() + '\n')
+					automation_events.append(auto_event)
+					i += 1; n_events += 1; n_auto_events += 1
+					trigger = action
+				else:
+					break
+			# Recover the automation-related events: Note that the recovery is executed in the reversed order. For example, DoorUnLocked->LightOn should be recovered as LighOff, DoorLock
+			for auto_event in reversed(automation_events):
+				recovery_event = AttrEvent(auto_event.date, auto_event.time, auto_event.dev, auto_event.attr, 1-auto_event.value)
+				fout.write(recovery_event.__str__() + '\n')
+				n_events += 1
+
+		print("[Event Preprocessing] {} rules are generated with {} automation events".format(len(automations), n_auto_events))
+		
+		if self.verbosity:
+			attrs = list(attr_occurrence_dict.keys())
+			attr_n_devs = [len(attr_occurrence_dict[attr].keys()) for attr in attrs]
+			attr_n_events = [sum(list(attr_occurrence_dict[attr].values())) for attr in attrs]
+			print("[Preprocessing Ending] # qualified events, devices = {}, {}".format(n_events, len(var_names)))
+			print(var_names)
+			print("[Preprocessing Ending] Candidate attrs, n_devices, and n_events: {}".format(list(zip(attrs, attr_n_devs, attr_n_events))))
+			print("[Preprocessing Ending] # Auto events: {}".format(n_auto_events))
 		fout.close()
 
 	def initiate_data_preprocessing(self):

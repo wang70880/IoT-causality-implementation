@@ -8,7 +8,7 @@ evaluate_discovery_process() {
     for partition_day in ${partition_days[@]}; do
             for pc_alpha in ${pc_alphas[@]}; do
                 for max_conds_dim in ${max_conds_dims[@]}; do
-                        mpiexec -n 30 python -u causalIoT.py ${dataset} \
+                        mpiexec -n 10 python -u causalIoT.py ${dataset} \
                                                            ${partition_day} ${training_ratio} \
                                                            ${tau_max} \
                                                            ${pc_alpha} ${max_conds_dim} ${max_comb} &>> discovery_evaluation.txt </dev/null
@@ -18,9 +18,9 @@ evaluate_discovery_process() {
 }
 
 ## Data preprocessing
-dataset="contextact"; preprocessing_verbosity=0
+dataset="hh130"; preprocessing_verbosity=0
 ## Data loading
-declare -a partition_days=(8)
+declare -a partition_days=(30)
 training_ratio=0.8
 ## Background generator and application level
 tau_max=2
