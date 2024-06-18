@@ -1,168 +1,406 @@
-from turtle import back
-from src.event_processing import Hprocessor
 import collections
 import itertools
 import numpy as np
 import random
-import src.event_processing as evt_proc
-import src.background_generator as bk_generator
-import statistics
+import pandas as pd
+from src.tigramite.tigramite.pcmci import PCMCI
+import matplotlib.pyplot as plt
+from numpy import ndarray
+from src.event_processing import Hprocessor, Cprocessor, GeneralProcessor
+from src.drawer import Drawer
+from src.background_generator import BackgroundGenerator
+from src.bayesian_fitter import BayesianFitter
+from src.genetic_type import DataFrame, AttrEvent, DevAttribute
+from src.tigramite.tigramite import plotting as ti_plotting
+from collections import defaultdict
+from pprint import pprint
 
-def _lag_name(attr:'str', lag:'int'):
-    assert(lag >= 0)
-    new_name = '{}({})'.format(attr, -1 * lag) if lag > 0 else '{}'.format(attr)
-    return new_name
+from src.tigramite.tigramite import pcmci
+from src.tigramite.tigramite.independence_tests.chi2 import ChiSquare
+
+def _normalize_time_series_array(arr:'np.ndarray', threshold=0):
+    n_rows = arr.shape[0]; n_cols = arr.shape[1]
+    ret_arr:'np.ndarray' = np.zeros((n_rows, n_cols), dtype=np.int8)
+    for i in range(n_rows):
+        for j in range(n_cols):
+            ret_arr[i, j] = 1 if np.sum(arr[i,j,:])>threshold else 0
+    return ret_arr
 
 class Evaluator():
 
-    def __init__(self, dataset, event_processor, background_generator, tau_max) -> None:
-        self.dataset = dataset
-        self.tau_max = tau_max
-        self.event_processor = event_processor
-        self.background_generator = background_generator
-
-        self.user_correlation_dict = self.construct_user_correlation_benchmark()
-        self.physical_correlation_dict = None
-        self.automation_correlation_dict = None
-
-        self.correlation_dict = {
-            'activity': self.user_correlation_dict,
-            'physics': self.physical_correlation_dict,
-            'automation': self.automation_correlation_dict
-        }
+    def __init__(self, event_preprocessor, background_generator, bayesian_fitter,\
+        bk_level, pc_alpha):
+        self.event_preprocessor:'GeneralProcessor' = event_preprocessor
+        self.background_generator:'BackgroundGenerator' = background_generator
+        self.bayesian_fitter:'BayesianFitter' = bayesian_fitter
+        self.bk_level = bk_level; self.pc_alpha = pc_alpha
+        self.tau_max = self.background_generator.tau_max
+        self.ground_truth_dict = self._construct_ground_truth()
+        self.golden_standard_dict = self._construct_golden_standard()
     
+    """Function classes for golden standard construction."""
+
+    def _construct_ground_truth(self):
+        # Auxillary variables
+        frequency_array:'np.ndarray' = self.background_generator.frequency_array
+        spatial_array:'np.ndarray' = self.background_generator.knowledge_dict['spatial']
+        user_array:'np.ndarray' = self.background_generator.knowledge_dict['user']
+        physical_array:'np.ndarray' = self.background_generator.knowledge_dict['physical']
+        # Return variables
+        ground_truth_dict = defaultdict(np.ndarray)
+
+        ground_truth_dict['temporal']:'np.ndarray' = _normalize_time_series_array(frequency_array)
+        #ground_truth_dict['temporal']:'np.ndarray' = frequency_array[:,:,1]; ground_truth_dict['temporal'][ground_truth_dict['temporal']>0] = 1
+        ground_truth_dict['spatial']:'np.ndarray' = _normalize_time_series_array(spatial_array)
+        ground_truth_dict['user']:'np.ndarray' = _normalize_time_series_array(user_array)
+        ground_truth_dict['physical']:'np.ndarray' = _normalize_time_series_array(physical_array)
+        assert(ground_truth_dict['temporal'].shape == ground_truth_dict['spatial'].shape == ground_truth_dict['user'].shape == ground_truth_dict['physical'].shape)
+
+        assert(np.all(ground_truth_dict['temporal']<=1))
+        assert(np.all(ground_truth_dict['spatial'] <= 1)) 
+        assert(np.all(ground_truth_dict['user'] <= 1))
+        assert(np.all(ground_truth_dict['physical'] <= 1))
+        return ground_truth_dict
+
+    def _construct_golden_standard(self):
+        # JC NOTE: Currently we only consider hh-series datasets
+        golden_standard_dict = {}
+        golden_standard_dict['user'] = self._identify_user_interactions()
+        golden_standard_dict['physics'] = self._identify_physical_interactions()
+        golden_standard_dict['automation'] = self._identify_automation_interactions()
+        golden_standard_dict['autocor'] = self._identify_auto_correlation()
+
+        golden_standard_dict['aggregation'] = np.zeros(shape=golden_standard_dict['user'].shape, dtype=np.int8)
+
+        try:
+            golden_df = pd.read_csv(self.event_preprocessor.ground_truth, encoding="utf-8", delim_whitespace=True, header=0, dtype=int)
+            golden_standard_dict['aggregation'] = golden_df.values
+        except:
+            golden_standard_dict['aggregation'] = sum([golden_array for golden_array in golden_standard_dict.values()])
+            golden_standard_dict['aggregation'][golden_standard_dict['aggregation']>0] = 1
+
+        assert(golden_standard_dict['aggregation'].shape == golden_standard_dict['user'].shape)
+        #assert(all([x <= 1 for index, x in np.ndenumerate(aggregation_array)])) # We hope that for any two devices, there exists only one type of interactions
+
+        return golden_standard_dict
+
+    def _identify_user_interactions(self):
+        """
+        In the current frame, for any two devices, they have interactions iff (1) they are spatially adjacent, and (2) they are usually sequentially activated.
+            (1) The identification of spatial adjacency is done by the background generator.
+            (2) The identification of sequential activation is done by checking its occurrence within time lag tau_max.
+        """
+        # Auxillary variables
+        frame:'DataFrame' = self.background_generator.frame; n_vars = frame.n_vars
+        # Return variables
+        golden_user_array = np.zeros(self.ground_truth_dict['user'].shape) + self.ground_truth_dict['user']
+        golden_user_array[golden_user_array>0] = 1
+
+        return golden_user_array
+
+    def _identify_physical_interactions(self):
+        # Auxillary variables
+        frame:'DataFrame' = self.background_generator.frame
+        # Return variables
+        golden_physical_array = self.ground_truth_dict['spatial'] + self.ground_truth_dict['physical']
+        golden_physical_array[golden_physical_array<2] = 0; golden_physical_array[golden_physical_array==2] = 1
+
+        return golden_physical_array
+    
+    def _identify_automation_interactions(self):
+        # Auxillary variables
+        frame:'DataFrame' = self.background_generator.frame
+        name_device_dict = frame.name_device_dict; n_vars = frame.n_vars
+        # Return variables
+        golden_automation_array:'np.ndarray' = np.zeros((n_vars, n_vars), dtype=np.int32)
+
+        return golden_automation_array
+    
+    def _identify_auto_correlation(self):
+        # Auxillary variables
+        frame:'DataFrame' = self.background_generator.frame
+        n_vars = frame.n_vars
+        # Return variables
+        golden_correlation_array:'np.ndarray' = np.zeros((n_vars, n_vars), dtype=np.int8)
+        for i in range(n_vars):
+            golden_correlation_array[i,i] = 1
+        return golden_correlation_array
+
+    def print_golden_standard(self, golden_type='aggregation'):
+        # Auxillary variables
+        frame:'DataFrame' = self.background_generator.frame
+        tau_max = self.background_generator.tau_max; var_names = frame.var_names
+
+        golden_array = self.golden_standard_dict[golden_type]
+        print("Golden array with type {} (After lag aggregation):".format(golden_type))
+        df = pd.DataFrame(golden_array, columns=var_names, index=var_names)
+        print(df)
+        print("# golden edges: {}".format(np.count_nonzero(golden_array > 0)))
+
+    """Function classes for causal discovery evaluation."""
+
+    def precision_recall_calculation(self, golden_array:'np.ndarray', evaluated_array:'np.ndarray',\
+                        filtered_edge_infos:'dict'=None, identified_edge_infos:'dict'=None, verbosity=0):
+        # Auxillary variables
+        frequency_array:'np.ndarray' = self.background_generator.frequency_array
+        frame:'DataFrame' = self.background_generator.frame
+        index_device_dict:'dict[DevAttribute]' = frame.index_device_dict
+        tp = 0; tn = 0; fp = 0; fn = 0; precision = 0.0; recall = 0.0
+        tp_dict = defaultdict(dict); tn_dict = defaultdict(dict); fp_dict = defaultdict(dict); fn_dict = defaultdict(dict)
+
+        for index, x in np.ndenumerate(evaluated_array):
+            pair_info = {
+                'adev-pair': '{}->{}'.format(index_device_dict[index[0]].name, index_device_dict[index[1]].name),
+                'attr-pair': (index_device_dict[index[0]].attr, index_device_dict[index[1]].attr),
+                'temporal': (np.sum(frequency_array[index[0],index[1],:])),
+                'spatial': ((index_device_dict[index[0]].location, index_device_dict[index[1]].location), self.ground_truth_dict['spatial'][index])
+                #'property': (self.ground_truth_dict['user'][index], self.ground_truth_dict['physical'][index], self.golden_standard_dict['autocor'][index])
+            }
+            if evaluated_array[index] == 1 and golden_array[index] == 1:
+                tp += 1
+                edge_infos = [edge_info for edge_info in identified_edge_infos[index[1]] if edge_info[0][1][0]==index[0]]
+                max_ate = 0.0
+                for edge_info in edge_infos:
+                    cpt, ate = frame.get_cpt_and_ate(prior_vars=[edge_info[0][1]], latter_vars=[(edge_info[0][0], 0)], cond_vars=[], tau_max=self.tau_max)
+                    if abs(ate) > max_ate:
+                        pair_info['pval'] = round(edge_info[2], 3)
+                        #pair_info['cpt'] = cpt
+                        pair_info['cate'] = round(ate, 3)
+                tp_dict[pair_info['adev-pair']] = pair_info
+            elif evaluated_array[index] == 1 and golden_array[index] == 0:
+                fp += 1
+                edge_infos = [edge_info for edge_info in identified_edge_infos[index[1]] if edge_info[0][1][0]==index[0]]
+                max_ate = 0.0
+                for edge_info in edge_infos:
+                    cpt, ate = frame.get_cpt_and_ate(prior_vars=[edge_info[0][1]], latter_vars=[(edge_info[0][0], 0)], cond_vars=[], tau_max=self.tau_max)
+                    if abs(ate) > max_ate:
+                        pair_info['pval'] = round(edge_info[2], 3)
+                        #pair_info['cpt'] = edge_info[2]
+                        pair_info['cate'] = round(ate, 3)
+                fp_dict[pair_info['adev-pair']] = pair_info
+            elif evaluated_array[index] == 0 and golden_array[index] == 1:
+                fn += 1
+                edge_infos = [edge_info for edge_info in filtered_edge_infos[index[1]] if edge_info[0][1][0]==index[0]]
+                filter_infos = []; max_ate = 0.
+                for edge_info in edge_infos:
+                    cpt, ate = frame.get_cpt_and_ate(prior_vars=[edge_info[0][1]], latter_vars=[(edge_info[0][0], 0)], cond_vars=[], tau_max=self.tau_max)
+                    max_ate = ate if abs(ate) > max_ate else max_ate
+                    filter_infos.append((edge_info[0][1][1], [(index_device_dict[cond[0]].name, cond[1]) for cond in edge_info[1]], round(edge_info[3],3), round(ate,3))) # lag, conds, pval, ate
+                sorted(filter_infos, key=lambda x: x[-1], reverse=True)
+                pair_info['filter-info'] = filter_infos
+                pair_info['cate'] = round(max_ate, 3)
+                fn_dict[pair_info['adev-pair']] = pair_info
+            else:
+                tn += 1
+                edge_infos = [edge_info for edge_info in filtered_edge_infos[index[1]] if edge_info[0][1][0]==index[0]]
+                filter_infos = []; max_ate = 0.
+                for edge_info in edge_infos:
+                    cpt, ate = frame.get_cpt_and_ate(prior_vars=[edge_info[0][1]], latter_vars=[(edge_info[0][0], 0)], cond_vars=[], tau_max=self.tau_max)
+                    max_ate = ate if abs(ate) > max_ate else max_ate
+                    filter_infos.append((edge_info[0][1][1], [(index_device_dict[cond[0]].name, cond[1]) for cond in edge_info[1]], round(edge_info[3],3), round(ate,3))) # lag, conds, pval, ate
+                sorted(filter_infos, key=lambda x: x[-1], reverse=True)
+                pair_info['filter-info'] = filter_infos
+                pair_info['cate'] = round(max_ate, 3)
+                tn_dict[pair_info['adev-pair']] = pair_info
+
+        precision = tp * 1.0 / (tp + fp) if (tp+fp) != 0 else 0
+        recall = tp * 1.0 / (tp + fn) if (tp+fn) != 0 else 0
+        f1_score = 2.0*precision*recall / (precision+recall) if (precision+recall) != 0 else 0
+
+        tp_dict = dict(sorted(tp_dict.items(), key=lambda item: abs(item[1]['cate']), reverse=True))
+        fp_dict = dict(sorted(fp_dict.items(), key=lambda item: abs(item[1]['cate']), reverse=True))
+        tn_dict = dict(sorted(tn_dict.items(), key=lambda item: abs(item[1]['cate']), reverse=True))
+        fn_dict = dict(sorted(fn_dict.items(), key=lambda item: abs(item[1]['cate']), reverse=True))
+
+        return tp, fp, fn, precision, recall, f1_score, tp_dict, tn_dict, fp_dict, fn_dict
+
+    def compare_with_arm(self, discovery_results:'np.ndarray', arm_results:'np.ndarray'):
+        # Auxillary variables
+        frame:'DataFrame' = self.background_generator.frame
+        var_names = frame.var_names; n_vars = frame.n_vars; index_device_dict:'dict[DevAttribute]' = frame.index_device_dict
+        golden_standard_array:'np.ndarray' = self.golden_standard_dict['aggregation']
+        assert(discovery_results.shape == (n_vars, n_vars, self.tau_max + 1))
+        assert(arm_results.shape == (n_vars, n_vars))
+
+        # 1. Reduce discovery_results from (n_vars, n_vars, tau_max) to (n_vars, n_vars)
+        tau_free_discovery_array = sum([discovery_results[:,:,tau] for tau in range(1, self.tau_max + 1)]); tau_free_discovery_array[tau_free_discovery_array > 0] = 1
+        assert(tau_free_discovery_array.shape == golden_standard_array.shape == (n_vars, n_vars))
+
+        # 2. Calculate the discovery accuracy for ARM and our algorithm, respectively
+        causal_tp, causal_fp, causal_fn, causal_precision, causal_recall, causal_f1 = self.precision_recall_calculation(golden_standard_array, tau_free_discovery_array)
+        arm_tp, arm_fp, arm_fn, arm_precision, arm_recall, arm_f1 = self.precision_recall_calculation(golden_standard_array, arm_results)
+        print("Causal discovery tp, fp, fn, precision, recall, f1 = {}, {}, {}, {}, {}, {}".format(causal_tp, causal_fp, causal_fn, causal_precision, causal_recall, causal_f1))
+        print("ARM tp, fp, fn, precision, recall, f1 = {}, {}, {}, {}, {}, {}".format(arm_tp, arm_fp, arm_fn, arm_precision, arm_recall, arm_f1))
+
+        # 3. Analyze the situations of PC-filtered edges in ARM results
+        removed_common_parent_associations = []; removed_chained_associations = []
+        ## 3.1 Identify the set of deducted associations with common links
+        for cause in range(n_vars):
+            outcomes = [outcome for outcome in range(n_vars) if tau_free_discovery_array[(cause, outcome)]==golden_standard_array[(cause, outcome)]==1 and outcome != cause]
+            candidate_pairs = list(itertools.permutations(outcomes, 2))
+            removed_common_parent_associations += [(pair[0], pair[1], cause) for pair in candidate_pairs\
+                            if tau_free_discovery_array[pair]==golden_standard_array[pair]==0]
+        ## 3.2 Identify the set of deducted associations with intermediate variables
+        for cause in range(n_vars):
+            outcomes = [outcome for outcome in range(n_vars) if tau_free_discovery_array[(cause, outcome)]==golden_standard_array[(cause, outcome)]==1 and outcome != cause]
+            for outcome in outcomes:
+                further_outcomes = [further_outcome for further_outcome in range(n_vars) if tau_free_discovery_array[(outcome, further_outcome)]==golden_standard_array[(outcome, further_outcome)]==1 and further_outcome != outcome]
+                removed_chained_associations += [(cause, further_outcome, outcome) for further_outcome in further_outcomes if tau_free_discovery_array[(cause, further_outcome)]==golden_standard_array[(cause, further_outcome)]==0]
+        ## 3.3 For each removed spurious associations, check its existence in the ARM array
+        spurious_cp_associations = [spurious_link for spurious_link in removed_common_parent_associations if arm_results[(spurious_link[0],spurious_link[1])] == 1]
+        spurious_chained_associations = [spurious_link for spurious_link in removed_chained_associations if arm_results[(spurious_link[0],spurious_link[1])] == 1]
+        n_spurious_cp_associations = len(spurious_cp_associations); n_spurious_chained_associations = len(spurious_chained_associations)
+        print("Compared with ARM, causalIoT removes {} spurious common-parent edges and {} spurious chained edges.".format(n_spurious_cp_associations, n_spurious_chained_associations))
+        example_str = 'Example spurious cp associations:\n' + ','.join(['{}<-{}->{}'.format(index_device_dict[spurious_cp_association[0]].name, index_device_dict[spurious_cp_association[2]].name, index_device_dict[spurious_cp_association[1]].name)\
+                                                for spurious_cp_association in spurious_cp_associations]) + '\n'
+        example_str += 'Example spurious chained associations:\n' + ','.join(['{}->{}->{}'.format(index_device_dict[spurious_chained_association[0]].name, index_device_dict[spurious_chained_association[2]].name, index_device_dict[spurious_chained_association[1]].name)\
+                                                for spurious_chained_association in spurious_chained_associations]) + '\n'
+        print(example_str)
+
+    def interpret_discovery_results(self, discovery_results:'np.ndarray'):
+        # Return variables
+        interactions:'list[tuple]' = []; interaction_types:'set' = set(); n_paths:'int' = 0
+        # Auxillary variables
+        frame:'DataFrame' = self.background_generator.frame
+        var_names = frame.var_names; n_vars = len(var_names); index_device_dict:'dict[DevAttribute]' = frame.index_device_dict
+        golden_standard_array:'np.ndarray' = self.golden_standard_dict['aggregation']
+
+        # 1. Analyze the discovered device interactions (After aggregation of time lag)
+        tau_free_discovery_array:'np.ndarray' = sum([discovery_results[:,:,tau] for tau in range(1, self.tau_max + 1)]); tau_free_discovery_array[tau_free_discovery_array > 0] = 1
+        discovered_golden_array = np.zeros((n_vars, n_vars))
+        assert(tau_free_discovery_array.shape == golden_standard_array.shape == (n_vars, n_vars))
+        for (i, j), x in np.ndenumerate(golden_standard_array):
+            if tau_free_discovery_array[(i, j)] == x == 1:
+                interactions.append((index_device_dict[i].name, index_device_dict[j].name))
+                interaction_types.add((index_device_dict[i].name[0], index_device_dict[j].name[0]))
+                discovered_golden_array[(i, j)] = 1
+        print("# of golden interactions, discovered interactions, interaction types, and type lists: {}({}), {}({}), {}, {}"\
+                .format(np.sum(golden_standard_array), np.sum(golden_standard_array), np.sum(tau_free_discovery_array), np.sum(discovery_results), len(interaction_types), interaction_types))
+
+        # 2. Analyze the formed device interaction chains.
+        path_array = np.linalg.matrix_power(tau_free_discovery_array, 3); n_paths = np.sum(path_array)
+        print("# of interaction chains: {}".format(n_paths))
+        return interactions, interaction_types, n_paths
+
+    def evaluate_discovery_accuracy(self, discovery_results:'np.ndarray',\
+                            filtered_edge_infos:'dict'=None, identified_edge_infos:'dict'=None, verbosity=0):
+        # Auxillary variables
+        frame:'DataFrame' = self.background_generator.frame
+        var_names = frame.var_names; n_vars = len(var_names)
+        golden_standard_array:'np.ndarray' = self.golden_standard_dict['aggregation']
+
+        # 1. Plot the golden standard graph and the discovered graph. Note that the plot functionality requires PCMCI objects
+        drawer = Drawer(self.background_generator.dataset)
+        pcmci = PCMCI(dataframe=frame.training_dataframe, cond_ind_test=ChiSquare(), verbosity=-1)
+        drawer.plot_interaction_graph(pcmci, discovery_results==1, 'mined-interaction-bklevel{}-alpha{}'\
+                            .format(self.bk_level, int(1.0/self.pc_alpha)), link_label_fontsize=10)
+        #drawer.plot_interaction_graph(pcmci, golden_standard_array==1, 'golden-interaction')
+        # 3. Calculate the tau-free-precision and tau-free-recall for discovered results
+        tau_free_discovery_array:'np.ndarray' = sum([discovery_results[:,:,tau] for tau in range(1, self.tau_max+1)]); tau_free_discovery_array[tau_free_discovery_array>0] = 1
+        assert(tau_free_discovery_array.shape==golden_standard_array.shape)
+        tp, fp, fn, precision, recall, f1, tp_dict, tn_dict, fp_dict, fn_dict \
+             = self.precision_recall_calculation(golden_standard_array, tau_free_discovery_array, filtered_edge_infos, identified_edge_infos, verbosity=verbosity)
+        assert(tp+fn == np.sum(golden_standard_array))
+        if verbosity:
+            print('TP Infos ({})'.format(len(tp_dict.keys())))
+            for tp_info in tp_dict.values():
+                pprint(tp_info)
+            print('FP Infos ({})'.format(len(fp_dict.keys())))
+            for fp_info in fp_dict.values():
+                pprint(fp_info)
+            print('TN Infos ({})'.format(len(tn_dict.keys())))
+            for tn_info in tn_dict.values():
+                pprint(tn_info)
+            print('FN Infos ({})'.format(len(fn_dict.keys())))
+            for fn_info in fn_dict.values():
+                pprint(fn_info)
+        return tp, fp, fn, precision, recall, f1
+
+    """Function classes for anomaly detection evaluation."""
+
+    def construct_golden_standard_bayesian_fitter(self):
+        # Auxillary variables
+        frame:'DataFrame' = self.background_generator.frame
+        var_names = frame.var_names
+
+        golden_standard_interaction_matrix:'np.ndarray' = self.golden_standard_dict['aggregation']
+        link_dict = defaultdict(list)
+        for (i, j, lag), x in np.ndenumerate(golden_standard_interaction_matrix):
+            if x == 1:
+                link_dict[var_names[j]].append((var_names[i],-lag))
+        golden_bayesian_fitter = BayesianFitter(frame, self.tau_max, link_dict)
+        golden_bayesian_fitter.construct_bayesian_model()
+        return golden_bayesian_fitter
+
+    def simulate_malicious_control(self, n_anomaly, maximum_length, anomaly_case):
+        """
+        The function injects anomalous events to the benign testing data, and generates the testing event sequences (simulating Malicious Control Attack).
+        1. Randomly select n_anomaly positions.
+        2. Traverse each benign event, and maintain a phantom state machine to track the system state.
+        3. When reaching to a pre-designated position:
+            * Determine the anomalous device and its state (flips of benign states).
+            * Generate an anomalous event and insert it to the testing sequence.
+            * If maximum_length > 1, propagate the anomaly according to the golden standard interaction.
+        4. Record the nearest stable benign states for each testing sequence.
+        Parameters:
+            frame: The dataframe storing benign testing sequences
+            n_anomaly: The number of injected anomalies
+            maximum_length: The maximum length of the anomaly chain. If 0, the function injects single point anomalies.
+        Returns:
+            testing_event_sequence: The list of testing events (with injected anomalies)
+            anomaly_positions: The list of injection positions in testing sequences
+            stable_states_dict: Dict of {Key: position in testing log; Value: stable roll-back (event, states) pair}
+        """
+        # Return variables
+        testing_event_states:'list[tuple(AttrEvent,ndarray)]' = []; anomaly_positions = []; testing_benign_dict:'dict[int]' = {}
+        # Auxillary variables
+        frame:'DataFrame' = self.background_generator.frame
+        name_device_dict:'dict[DevAttribute]' = frame.name_device_dict
+        benign_event_states:'list[tuple(AttrEvent,ndarray)]' = frame.testing_events_states
+
+        # 1. Determine the set of anomaly events according to the anomaly case
+        candidate_positions = []; anomalous_event_states = []; real_candidate_positions = []
+        if anomaly_case == 1: # Outlier Intrusion: Ghost motion sensor activation event
+            golden_bayesian_fitter = self.construct_golden_standard_bayesian_fitter()
+            motion_devices = [dev for dev in frame.var_names if dev.startswith('M')]
+            candidate_positions = sorted(random.sample(\
+                                    range(self.tau_max, len(benign_event_states) - 1, self.tau_max + maximum_length),\
+                                    n_anomaly))
+            recent_devices = []
+            for i, (event, stable_states) in enumerate(benign_event_states):
+                recent_devices.append(event.dev)
+                if i in candidate_positions:  # Determine the anomaly event
+                    recent_tau_devices = list(set(recent_devices[-(self.tau_max):].copy()))
+                    children_devices = golden_bayesian_fitter.get_expanded_children(recent_tau_devices) # Avoid child devices in the golden standard
+                    potentially_anomaly_devices = [x for x in motion_devices if x not in children_devices and stable_states[name_device_dict[x].index] == 0]
+                    if len(potentially_anomaly_devices) == 0:
+                        continue
+                    real_candidate_positions.append(i)
+                    anomalous_device = random.choice(potentially_anomaly_devices); anomalous_device_index = name_device_dict[anomalous_device].index; anomalous_device_state = 1
+                    anomalous_event = AttrEvent(date=event.date, time=event.time, dev=anomalous_device, attr='Case1-Anomaly', value=anomalous_device_state)
+                    anomaly_states = stable_states.copy(); anomaly_states[anomalous_device_index] = anomalous_device_state
+                    anomalous_event_states.append((anomalous_event, anomaly_states))
+        else:
+            pass
+
+        # 2. Insert these anomaly events into the dataset
+        testing_count = 0; anomaly_count = 0
+        for i, (event, stable_states) in enumerate(benign_event_states):
+            testing_event_states.append((event, stable_states))
+            testing_benign_dict[testing_count] = i; testing_count += 1
+            if i in real_candidate_positions: # If reaching the anomaly position.
+                anomalous_event, anomalous_attr_state = anomalous_event_states[anomaly_count]
+                testing_event_states.append((anomalous_event, anomalous_attr_state)); anomaly_positions.append(testing_count)
+                testing_benign_dict[testing_count] = i; testing_count += 1; anomaly_count += 1
+
+        return testing_event_states, anomaly_positions, testing_benign_dict
+
     def evaluate_detection_accuracy(self, golden_standard:'list[int]', result:'list[int]'):
-        print("Golden standard: {}".format(golden_standard))
-        print("Your result: {}".format(result))
+        print("Golden standard with number {}: {}".format(len(golden_standard), golden_standard))
+        print("Your result with number {}: {}".format(len(result), result))
         tp = len([x for x in result if x in golden_standard])
         fp = len([x for x in result if x not in golden_standard])
         fn = len([x for x in golden_standard if x not in result])
-        precision = tp * 1.0 / (tp + fp)
-        recall = tp * 1.0 / (tp + fn)
+        precision = tp * 1.0 / (tp + fp) if tp + fp > 0 else 0
+        recall = tp * 1.0 / (tp + fn) if tp + fn > 0 else 0
         print("Precision, recall = {:.2f}, {:.2f}".format(precision, recall))
-
-    def candidate_interaction_matching(self, frame_id=0, tau=1, interactions_list=[]):
-        match_count = 0
-        candidate_interaction_array = self.background_generator.candidate_pair_dict[frame_id][tau]
-        for interaction in interactions_list:
-            if candidate_interaction_array[interaction[0], interaction[1]] == 1:
-                match_count += 1
-        return match_count
-
-    def construct_user_correlation_benchmark(self):
-        user_correlation_dict = {}
-        for frame_id in range(self.event_processor.frame_count):
-            user_correlation_dict[frame_id] = {}
-            for tau in range(1, self.tau_max + 1):
-                temporal_array = self.background_generator.temporal_pair_dict[frame_id][tau] # Temporal information
-                spatial_array = self.background_generator.spatial_pair_dict[frame_id][tau] # Spatial information
-                functionality_array =  self.background_generator.functionality_pair_dict['activity'] # Functionality information
-                user_correlation_array = temporal_array * spatial_array * functionality_array
-                user_correlation_dict[frame_id][tau] = user_correlation_array
-        return user_correlation_dict
-
-    def _print_pair_list(self, interested_array):
-        attr_names = self.event_processor.attr_names; num_attrs = len(attr_names)
-        pair_list = []
-        for index, x in np.ndenumerate(interested_array):
-            if x == 1:
-                pair_list.append((attr_names[index[0]], attr_names[index[1]]))
-        print("Pair list with lens {}: {}".format(len(pair_list), pair_list))
-
-    def print_benchmark_info(self,frame_id= 0, tau= 1, type = ''):
-        """Print out the identified device correlations.
-
-        Args:
-            frame_id (int, optional): _description_. Defaults to 0.
-            tau (int, optional): _description_. Defaults to 1.
-            type (str, optional): 'activity' or 'physics' or 'automation'
-        """
-        print("The {} correlation dict for frame_id = {}, tau = {}: ".format(type, frame_id, tau))
-        attr_names = self.event_processor.attr_names; num_attrs = len(attr_names)
-        self._print_pair_list(self.correlation_dict[type][frame_id][tau])
-
-    def estimate_single_discovery_accuracy(self, frame_id, tau, result):
-        """
-        This function estimates the discovery accuracy for only user activity correlations.
-        Moreover, it specifies a certain frame_id and a tau for the discovered result.
-        """
-        attr_names = self.event_processor.attr_names; num_attrs = len(attr_names)
-        pcmci_array = np.zeros(shape=(num_attrs, num_attrs), dtype=np.int64)
-        for outcome_attr in result.keys(): # Transform the pcmci_results dict into array format (given the specific time lag \tau)
-            for (cause_attr, lag) in result[outcome_attr]:
-                pcmci_array[attr_names.index(cause_attr), attr_names.index(outcome_attr)] = 1 if lag == -1 * tau else 0
-        #print("[frame_id={}, tau={}] Evaluating accuracy for user-activity correlations".format(frame_id, tau))
-        discovery_array = pcmci_array * self.background_generator.functionality_pair_dict['activity']; truth_array = self.user_correlation_dict[frame_id][tau]
-        n_discovery = np.sum(discovery_array); truth_count = np.sum(truth_array)
-        tp = 0; fn = 0; fp = 0
-        fn_list = []
-        fp_list = []
-        for idx, x in np.ndenumerate(truth_array):
-            if truth_array[idx[0], idx[1]] == discovery_array[idx[0], idx[1]] == 1:
-                tp += 1
-            elif truth_array[idx[0], idx[1]] == 1:
-                fn += 1
-                fn_list.append("{} -> {}".format(attr_names[idx[0]], attr_names[idx[1]]))
-            elif discovery_array[idx[0], idx[1]] == 1:
-                fp_list.append("{} -> {}".format(attr_names[idx[0]], attr_names[idx[1]]))
-                fp += 1
-        precision = (tp * 1.0) / (tp + fp)
-        recall = (tp * 1.0) / (tp + fn)
-        #print("* FNs: {}".format(fn_list))
-        #print("* FPs: {}".format(fp_list))
-        #print("n_discovery = %d" % n_discovery
-        #          + "\ntruth_count = %s" % truth_count 
-        #          + "\ntp = %d" % tp
-        #          + "\nfn = %d" % fn 
-        #          + "\nfp = %d" % fp
-        #          + "\nprecision = {}".format(precision)
-        #          + "\nrecall = {}".format(recall))
-        return truth_count, precision, recall
-    
-    def estimate_average_discovery_accuracy(self, tau, result_dict):
-        truth_count_list = []; precision_list = []; recall_list = []
-        for frame_id, result in result_dict.items():
-            truth_count, precision, recall = self.estimate_single_discovery_accuracy(frame_id, tau, result)
-            truth_count_list.append(truth_count); precision_list.append(precision); recall_list.append(recall)
-        return statistics.mean(truth_count_list), statistics.mean(precision_list), statistics.mean(recall_list)
-    
-    def inject_type1_anomalies(self, frame_id, n_anomalies, maximum_length):
-        testing_event_sequence = []; anomaly_positions = []
-        original_frame = self.event_processor.frame_dict[frame_id]
-        benign_testing_event_sequence = list(zip(original_frame['testing-attr-sequence'], original_frame['testing-state-sequence']))
-        n_benign_events = len(benign_testing_event_sequence)
-        split_positions = sorted(random.sample(range(self.tau_max+1, n_benign_events-1), n_anomalies))
-        anomalous_sequences = []
-        anomaly_lag = 1 # Injecting lag-1 anomalies
-        count = 1
-        for split_position in split_positions:
-            anomalous_sequence = []
-            preceding_attr = benign_testing_event_sequence[split_position][0]; preceding_attr_index = original_frame['var-name'].index(preceding_attr)
-            candidate_anomalous_attrs = [original_frame['var-name'][i] for i in list(np.where(self.background_generator.candidate_pair_dict[frame_id][anomaly_lag][preceding_attr_index] == 0)[0])]
-            anomalous_attr = random.choice(candidate_anomalous_attrs)
-            anomalous_sequence.append(anomalous_attr)
-            for i in range(maximum_length - 1): # Propogate the anomaly chain (given pre-selected anomalous attr)
-                preceding_attr_index = original_frame['var-name'].index(anomalous_attr)
-                candidate_anomalous_attrs = [original_frame['var-name'][i] for i in list(np.where(self.background_generator.candidate_pair_dict[frame_id][anomaly_lag][preceding_attr_index] == 1)[0])]
-                if len(candidate_anomalous_attrs) == 0:
-                    break
-                else:
-                    anomalous_attr = random.choice(candidate_anomalous_attrs)
-                    anomalous_sequence.append(anomalous_attr)
-            anomalous_sequences.append(anomalous_sequence)
-            count += 1
-        # JC TEST: Check the correctness of the anomalous sequences
-        starting_index = 0
-        for i in range(0, n_anomalies):
-            testing_event_sequence += benign_testing_event_sequence[starting_index: split_positions[i]+1].copy()
-            anomaly_positions.append(len(testing_event_sequence))
-            testing_event_sequence += [(attr, 1) for attr in anomalous_sequences[i]]
-            starting_index = split_positions[i]+1
-        testing_event_sequence += benign_testing_event_sequence[starting_index:].copy()
-        # JC TEST: Check the correctness for list concatenation 
-        assert(len(testing_event_sequence) == len(benign_testing_event_sequence)\
-                         + sum([len(anomaly_sequence) for anomaly_sequence in anomalous_sequences]))
-        
-        print("Injected positions: {}, anomalies: {}".format(anomaly_positions, anomalous_sequences))
-
-        return testing_event_sequence, anomaly_positions
