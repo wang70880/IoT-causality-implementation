@@ -11,8 +11,11 @@
 *.vscode*
 
 ## Folders
+device-attribute/
+results/
 data/
 temp/
+evaluations/
 __pycache__/
 
 ## temporary log files

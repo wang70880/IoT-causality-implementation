@@ -1,0 +1,27 @@
+[Data Loading] # records, attrs, devices = 49799, 7, 28
+ [Bayesian Fitting]
+ * isolated attrs, #: [], 0
+ * stop attrs, #: [], 0
+ * exogenous attrs, #: [], 0
+ * # edges: 1816
+ * (max, mean, min) for outcoming degrees: (102, 33.32142857142857, 3)
+ * (max, mean, min) for incoming degrees: (48, 16.214285714285715, 2)
+
+[Bayesian Fitting] ALERT! The variable Puissance_Plaques(0) owns the maximum in-degree 48 (larger than 10). This variable may slow down the fitting process!
+now hanlding edge ('C15(-1)', 'C15(0)')
+Traceback (most recent call last):
+  File "debugger.py", line 248, in <module>
+    bayesian_debugger = BayesianDebugger(frame, link_dict, tau_max)
+  File "debugger.py", line 112, in __init__
+    self.bayesian_fitter = BayesianFitter(frame, tau_max, link_dict)
+  File "/research/d4/gds/jcwang/IoT-causality-implementation/src/bayesian_fitter.py", line 35, in __init__
+    self.causal_model = self._construct_causal_model()
+  File "/research/d4/gds/jcwang/IoT-causality-implementation/src/bayesian_fitter.py", line 123, in _construct_causal_model
+    x0_effect = inference.query(variables=[edge[1]], do={edge[0]:0}, adjustment_set=adjustment_set)
+  File "/research/d4/gds/jcwang/anaconda3/envs/py38/lib/python3.8/site-packages/pgmpy/inference/CausalInference.py", line 611, in query
+    infer = inference_algo(self.model)
+  File "/research/d4/gds/jcwang/anaconda3/envs/py38/lib/python3.8/site-packages/pgmpy/inference/base.py", line 65, in __init__
+    model.check_model()
+  File "/research/d4/gds/jcwang/anaconda3/envs/py38/lib/python3.8/site-packages/pgmpy/models/BayesianNetwork.py", line 408, in check_model
+    raise ValueError(f"No CPD associated with {node}")
+ValueError: No CPD associated with C15(-1)

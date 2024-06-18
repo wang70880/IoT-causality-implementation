@@ -1,198 +1,238 @@
+from tkinter import W
 import src.event_processing as evt_proc
 import collections
 import itertools
 import numpy as np
+import pandas as pd
+
+from collections import defaultdict 
+
+from src.event_processing import Hprocessor, Cprocessor, GeneralProcessor
+from src.genetic_type import DevAttribute, AttrEvent, DataFrame
+from src.tigramite.tigramite import data_processing as pp
 
 class BackgroundGenerator():
 
-    def __init__(self, dataset, event_processor, partition_config, tau_max) -> None:
-        self.dataset = dataset
-        self.partition_config = partition_config
+    def __init__(self, event_preprocessor:'GeneralProcessor', frame_id, tau_max) -> None:
+        self.event_preprocessor = event_preprocessor
+        self.dataset = event_preprocessor.dataset
+        self.frame_id = frame_id; self.frame:'DataFrame' = event_preprocessor.frame_dict[frame_id]
         self.tau_max = tau_max
-        self.event_processor = event_processor
 
-        self.temporal_pair_dict, self.heuristic_temporal_pair_dict = self._temporal_pair_identification()
-        self.spatial_pair_dict = self._spatial_pair_identification()
-        self.functionality_pair_dict = self._functionality_pair_identification()
-
-        self.candidate_pair_dict = self._candidate_pair_identification()
-
-        self.correlation_dict = {
-            'heuristic-temporal': self.heuristic_temporal_pair_dict,
-            'temporal': self.temporal_pair_dict,
-            'spatial': self.spatial_pair_dict,
-            'functionality': self.functionality_pair_dict,
-            'candidate': self.candidate_pair_dict
+        # Each background array is of shape (n_vars, n_vars, tau_max+1)
+        self.frequency_array, self.activation_frequency_array,self.normalized_frequency_array = self._temporal_identification()
+        self.spatial_array = self._spatial_identification()
+        self.user_array = self._user_activity_identification()
+        self.physical_array = self._physical_identification()
+        self.knowledge_dict = {
+            'temporal': self.normalized_frequency_array,
+            'spatial': self.spatial_array,
+            'user': self.user_array,
+            'physical': self.physical_array
         }
     
-    def _temporal_pair_identification(self):
-        """Identification of the temporal correlation pair in the following format.
+    """ Functions for background knowledge identification """
 
-            These pairs are indexed by the time lag tau and the partitioning scheme (i.e., the date).
-
-            Note that many temporal pairs stem from the disorder of IoT logs. Therefore, we filter out pairs with low frequencies.
-
-        Args:
-            partition_config (int): _description_
-            tau_max (int, optional): _description_. Defaults to 1.
-        Returns:
-
+    def _temporal_identification(self):
         """
-        temporal_pair_dict = {} # First index: frame_id. Second index: lag. Value: an integer array of shape num_attrs X num_attrs
-        heuristic_temporal_pair_dict = {}
-        for frame_id in range( len(self.event_processor.frame_dict.keys())): # Collect all lagged pairs in all frames
-            temporal_pair_dict[frame_id] = {}
-            heuristic_temporal_pair_dict[frame_id] = {}
-            attr_names = self.event_processor.attr_names; num_attrs = len(attr_names)
-            attr_sequence = self.event_processor.frame_dict[frame_id]['attr-sequence']
-            state_sequence = self.event_processor.frame_dict[frame_id]['state-sequence']
-            assert(len(attr_sequence) == len(state_sequence))
-            num_event = len(attr_sequence)
-            for event_id in range(num_event): # Count the occurrence of each attr pair and update the corresponding array
-                for lag in range (1, self.tau_max + 1):
-                    if event_id + lag >= num_event:
-                        continue
-                    temporal_pair_dict[frame_id][lag] = np.zeros(shape=(num_attrs, num_attrs), dtype=np.int64) if lag not in temporal_pair_dict[frame_id].keys() else temporal_pair_dict[frame_id][lag]
-                    heuristic_temporal_pair_dict[frame_id][lag] = np.zeros(shape=(num_attrs, num_attrs), dtype=np.int64) if lag not in heuristic_temporal_pair_dict[frame_id].keys() else heuristic_temporal_pair_dict[frame_id][lag]
-                    prior_attr = attr_sequence[event_id]; con_attr = attr_sequence[event_id + lag]
-                    temporal_pair_dict[frame_id][lag][attr_names.index(prior_attr), attr_names.index(con_attr)] += 1
-        for frame_id in range(len(self.event_processor.frame_dict.keys())): # Construct the array
-            for lag in range (1, self.tau_max + 1):
-                attr_array = temporal_pair_dict[frame_id][lag]
-                heuristic_attr_array = heuristic_temporal_pair_dict[frame_id][lag]
-                for idx, x in np.ndenumerate(attr_array): # JC TEST: Heuristically set the temporal frequency threshold (Currently it is set to partition_days).
-                    heuristic_attr_array[idx] = 0 if x < self.partition_config else 1 
-                    attr_array[idx] = 0 if x < self.partition_config else 1  
+        Many temporal pairs stem from the disorder of IoT logs. Therefore, we filter out pairs with low frequencies.
+        The selected pairs are indexed by the time lag tau and the partitioning scheme (i.e., the date).
+        """
+        # Auxillary variables
+        name_device_dict:'dict[DevAttribute]' = self.frame.name_device_dict
+        var_names = self.frame.var_names; n_vars = len(var_names)
+        event_sequence:'list[AttrEvent]' = [tup[0] for tup in self.frame.training_events_states]
+        # Return variables
+        frequency_array = np.zeros(shape=(n_vars, n_vars, self.tau_max+1), dtype=np.int32)
+        normalized_frequency_array = np.zeros(shape=(n_vars, n_vars, self.tau_max+1), dtype=np.int8)
+        activation_frequency_array = np.zeros(shape=(n_vars, n_vars, self.tau_max+1), dtype=np.int32)
 
-        return temporal_pair_dict, heuristic_temporal_pair_dict
+        last_act_dev = None; interval = 0
+        for event in event_sequence: # Count sequentially-activated pairs
+            if event.value == 1:
+                if last_act_dev and interval <= self.tau_max:
+                    activation_frequency_array[name_device_dict[last_act_dev].index, name_device_dict[event.dev].index, interval] += 1
+                last_act_dev = event.dev
+                interval = 1
+            else:
+                interval += 1
+
+        for i in range(len(event_sequence)): # Count the occurrence of each lagged attr pair
+            for lag in range (1, self.tau_max + 1):
+                if i + lag >= len(event_sequence):
+                    continue
+                former = name_device_dict[event_sequence[i].dev].index; latter = name_device_dict[event_sequence[i + lag].dev].index
+                frequency_array[(former, latter, lag)] += 1
+
+        normalized_frequency_array[frequency_array>=self.frame.n_days] = 1
+
+        return frequency_array, activation_frequency_array, normalized_frequency_array
     
     def _testbed_area_information(self):
-        area_list = []
-        if self.dataset == 'hh101':
-            # In the list, each element (which is also a list) represents a physical area and deployed devices in that area.
-            area_list = [['T102', 'D002', 'M001', 'LS001', 'M010', 'LS010'], \
-                         ['M011', 'LS011', 'D003', 'T103', 'MA015', 'LS015'], \
-                         ['M009', 'LS009', 'MA014', 'LS014', 'M012', 'LS012'], \
-                         ['D001', 'T101', 'T104', 'T105', 'M005', 'LS005', 'MA013', 'LS013', 'M008', 'LS008', 'M004', 'LS004'], \
-                         ['MA016', 'LS016', 'M003', 'LS003', 'M002', 'LS002', 'M007', 'LS007', 'M006', 'LS006']]
-            num_areas = 5
+        # Return variables
+        area_list = None
+        adjacent_areas_list = None
+        area_connectivity_array = None
+
+        if self.dataset == 'hh130':
+            adjacent_areas_list = [['Washroom', 'Living'], ['Kitchen', 'Living']]
+        elif self.dataset == 'contextact':
+            adjacent_areas_list = [['Kitchen', 'Dining Room', 'Living Room', 'Hallway First Floor', 'First Floor', 'Main Entrance'],\
+                              ['Hallway First Floor', 'Stairway', 'Hallway Second Floor'],\
+                              ['Hallway Second Floor', 'Bathroom', 'Study Room', 'Bedroom']]
+
+        if adjacent_areas_list:
+            # 1. Put all devices which are in the same location into a list, and construct the area_list
+            device_description_dict:'dict' = self.event_preprocessor.device_description_dict
+            location_devices_dict:'dict' = defaultdict(list)
+            location_index_dict:'dict' = defaultdict(int)
+            for dev in device_description_dict.keys():
+                dev_entry = device_description_dict[dev]
+                location_devices_dict[dev_entry['location']].append(dev)
+            area_list = []
+            for i, area in enumerate(location_devices_dict):
+                location_index_dict[area] = i
+                area_list.append(location_devices_dict[area])
+            # 2. Manually identify the spatial adjacency of different locations.
+            num_areas = len(area_list)
             area_connectivity_array = np.zeros(shape=(num_areas, num_areas), dtype=np.int64)
-            for i in range(num_areas):
-                area_connectivity_array[i, i] = 1
-            area_connectivity_array[0, 1] = 1; area_connectivity_array[1, 2] = 1; area_connectivity_array[0, 3] = 1; area_connectivity_array[3, 4] = 1
-            area_connectivity_array[1, 0] = 1; area_connectivity_array[2, 1] = 1; area_connectivity_array[3, 0] = 1; area_connectivity_array[4, 3] = 1
+            for adjacent_areas in adjacent_areas_list:
+                for prior in adjacent_areas:
+                    for latter in adjacent_areas:
+                        area_connectivity_array[location_index_dict[prior],location_index_dict[latter]] = 1
+
         return area_list, area_connectivity_array
 
-    def _spatial_pair_identification(self):
-        spatial_pair_dict = {} # First index: frame_id. Second index: lag. Value: an integer array of shape num_attrs * num_attrs
-        attr_names = self.event_processor.attr_names; num_attrs = len(attr_names)
+    def _spatial_identification(self):
+        # Auxillary variables
         area_list, area_connectivity_array = self._testbed_area_information()
-        spatial_array_list = []
-        for lag in range (1, self.tau_max + 1): # The spatial array is only concerned with the lag and the testbed_area_list
-            spatial_array_for_cur_lag = np.zeros(shape=(num_attrs, num_attrs), dtype=np.int64)
-            # Given lags, compute the transitioned coherency, i.e., whether lag steps are enough to move from one area to another
-            transition_area_array_for_cur_lag = area_connectivity_array if lag == 1 else np.linalg.matrix_power(area_connectivity_array, lag)
-            for index, x in np.ndenumerate(transition_area_array_for_cur_lag):
-                if x == 0:
-                    continue
-                area0 = area_list[index[0]]; area1 = area_list[index[1]]
-                for element in itertools.product(area0, area1): # Get the cartesian product for devices in these two areas
-                    if element[0] in attr_names and element[1] in attr_names:
-                        spatial_array_for_cur_lag[attr_names.index(element[0]), attr_names.index(element[1])] = 1
-            spatial_array_list.append(spatial_array_for_cur_lag)
+        name_device_dict:'dict[DevAttribute]' = self.frame.name_device_dict
+        var_names = self.frame.var_names; n_vars = len(var_names)
+        # Return variables
+        spatial_array = np.zeros(shape=(n_vars, n_vars, self.tau_max+1), dtype=np.int32)
 
-        for frame_id in range(len(self.event_processor.frame_dict.keys())):
-            spatial_pair_dict[frame_id] = {}
-            for lag in range (1, self.tau_max + 1): 
-                spatial_pair_dict[frame_id][lag] = spatial_array_list[lag-1]
-        
-        return spatial_pair_dict 
+        if area_list:
+            for index, x in np.ndenumerate(area_connectivity_array):
+                if x == 1:
+                    pre_area = area_list[index[0]]; con_area = area_list[index[1]]
+                    for element in itertools.product(pre_area, con_area): # Get the cartesian product for devices in these two areas
+                        if all([element[i] in var_names for i in range(2)]):
+                            spatial_array[name_device_dict[element[0]].index, name_device_dict[element[1]].index, :] = 1
+        else: # No area information: assuming all devices are spatially adjacent
+            spatial_array = np.ones(shape=(n_vars, n_vars, self.tau_max+1), dtype=np.int32)
 
-    def _functionality_pair_identification(self):
-        functionality_pair_dict = {} # First index: keyword in {'activity', 'physics'}. Value: an integer array of shape num_attrs * num_attrs
-        attr_names = self.event_processor.attr_names; num_attrs = len(attr_names)
-        functionality_pair_dict['activity'] = np.zeros(shape=(num_attrs, num_attrs), dtype=np.int64)
-        functionality_pair_dict['physics'] = np.zeros(shape=(num_attrs, num_attrs), dtype=np.int64)
+        return spatial_array
 
-        for i in range(num_attrs):
-            for j in range(num_attrs):
-                i_activity_flag = attr_names[i].startswith(('M', 'D')); j_activity_flag = attr_names[j].startswith(('M', 'D')) # Identify attributes which are related with user activities 
-                i_physics_flag = attr_names[i].startswith(('M', 'T', 'LS')); j_physics_flag = attr_names[i].startswith(('M', 'T', 'LS')) # Identify attributes which are related with physics
-                functionality_pair_dict['activity'][i, j] = 1 if i_activity_flag and j_activity_flag else 0
-                functionality_pair_dict['physics'][i, j] = 1 if i_physics_flag and j_physics_flag else 0
-        return functionality_pair_dict
+    def _user_activity_identification(self):
+        # Auxillary variables
+        index_device_dict:'dict[DevAttribute]' = self.frame.index_device_dict
+        var_names = self.frame.var_names; n_vars = len(var_names)
+        # Return variables
+        user_array = np.zeros(shape=(n_vars, n_vars, self.tau_max+1), dtype=np.int32)
 
-    def _candidate_pair_identification(self):
-        candidate_pair_dict = {}
-        merged_functionality_pair_dict = self.functionality_pair_dict['activity'] + self.functionality_pair_dict['physics']
-        merged_functionality_pair_dict[merged_functionality_pair_dict >= 1] = 1
-        for frame_id in range( len(self.event_processor.frame_dict.keys())):
-            candidate_pair_dict[frame_id] = {}
-            for lag in range (1, self.tau_max + 1):
-                candidate_pair_dict[frame_id][lag] = self.temporal_pair_dict[frame_id][lag] + self.spatial_pair_dict[frame_id][lag]\
-                                                    + merged_functionality_pair_dict 
-                candidate_pair_dict[frame_id][lag][candidate_pair_dict[frame_id][lag] < 3] = 0
-                candidate_pair_dict[frame_id][lag][candidate_pair_dict[frame_id][lag] == 3] = 1
-        return candidate_pair_dict
+        # 1. Construct the physical channels
+        user_attributes = None
+        if self.dataset == 'hh130':
+            user_attributes = ['Control4-Motion', 'Control4-Door']
+        elif self.dataset == 'contextact':
+            user_attributes = ['Infrared Movement Sensor', 'Switch']
 
-    def _print_pair_list(self, interested_array):
-        attr_names = self.event_processor.attr_names; num_attrs = len(attr_names)
-        pair_list = []
-        for index, x in np.ndenumerate(interested_array):
-            if x == 1:
-                pair_list.append((attr_names[index[0]], attr_names[index[1]]))
-        print("Pair list with lens {}: {}".format(len(pair_list), pair_list))
+        # 2. Leverage the physical channels to identify related device pairs
+        if user_attributes:
+            for i in range(n_vars):
+                for j in range(n_vars):
+                    prior, latter = (index_device_dict[i].attr, index_device_dict[j].attr)
+                    if prior in user_attributes or latter in user_attributes:
+                        user_array[i,j,:] = 1
 
-    def print_benchmark_info(self,frame_id=0, tau=1, type = ''):
-        """Print out the identified device correlations.
+        return user_array 
 
-        Args:
-            frame_id (int, optional): _description_. Defaults to 0.
-            tau (int, optional): _description_. Defaults to 1.
-            type (str, optional): 'temporal' or 'spatial' or 'functionality'
-        """
-        print("The {} corrleation dict for frame_id = {}, tau = {}: ".format(type, frame_id, tau))
-        attr_names = self.event_processor.attr_names; num_attrs = len(attr_names)
-        if type != 'functionality':
-            self._print_pair_list(self.correlation_dict[type][frame_id][tau])
-        else:
-            self._print_pair_list(self.correlation_dict[type]['activity'])
-            self._print_pair_list(self.correlation_dict[type]['physics'])
+    def _physical_identification(self):
+        # Auxillary variables
+        index_device_dict:'dict[DevAttribute]' = self.frame.index_device_dict
+        var_names = self.frame.var_names; n_vars = len(var_names)
+        # Return variables
+        physical_array = np.zeros(shape=(n_vars, n_vars, self.tau_max+1), dtype=np.int32)
 
-    def apply_background_knowledge(self, selected_links=None, knowledge_type='', frame_id=0):
+        # 1. Construct the physical channels
+        physical_channels = None
+        if self.dataset == 'contextact':
+            physical_channels = {
+                'Brightness Sensor': ['Brightness Sensor', 'Dimmer', 'Rollershutter'],
+                'Dimmer': ['Brightness Sensor', 'Power Sensor', 'Dimmer'],
+                'Contact Sensor': ['Contact Sensor', 'Water Meter', 'Power Sensor'],
+                'Humidity Sensor': ['Humidity Sensor', 'Water Meter', 'Contact Sensor'],
+                'Power Sensor': ['Power Sensor', 'Contact Sensor', 'Rollershutter', 'Water Meter'],
+                'Rollershutter': ['Rollershutter', 'Brightness Sensor', 'Dimmer', 'Power Sensor'],
+                'Water Meter': ['Water Meter', 'Contact Sensor', 'Power Sensor'],
+                'Switch': [],
+                'Infrared Movement Sensor': []
+            }
+
+        # 2. Leverage the physical channels to identify related device pairs
+        if physical_channels:
+            for i in range(n_vars):
+                for j in range(n_vars):
+                    prior, latter = (index_device_dict[i].attr, index_device_dict[j].attr)
+                    if latter in physical_channels[prior]:
+                        #print("{}->{} ({}->{})".format(\
+                        #index_device_dict[i].name, index_device_dict[j].name,
+                        #index_device_dict[i].attr, index_device_dict[j].attr,))
+                        physical_array[i,j,:] = 1
+
+        return physical_array
+
+    def print_background_knowledge(self):
+        var_names = self.frame.var_names
+        for bk_type in self.knowledge_dict.keys():
+            knowledge_array = self.knowledge_dict[bk_type]
+            tau_free_knowledge_array = sum(
+            [knowledge_array[:,:,tau] for tau in range(1, self.tau_max + 1)]
+            )
+            print("Candidate edges for background type {} (After lag aggregation):".format(bk_type))
+            df = pd.DataFrame(tau_free_knowledge_array, columns=var_names, index=var_names)
+            print(df)
+
+    """ Functions for candidate edge generation """
+
+    def apply_background_knowledge(self, selected_links, knowledge_type):
         assert(selected_links is not None)
-        # print(attr_names)
-        for tau in range(1, self.tau_max + 1):
-            background_array = self.correlation_dict[knowledge_type][frame_id][tau] \
-                    if knowledge_type != 'functionality' else self.correlation_dict[knowledge_type]['activity'] + self.correlation_dict[knowledge_type]['physics']
-            background_array[background_array > 1] = 1 # Normalize the background array
-            for worker_index, link_dict in selected_links.items():
-                # print("Job id: {}".format(worker_index))
-                for outcome, cause_list in link_dict.items():
-                    new_cause_list = []
-                    for (cause, lag) in cause_list:
-                        if abs(lag) == tau and background_array[cause, outcome] > 0:
-                            new_cause_list.append((cause, lag))
-                            # print(" Identified edge: ({},{}) -> {} / ({}, {}) -> {}".format(attr_names[cause], lag, attr_names[outcome], cause, lag, outcome))
-                    selected_links[worker_index][outcome] = new_cause_list
+        n_filtered_edges = 0; n_qualified_edges = 0
+        filtered_edges = []
+        for worker_index, link_dict in selected_links.items():
+            for outcome, cause_list in link_dict.items():
+                new_cause_list = []
+                for (cause, lag) in cause_list:
+                    background_array:'np.ndarray' = self.knowledge_dict[knowledge_type]
+                    if background_array[cause, outcome, abs(lag)] == 1:
+                        new_cause_list.append((cause, lag)); n_qualified_edges += 1
+                    else:
+                        filtered_edges.append((cause, outcome, lag)); n_filtered_edges += 1
+                selected_links[worker_index][outcome] = new_cause_list
+        #print("[Background Generator] By applying {} knowledge, CausalIoT filtered {} edges.".format(knowledge_type, n_filtered_edges))
+        #print("[Background Generator] # of candidate edges: {}.".format(n_qualified_edges))
         return selected_links
 
-    def generate_candidate_interactions(self, apply_bk, frame_id, N):
-        selected_links = {n: {m: [(i, -t) for i in range(N) for \
-                t in range(1, self.tau_max + 1)] if m == n else [] for m in range(N)} for n in range(N)}
+    def generate_candidate_interactions(self, apply_bk, autocorrelation_flag=True):
+        var_names = self.frame.var_names; n_vars = len(var_names)
+
+        if autocorrelation_flag:
+            selected_links = {n: {m: [(i, -t) for i in range(n_vars) for \
+                t in range(1, self.tau_max+1)] if m == n else [] for m in range(n_vars)} for n in range(n_vars)}
+        else:
+            selected_links = {n: {m: [(i, -t) for i in range(n_vars) if i != m for \
+                t in range(1, self.tau_max + 1)] if m == n else [] for m in range(n_vars)} for n in range(n_vars)}
         if apply_bk >= 1:
-            selected_links = self.apply_background_knowledge(selected_links, 'heuristic-temporal', frame_id)
+            selected_links = self.apply_background_knowledge(selected_links, 'temporal')
         if apply_bk >= 2:
-            selected_links = self.apply_background_knowledge(selected_links, 'spatial', frame_id)
-            selected_links = self.apply_background_knowledge(selected_links, 'functionality', frame_id)
-        return selected_links
+            selected_links = self.apply_background_knowledge(selected_links, 'spatial')
+        
+        # Transform the selected_links to a matrix form
+        candidate_matrix = np.zeros((n_vars, n_vars, self.tau_max+1), dtype=np.int8)
+        for index, link_dict in selected_links.items():
+            for outcome, causes in link_dict.items():
+                for (cause, lag) in causes:
+                    candidate_matrix[(cause, outcome, abs(lag))] = 1
+        n_candidate_edges = np.sum(candidate_matrix)
 
-if __name__ == '__main__':
-    # Parameter setting
-    dataset = 'hh101'
-    partition_config = 10
-    tau_max = 2; tau_min = 1
-    event_preprocessor = evt_proc.Hprocessor(dataset)
-    attr_names, dataframes = event_preprocessor.initiate_data_preprocessing(partition_config=partition_config)
-    background_generator = BackgroundGenerator(dataset, event_preprocessor, partition_config, tau_max)
-    background_generator.print_benchmark_info(frame_id=3, tau=2, type='spatial')
+        return selected_links, n_candidate_edges
